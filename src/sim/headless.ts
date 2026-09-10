@@ -4,7 +4,7 @@
  */
 import { SimEngine, type EngineOptions } from './engine';
 import { TRUTH_CHANNELS, type TruthChannel } from './channels';
-import type { BreathRecord, VentEvent } from './types';
+import type { BreathRecord, ManeuverResult, VentEvent } from './types';
 
 export interface HeadlessOptions extends EngineOptions {
   duration: number; // s
@@ -22,6 +22,7 @@ export interface HeadlessResult {
   truth: Record<TruthChannel, Float32Array>;
   breaths: BreathRecord[];
   events: VentEvent[];
+  maneuvers: ManeuverResult[];
 }
 
 export function runHeadless(opts: HeadlessOptions): HeadlessResult {
@@ -56,5 +57,16 @@ export function runHeadless(opts: HeadlessOptions): HeadlessResult {
     }
     engine.step();
   }
-  return { fs, t, paw, flow, vol, pes, truth, breaths: engine.breaths, events: engine.events };
+  return {
+    fs,
+    t,
+    paw,
+    flow,
+    vol,
+    pes,
+    truth,
+    breaths: engine.breaths,
+    events: engine.events,
+    maneuvers: engine.maneuvers,
+  };
 }

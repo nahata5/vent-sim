@@ -57,5 +57,33 @@ breath records; `src/sim/headless.ts` returns Float32Array streams (measured + t
 servo), VC Ppeak − Pplat = R·Q, per-breath mass balance, steady-state intrinsic PEEP vs e^(−Te/τ), no
 triggers without Pmus, byte-identical streams for the same seed. Total 17/17; lint clean.
 
-**Known issues:** the deployed Pages URL returned the user-site 404 immediately after switching the Pages
-source to the workflow; re-checked at this commit (see below).
+**Known issues:** the Pages deployment succeeds (deploy-pages reports success, environment URL
+`http://tomnahass.com/vent-sim/`), but the URL serves a 404 from Netlify. Cause: the `nahata5.github.io`
+user-site repo still has `tomnahass.com` configured as its Pages custom domain, so GitHub redirects every
+`*.github.io` project site for the account to that domain, and DNS for `tomnahass.com` / `www` points at
+Netlify, not GitHub. Fix is outside this repo: remove the stale custom domain from `nahata5.github.io`
+(then the app lives at `https://nahata5.github.io/vent-sim/`), or add a Netlify redirect/proxy for
+`/vent-sim/*`, or host VentSim on Netlify as well.
+
+### M2 — Partitioned lung, presets, holds, truth channels (2026-09-10)
+
+**Built:** Venegas recoil wired through `presetMechanics` with the anchor parametrization (D-005): each
+phenotype fixes s0 (position of FRC on the sigmoid) and width d, the code derives a, b, c so EL at FRC equals
+Brief 2 Table 1 and the curve passes through PL0 = −Ppl0. Eight presets in `src/sim/patient/presets.ts`
+(normal, pulmonary ARDS, extrapulmonary ARDS, obesity, abdominal hypertension, COPD with Rexp > Rinsp and
+EFL, asthma, fibrosis) with Ecw, R split into tube + peripheral at the Arnal reference flow, FRC, Ppl0,
+pleural gradient, α transmission, viscoelastic R2. Inspiratory and expiratory holds in the ventilator
+(`requestHold`), taken at the next eligible phase, reporting P1/P2 and total PEEP from *measured* Paw as
+`maneuver` events; an alarm-cycled breath skips the hold. Truth channels: Palv/Ppl/PL per compartment,
+compartment flows, Pcw,rec, Pmus, phase.
+
+**Tests (§9.2):** 8/8 in `tests/physics/partition.test.ts`: ΔPL/ΔPaw = EL/Ers within 15% for four
+passive presets at PEEP 5 (static Ers within 25% of Table 1); obesity Ppl0 > 5 with negative PL,ee at
+PEEP 5 and the dependent region more negative; normal PL,ee > 0; specific elastance 11.5–15.5 across
+normal/ARDS/obesity; Gattinoni 1998 direction (pulmonary Ers 25.3 → 29.2, extrapulmonary 24.1 → 21.4 for
+PEEP 0 → 15); P1 − P2 drop of 0.5–6 cmH2O with P2 = Pplat; linear EELV shift = PEEP/Ers; no pendelluft in
+passive lungs. Total 25/25; lint clean.
+
+**Known issues:** COPD, asthma, fibrosis and IAH presets are consistent with the briefs but not yet
+exercised by tests beyond construction; they get covered by the M6 emergence matrix. Hosting issue above
+still open.

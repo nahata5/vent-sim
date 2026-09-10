@@ -37,6 +37,17 @@ export const CONSTANTS = {
   ETT_K1: c(3.0, 'cmH2O/(L/s)', 'Brief 1 §1.1: 7.5–8 mm ETT adds ~4–8 cmH2O/L/s at 1 L/s [uncertain]; split into K1+K2', 'M'),
   ETT_K2: c(3.0, 'cmH2O/(L/s)²', 'Brief 1 §1.1: with K1, gives 6 cmH2O/L/s at 1 L/s, 4.5 at 0.5 L/s', 'M'),
 
+  R_CENTRAL_DEFAULT: c(1.0, 'cmH2O/(L/s)', 'Brief 2 §1.1: Pelosi 1996 lung-only Rmin,L 1.0 (normal); shared central airway term', 'V'),
+  R_REFERENCE_FLOW: c(0.5, 'L/s', 'Brief 1 §1.4: Arnal resistances measured at typical VC flows (~30 L/min); used to split total R into tube + peripheral', 'M'),
+
+  // ───────────────────────── Lung tissue / chest wall ─────────────────────────
+  VISCOELASTIC_TAU: c(0.7, 's', 'Brief 1 §1.2 / Brief 2 §5: P1→P2 decay over 0.5–2 s [τ uncertain]', 'M'),
+  PLEURAL_GRADIENT_NORMAL: c(0.25, 'cmH2O/cm', 'Brief 2 §1.3: ~0.25 cmH2O/cm (0.2–0.5 by posture), Agostoni/D\'Angelo', 'V'),
+  PLEURAL_GRADIENT_ARDS: c(0.5, 'cmH2O/cm', 'Brief 2 §1.3: steeper in ARDS (tissue weight doubles, Pelosi 1994); 0.4–0.7 suggested', 'M'),
+  LUNG_HEIGHT_SUPINE: c(17, 'cm', 'Brief 2 §1.3: supine anterior–posterior height 15–20 cm', 'L'),
+  ALPHA_ND_INJURED: c(0.65, 'fraction', 'Brief 2 §4: αND ≈ 0.7, αD ≈ 1.4 in injured lungs (Yoshida 2013), weighted mean = 1', 'M'),
+  ALPHA_D_INJURED: c(1.35, 'fraction', 'Brief 2 §4: αD ≈ 1.4 in injured lungs (Yoshida 2013), weighted mean = 1', 'M'),
+
   // ───────────────────────── Sensor chain ─────────────────────────
   SENSOR_LPF_TAU: c(0.015, 's', 'Brief 1 §4: first-order low-pass τ ≈ 10–30 ms [uncertain]', 'M'),
   SENSOR_DELAY: c(0.02, 's', 'Brief 1 §4: 10–30 ms transport delay [uncertain]', 'M'),
@@ -61,6 +72,9 @@ export const CONSTANTS = {
   APNEA_TIME_DEFAULT: c(20, 's', 'Brief 1 §2.6: apnea alarm default 20 s', 'L'),
   RISE_TIME_DEFAULT: c(0.15, 's', 'Brief 1 §2.3: rise time ≈ 0.05–0.4 s', 'L'),
   HIGH_PPEAK_ALARM_DEFAULT: c(40, 'cmH2O', 'Brief 1 §2.6: Ppeak + 10, max 50', 'L'),
+  INSP_HOLD_P1_DELAY: c(0.05, 's', 'Brief 2 §5: P1 read after the fast resistive drop (Paw → P1 "quickly"), before the slow P2 decay', 'M'),
+  INSP_HOLD_MIN: c(0.3, 's', 'Brief 1 §2.7: Pplat at the end of a ≥ 0.3–0.5 s no-flow pause', 'L'),
+  EXP_HOLD_DEFAULT: c(3.0, 's', 'Spec §5: expiratory hold 2–4 s', 'L'),
 
   // ───────────────────────── Clinical guardrails ─────────────────────────
   PBW_MALE_INTERCEPT: c(50, 'kg', 'Brief 1 §5 ARDSNet 2000: male PBW = 50 + 0.91·(height − 152.4)', 'L'),

@@ -10,7 +10,7 @@ import { Ventilator } from './vent/ventilator';
 import { SensorChain } from './vent/sensor-chain';
 import { clampSettings, type VentSettings } from './vent/settings';
 import { PHASE_CODE, TRUTH_CHANNELS, type TruthChannel } from './channels';
-import type { BreathRecord, Phase, TriggerCause, VentEvent } from './types';
+import type { BreathRecord, ManeuverResult, Phase, TriggerCause, VentEvent } from './types';
 
 export interface EngineOptions {
   patient: PatientParams;
@@ -38,6 +38,7 @@ export class SimEngine {
   private readonly stepsPerSample: number;
   readonly breaths: BreathRecord[] = [];
   readonly events: VentEvent[] = [];
+  readonly maneuvers: ManeuverResult[] = [];
   private lastMeasured = { paw: 0, flow: 0, vol: 0, pes: 0 };
   private drive: PatientDrive = PatientModel.passiveDrive();
   private vtiTrueAcc = 0;
@@ -131,6 +132,7 @@ export class SimEngine {
       for (const e of events) {
         this.events.push(e);
         this.onEvent?.(e);
+        if (e.type === 'maneuver') this.maneuvers.push(e.result);
         const b = this.breaths[this.breaths.length - 1];
         if (b && b.tEnd === null) {
           if (e.type === 'cycle') {

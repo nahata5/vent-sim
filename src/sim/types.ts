@@ -23,7 +23,8 @@ export type VentEvent =
   | { type: 'pause-end'; t: number }
   | { type: 'hold-start'; t: number; kind: 'insp' | 'exp' | 'occlusion' }
   | { type: 'hold-end'; t: number; kind: 'insp' | 'exp' | 'occlusion' }
-  | { type: 'alarm'; t: number; alarm: string; active: boolean };
+  | { type: 'alarm'; t: number; alarm: string; active: boolean }
+  | { type: 'maneuver'; t: number; result: ManeuverResult };
 
 /** Per-breath record kept by the engine (ventilator timing + true volumes). */
 export interface BreathRecord {
@@ -40,6 +41,22 @@ export interface BreathRecord {
   vteMeasured: number;
   peakFlowMeasured: number;
   ppeakMeasured: number;
+}
+
+export type ManeuverKind = 'insp' | 'exp' | 'p01' | 'pocc' | 'occlusion-test' | 'ri' | 'peep-trial';
+
+/** Result of a completed maneuver, from the ventilator's *measured* Paw (device view). */
+export interface ManeuverResult {
+  kind: ManeuverKind;
+  tStart: number;
+  tEnd: number;
+  /** Inspiratory hold: Paw just after flow stops and at the end of the hold. */
+  p1?: number;
+  p2?: number;
+  /** Expiratory hold: total PEEP at the end of the hold. */
+  peepTotal?: number;
+  /** Any extra key/value payload (P0.1, ΔPocc, ratios). */
+  values?: Record<string, number>;
 }
 
 export interface MeasuredSample {
