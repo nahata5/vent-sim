@@ -6,7 +6,18 @@ A browser-based ventilator simulator for clinical education. A physiologic model
 
 ## Status
 
-This repo holds the design phase. The app will be built by an AI coding agent (Fable) from the goal prompt below.
+Under construction, milestone by milestone. See [`PROGRESS.md`](PROGRESS.md) for what is built and tested.
+
+## Run, test, build
+
+```bash
+npm ci
+npm run dev        # Vite dev server
+npm test           # Vitest: unit, physics, scenario and detector tests
+npm run lint       # ESLint + tsc --noEmit
+npm run test:e2e   # Playwright smoke tests (builds and previews the site)
+npm run build      # production build to dist/
+```
 
 | Doc | Purpose |
 |---|---|
