@@ -39,3 +39,23 @@ constants. Blank app shell with the education-only disclaimer.
 schema). `npm run lint` clean. `npm run test:e2e` 1/1 (app loads, disclaimer visible).
 
 **Known issues:** none.
+
+### M1 — Passive core, VC/PC fixed timing, headless runner (2026-09-10)
+
+**Built:** `src/sim/patient/*`: two-compartment lung with shared chest wall, per-compartment resistances by
+flow direction, shared ETT Rohrer term, optional expiratory flow limitation, optional Maxwell viscoelastic
+element, lung recoil behind one interface (linear now; Venegas class present, wired in M2), closed-form
+airway node solve (flow source / Thevenin pressure source / occluded, with a leak fixed-point), RK4 at
+1 ms, static-equilibrium initialization at set PEEP. `src/sim/vent/*`: settings with clinical units and
+clamping, VC (square / ramp, pause) flow source, PC pressure servo with integral action and source
+resistance, exhalation valve as a PEEP servo, actuator latency, pending-settings commit at next breath,
+sensor chain (LPF → delay → band-limited noise → quantization → device-rate sampling, volume integrated
+from measured flow at the physics rate). `src/sim/engine.ts` fixed-step loop with device-rate samples and
+breath records; `src/sim/headless.ts` returns Float32Array streams (measured + truth) and breaths.
+
+**Tests (§9.1):** 7/7 in `tests/physics/analytic.test.ts`: PC Vt within 2% (ideal) and 3% (realistic
+servo), VC Ppeak − Pplat = R·Q, per-breath mass balance, steady-state intrinsic PEEP vs e^(−Te/τ), no
+triggers without Pmus, byte-identical streams for the same seed. Total 17/17; lint clean.
+
+**Known issues:** the deployed Pages URL returned the user-site 404 immediately after switching the Pages
+source to the workflow; re-checked at this commit (see below).
