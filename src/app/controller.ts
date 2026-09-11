@@ -17,6 +17,17 @@ import { asynchronyIndex, contextFromSettings, labelBreaths, type AsynchronyInde
 import { detect, type DetectedBreath, type IeEvent } from '../detector/detector';
 import { deviceContext, measuredBreath, type MeasuredBreath, type MeasuredKey } from '../detector/features';
 import { INJECTOR_KINDS, type InjectorKind, type InjectorLogEntry, type InjectorParamMap } from '../sim/injectors';
+import type { Co2Sample, GasParams } from '../sim/patient/gas-exchange';
+import type { DriveParams } from '../sim/patient/neural-drive';
+import type { PatternId } from '../sim/truth/labeler';
+import { QuizSession } from '../edu/quiz-session';
+import { ProgressStore } from '../edu/progress';
+import { SEVERE_ALARMS, truthPatternsInWindow, type FixInput } from '../edu/quiz';
+import { effortEvidence, explainBreath, type BreathExplanation } from '../edu/cards';
+import { sessionCsv } from '../export/csv';
+import { sessionJson, type SessionJson } from '../export/json';
+import { downloadBytes, type DownloadOutcome } from '../export/download';
+import { k } from '../config/constants';
 
 /** Per-breath labels from the truth layer and the signal-only detector, keyed by the ventilator's breath index. */
 export interface BreathLabels {
@@ -51,8 +62,13 @@ export interface RecruitReadout {
   openFraction: number;
 }
 
+export type DrawerTab = 'scenario' | 'explain' | 'quiz' | 'export';
+
 export interface ViewState {
   truth: boolean;
+  /** Pattern badges on the waveforms (hidden during the identification phase of a quiz). */
+  badges: boolean;
+  drawerTab: DrawerTab;
   frozen: boolean;
   /** Time shown at the sweep cursor when frozen; NaN = live. */
   tView: number;
@@ -76,8 +92,21 @@ export class SessionController {
   latestRecruit: RecruitReadout | null = null;
   maneuvers: ManeuverReadouts = { ...NO_MANEUVERS };
   alarmLog: Array<Extract<VentEvent, { type: 'alarm' }>> = [];
-  view: ViewState = { truth: false, frozen: false, tView: NaN, sweep: 12, speed: 1, paused: false };
+  view: ViewState = { truth: false, badges: true, drawerTab: 'scenario', frozen: false, tView: NaN, sweep: 12, speed: 1, paused: false };
   ready = false;
+  /** CO2 samples (≈ 1/s) since the scenario started, for the panel history and the export. */
+  co2Log: Co2Sample[] = [];
+  /** Every maneuver result since the scenario started (export). */
+  maneuverLog: ManeuverResult[] = [];
+  /** Per-breath monitor values since the scenario started (quiz fix window, export); capped. */
+  monitorLog: BreathMetrics[] = [];
+  /** Confirmed setting changes since the scenario started (quiz score). */
+  settingChanges = 0;
+  quiz = new QuizSession();
+  progress = new ProgressStore();
+  /** Breath index whose explain card is open (badge click), or null for the latest labelled breath. */
+  selectedBreath: number | null = null;
+  private alarmsAtFixStart = 0;
   /** Increments on every tick (canvases use it to detect new data). */
   tickCount = 0;
   /** Labels for every closed breath in the analysis window (truth + detector), by breath index. */
@@ -124,15 +153,53 @@ export class SessionController {
     this.latestRecruit = null;
     this.maneuvers = { ...NO_MANEUVERS };
     this.alarmLog = [];
+    this.co2Log = [];
+    this.maneuverLog = [];
+    this.monitorLog = [];
+    this.settingChanges = 0;
+    this.selectedBreath = null;
+    this.quiz.reset();
     this.labels = new Map();
     this.ieEvents = [];
     this.efforts = [];
     this.ai = null;
     this.settingsLog = [];
     this.injectorLog = [];
-    this.view = { ...this.view, frozen: false, tView: NaN, paused: false };
+    this.view = { ...this.view, badges: true, frozen: false, tView: NaN, paused: false };
     this.worker.init(spec);
     this.notify();
+  }
+
+  /** Load a scenario definition that is not in the library (instructor editor, imported JSON). */
+  loadScenarioDef(def: ScenarioDef): void {
+    const spec = resolveScenario(def);
+    this.scenario = def;
+    this.resetSessionState(spec);
+    this.worker.init(spec);
+    this.notify();
+  }
+
+  private resetSessionState(spec: ReturnType<typeof resolveScenario>): void {
+    this.ready = false;
+    this.balloon = spec.patient.balloon ?? defaultBalloon();
+    this.latestBreath = null;
+    this.latestTruth = null;
+    this.latestRecruit = null;
+    this.maneuvers = { ...NO_MANEUVERS };
+    this.alarmLog = [];
+    this.co2Log = [];
+    this.maneuverLog = [];
+    this.monitorLog = [];
+    this.settingChanges = 0;
+    this.selectedBreath = null;
+    this.quiz.reset();
+    this.labels = new Map();
+    this.ieEvents = [];
+    this.efforts = [];
+    this.ai = null;
+    this.settingsLog = [];
+    this.injectorLog = [];
+    this.view = { ...this.view, badges: true, frozen: false, tView: NaN, paused: false };
   }
 
   private recordStatus(s: SessionStatus): void {
@@ -245,6 +312,13 @@ export class SessionController {
         this.recordStatus(m.status);
         this.view.speed = m.speed;
         this.view.paused = m.paused;
+        if (m.status.co2) {
+          const last = this.co2Log[this.co2Log.length - 1];
+          if (!last || m.status.co2.t - last.t >= 1 - 1e-6) {
+            this.co2Log.push(m.status.co2);
+            if (this.co2Log.length > 7200) this.co2Log.shift();
+          }
+        }
         this.notify();
         break;
     }
@@ -275,7 +349,13 @@ export class SessionController {
     store.addBreaths(m.breaths, m.neural);
     for (const b of m.breaths) this.onBreathClosed(b);
     if (m.breaths.some((b) => b.tEnd !== null)) this.scheduleAnalysis();
-    if (this.monitor.latest !== this.latestBreath) this.latestBreath = this.monitor.latest;
+    if (this.monitor.latest !== this.latestBreath) {
+      this.latestBreath = this.monitor.latest;
+      if (this.latestBreath) {
+        this.monitorLog.push(this.latestBreath);
+        if (this.monitorLog.length > 600) this.monitorLog.shift();
+      }
+    }
     this.tickCount += 1;
     if (m.breaths.length || events.length) this.notify();
   }
@@ -287,6 +367,7 @@ export class SessionController {
       if (this.alarmLog.length > 50) this.alarmLog.shift();
     } else if (e.type === 'maneuver') {
       const r = e.result;
+      this.maneuverLog.push(r);
       switch (r.kind) {
         case 'p01':
           this.maneuvers.p01 = r;
@@ -332,7 +413,157 @@ export class SessionController {
   // ─────────── commands ───────────
 
   applySettings(partial: Partial<VentSettings>): void {
+    this.settingChanges += 1;
     this.worker.applySettings(partial);
+  }
+
+  /** Instructor: live drive, CO2-loop and mechanics changes. */
+  setDrive(partial: Partial<DriveParams>): void {
+    this.worker.setPatient(partial);
+    this.notify();
+  }
+
+  setGas(partial: Partial<GasParams>): void {
+    this.worker.setGas(partial);
+  }
+
+  setPatientScale(scale: { rScale?: number; eScale?: number }): void {
+    this.worker.setPatientScale(scale);
+  }
+
+  setDrawerTab(tab: DrawerTab): void {
+    this.view.drawerTab = tab;
+    this.notify();
+  }
+
+  // ─────────── explain cards ───────────
+
+  /** Open the explain card for a breath (badge click). */
+  selectBreath(index: number | null): void {
+    this.selectedBreath = index;
+    this.view.drawerTab = 'explain';
+    this.notify();
+  }
+
+  /** Most recent closed breath that carries a truth pattern, or null. */
+  latestLabelledBreath(): number | null {
+    let best: number | null = null;
+    for (const [idx, l] of this.labels) if ((l.truth?.patterns.length ?? 0) > 0 && (best === null || idx > best)) best = idx;
+    return best;
+  }
+
+  /** Cards with case-specific evidence for a breath (truth labels), plus the ineffective efforts inside it. */
+  explanationFor(index: number): { index: number; tStart: number; cards: BreathExplanation[]; efforts: string[][] } | null {
+    const l = this.labels.get(index)?.truth;
+    const settings = this.settings;
+    if (!l || !settings || !this.patient) return null;
+    const neural = l.neuralIndex !== null ? (this.store.neural.find((n) => n.index === l.neuralIndex) ?? null) : null;
+    const cards = explainBreath({ label: l, neural, settings, pbw: this.patient.pbw });
+    const tEnd = l.tEnd ?? this.store.tLatest;
+    const efforts = this.efforts.filter((e) => e.ineffective && e.tOnset >= l.tStart && e.tOnset < tEnd).map((e) => effortEvidence(e, settings));
+    return { index, tStart: l.tStart, cards, efforts };
+  }
+
+  // ─────────── quiz ───────────
+
+  startQuiz(): void {
+    this.quiz.start(this.store.tLatest);
+    this.view.badges = false;
+    this.view.drawerTab = 'quiz';
+    this.notify();
+  }
+
+  /** Patterns present in the truth labels of the last QUIZ_FIX_WINDOW seconds (the identification key). */
+  quizTruthPatterns(): PatternId[] {
+    const t0 = this.store.tLatest - k('QUIZ_FIX_WINDOW');
+    const breaths = [...this.labels.values()].map((l) => l.truth).filter((l): l is BreathLabel => l !== null && l.tStart >= t0);
+    const efforts = this.efforts.filter((e) => e.tOnset >= t0);
+    return truthPatternsInWindow(breaths, efforts);
+  }
+
+  submitQuizPicks(picks: PatternId[]): void {
+    this.quiz.submitIdentification(picks, this.quizTruthPatterns());
+    this.view.badges = true;
+    this.notify();
+  }
+
+  startQuizFix(): void {
+    this.quiz.startFix(this.store.tLatest, this.settingChanges);
+    this.alarmsAtFixStart = this.alarmLog.length;
+    this.notify();
+  }
+
+  /** Live fix-window measurements: AI over the window, per-breath limits, new severe alarms. */
+  quizFixInput(): FixInput {
+    const t0 = this.quiz.fixWindowStart;
+    const t1 = this.store.tLatest;
+    const breaths = [...this.labels.values()].map((l) => l.truth).filter((l): l is BreathLabel => l !== null && l.tStart >= t0);
+    const efforts = this.efforts.filter((e) => e.tOnset >= t0);
+    const ai = asynchronyIndex({ breaths, efforts }, t0, t1).ai;
+    const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
+    const newSevereAlarms = this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm);
+    return { ai, breaths: mon, newSevereAlarms: [...new Set(newSevereAlarms)], extras: [] };
+  }
+
+  evaluateQuiz(): void {
+    if (!this.quiz.fixWindowReady(this.store.tLatest)) return;
+    const r = this.quiz.evaluate(this.store.tLatest, this.quizFixInput(), this.settingChanges);
+    if (this.scenario) this.progress.record(this.scenario.id, r.attempt);
+    this.view.badges = true;
+    this.notify();
+  }
+
+  endQuiz(): void {
+    this.quiz.reset();
+    this.view.badges = true;
+    this.notify();
+  }
+
+  // ─────────── export ───────────
+
+  sessionCsvText(truth: boolean): string {
+    const s = this.store;
+    return sessionCsv({ n: s.length, fs: s.fs, get: (ch, i) => s.read(ch, i), breaths: s.breaths, truth });
+  }
+
+  sessionJsonDoc(): SessionJson | null {
+    if (!this.scenario || !this.patient) return null;
+    const labels = [...this.labels.values()];
+    const truthLabels = labels.map((l) => l.truth).filter((l): l is BreathLabel => l !== null).sort((a, b) => a.tStart - b.tStart);
+    const detectorLabels = labels
+      .map((l) => l.det)
+      .filter((d): d is DetectedBreath => d !== null)
+      .sort((a, b) => a.tStart - b.tStart)
+      .map((d) => ({ breathIndex: d.breathIndex, tStart: d.tStart, tEnd: d.tEnd, patterns: d.patterns, evidence: d.evidence }));
+    return sessionJson({
+      scenario: this.scenario,
+      seed: this.scenario.seed,
+      fs: this.store.fs,
+      pbw: this.patient.pbw,
+      settingsLog: this.settingsLog,
+      injectorLog: this.injectorLog,
+      breaths: this.store.breaths,
+      monitor: this.monitorLog,
+      truthLabels,
+      efforts: this.efforts,
+      detectorLabels,
+      ieEvents: this.ieEvents,
+      maneuvers: this.maneuverLog,
+      events: this.store.events,
+      co2: this.co2Log,
+      ai: this.ai,
+    });
+  }
+
+  async exportCsv(truth: boolean): Promise<DownloadOutcome> {
+    const name = `${this.scenario?.id ?? 'session'}-${truth ? 'truth' : 'measured'}.csv`;
+    return downloadBytes(name, this.sessionCsvText(truth), 'text/csv');
+  }
+
+  async exportJson(): Promise<DownloadOutcome> {
+    const doc = this.sessionJsonDoc();
+    if (!doc) return 'failed';
+    return downloadBytes(`${this.scenario?.id ?? 'session'}-session.json`, JSON.stringify(doc), 'application/json');
   }
 
   setBalloon(b: BalloonParams): void {

@@ -84,6 +84,14 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       session?.setTimeWarp(msg.warp);
       postStatus();
       break;
+    case 'setGas':
+      session?.setGas(msg.partial);
+      postStatus();
+      break;
+    case 'setPatientScale':
+      session?.setPatientScale(msg.scale);
+      postStatus();
+      break;
     case 'setSpeed':
       speed = Math.min(4, Math.max(0.25, msg.speed));
       postStatus();

@@ -342,3 +342,37 @@ warp changes only the CO2 clock (test: byte-identical streams at warp 1 and 60 w
 
 **PMI** is Foti 1997's `Pplat(hold) − (PEEP + PS)` in pressure support (PEEP + Pinsp in PC), from the last
 inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is not how PMI is defined.
+
+## D-015 · Education layer and export choices (2026-09-11, M8)
+
+- **Explain cards are static text plus templates** (`src/edu/cards/index.ts`): one card per `PatternId` written
+  from Brief 1 §3 and Brief 2, and `caseEvidence()` that turns `BreathLabel.evidence` (neural Ti, ventilator
+  Ti, cycling/trigger delay, stacked volume, Pmus, PTP, PL,ei, leak fraction…) into one sentence per pattern.
+  Ineffective efforts are effort-level labels, so their evidence comes from `effortEvidence(EffortLabel)`
+  and the card lists every ineffective effort inside the breath's window. No LLM, no free text.
+- **Quiz identification is graded by the Jaccard similarity** of the pick list and the truth set of the last
+  60 s (a pattern counts when ≥ 10 % of the breaths carry it, `QUIZ_PATTERN_MIN_FRACTION`; ineffective
+  effort by the efforts). Spec §8 says "graded against truth" without a formula; Jaccard punishes both misses
+  and false positives symmetrically and gives 1 only for an exact match.
+- **Fix grading follows Spec §8 literally**: AI < 10 % over 60 s of simulated time from the moment the learner
+  starts the window, mean ΔP ≤ 15 and Pplat ≤ 30 over the breaths that have a plateau (a breath without a
+  hold does not fail the check but is reported as unverified), mean Vt 4–8 mL/kg PBW, and no *new* severe
+  alarm (`SEVERE_ALARMS`: high Ppeak, apnea, disconnect, low Ve, high PEEPi) since the window started.
+  Scenario-specific extras (e.g. PL,ee ≥ 0) are supported by `gradeFix` but no scenario defines one yet.
+- **Score = 50 % identification + 50 % fix** (fix = 50 % pass + 25 % time factor + 25 % changes factor; time
+  is simulated seconds, free below 60 s and decaying linearly to a 0.5 floor over 30 min; changes are
+  confirmed setting commits, free up to 3 then −5 % each to a 0.5 floor). A failed fix scores zero for its
+  half. Constants `QUIZ_*` [M].
+- **Progress is one JSON document** under `ventsim.progress.v1` with attempts, best score, pass flag and the
+  last 10 attempts per scenario; every storage call is wrapped and a throwing storage degrades to memory.
+- **Instructor mechanics are live multipliers** (`setPatientScale`: base `rScale`/`eScale` on top of the
+  injectors), because the patient model is built once per session; EL/Ecw/FRC and the drive baseline are
+  changed through the scenario editor (edit the JSON, run it), which restarts the simulation. The drive,
+  entrainment and CO2 gains change live. Injectors already had their panel.
+- **Session exports cover what the main thread holds**: the signals of the last 120 s (`StreamStore`), and
+  the labels, monitor values, maneuvers, alarms and CO2 samples since the scenario started. A full-length
+  signal export is what the batch generator is for. The batch runs in its own worker (`batch.worker.ts`) and
+  produces one CSV and one JSON per scenario × seed (× setting perturbation) plus a manifest, zipped with
+  fflate; `scripts/batch.ts` does the same in Node.
+- **The drawer became tabbed** (Scenario · Explain · Quiz · Export) so the loops keep their space; the
+  instructor panel lives under the injectors on the left. A badge click opens its explain card.

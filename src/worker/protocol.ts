@@ -11,7 +11,7 @@ import type { NeuralBreath } from '../sim/patient/neural-drive';
 import type { AlarmId } from '../sim/vent/ventilator';
 import type { DriveParams } from '../sim/patient/neural-drive';
 import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
-import type { Co2Sample } from '../sim/patient/gas-exchange';
+import type { Co2Sample, GasParams } from '../sim/patient/gas-exchange';
 import type { PeepManeuverKind } from '../sim/vent/peep-maneuvers';
 
 export type TruthKey = `truth.${TruthChannel}`;
@@ -72,6 +72,9 @@ export type MainToWorker =
   | { type: 'inject'; kind: InjectorKind; params: Partial<InjectorParamMap[InjectorKind]> | null }
   | { type: 'setPatient'; drive: Partial<DriveParams> }
   | { type: 'setWarp'; warp: number }
+  | { type: 'setGas'; partial: Partial<GasParams> }
+  /** Instructor: live resistance / lung-elastance multipliers (applied on top of the injectors). */
+  | { type: 'setPatientScale'; scale: { rScale?: number; eScale?: number } }
   | { type: 'setSpeed'; speed: number }
   | { type: 'pause' }
   | { type: 'resume' };

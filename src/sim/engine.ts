@@ -8,7 +8,7 @@ import { PatientModel, type PatientDrive } from './patient/patient';
 import type { PatientParams } from './patient/params';
 import { NeuralDrive, type DriveParams, type NeuralBreath } from './patient/neural-drive';
 import { balloonZ, pesFromPleural, type BalloonParams } from './patient/balloon';
-import { GasExchange, type Co2Sample } from './patient/gas-exchange';
+import { GasExchange, type Co2Sample, type GasParams } from './patient/gas-exchange';
 import { Ventilator } from './vent/ventilator';
 import { SensorChain } from './vent/sensor-chain';
 import { clampSettings, type VentSettings } from './vent/settings';
@@ -115,6 +115,11 @@ export class SimEngine {
   /** Time warp on the CO2 dynamics only (×1–×60). No-op without the loop. */
   setTimeWarp(warp: number): void {
     this.gas?.setWarp(warp);
+  }
+
+  /** Live CO2-loop parameter change (instructor). No-op without the loop. */
+  setGasParams(partial: Partial<GasParams>): void {
+    this.gas?.setParams(partial);
   }
 
   private co2Sample(t: number): Co2Sample {

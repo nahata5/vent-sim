@@ -41,6 +41,18 @@ entry names the decision or milestone that introduced it. Newest additions last 
 - **The decremental trial's ΔP uses the set PEEP**, not total PEEP; in a patient with intrinsic PEEP the
   per-step Crs is under-estimated (an expiratory hold per step is not part of the maneuver).
 
+## Education layer and export
+
+- **Quiz extras are not defined per scenario yet** (D-015): `gradeFix` accepts scenario-specific limits such as
+  PL,ee ≥ 0, but the library's scenarios grade on the spec's four limits only.
+- **The quiz's truth set is the last 60 s of labels held on the main thread**; a pattern that appeared only
+  earlier in the session is not part of the key.
+- **Session CSV covers the retained 120 s of signals** (D-015); use the batch generator for full-length runs.
+- **Instructor changes to EL, Ecw or FRC restart the scenario** (through the JSON editor) rather than acting
+  live; resistance and lung elastance can be scaled live.
+- **Explain cards are the same text for every instance of a pattern**; only the evidence line is
+  case-specific.
+
 ## Detector (what the bedside signals cannot show)
 
 - **Flow starvation on very short VC breaths inside a rising effort is invisible** (D-012). A 0.3–0.4 s

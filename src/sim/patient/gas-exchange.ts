@@ -77,7 +77,7 @@ export class GasExchange {
   private vaOverride: number | null = null;
   private tNow = 0;
   /** Store capacitance K = τ·VA_ref/0.863, mL CO2 per mmHg. */
-  private readonly capacity: number;
+  private capacity: number;
   /** Delay line sampled every CO2_DELAY_SAMPLE warped seconds. */
   private readonly delayBuf: number[];
   private delayAcc = 0;
@@ -103,6 +103,12 @@ export class GasExchange {
 
   setWarp(w: number): void {
     this.params = { ...this.params, warp: clamp(w, 1, k('CO2_WARP_MAX')) };
+  }
+
+  /** Live parameter change (instructor): gains, VCO2, set point, τ; the store keeps its current PaCO2. */
+  setParams(partial: Partial<GasParams>): void {
+    this.params = { ...this.params, ...partial, warp: clamp(partial.warp ?? this.params.warp, 1, k('CO2_WARP_MAX')) };
+    this.capacity = ((this.params.tau / 60) * this.referenceVA) / k('CO2_BTPS_FACTOR');
   }
 
   /** Dead space, L. */

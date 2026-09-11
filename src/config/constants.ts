@@ -298,6 +298,15 @@ export const CONSTANTS = {
   VT_PBW_HIGH: c(8, 'mL/kg', 'Spec §8 quiz success: Vt 4–8 mL/kg PBW (ARDSNet 2000)', 'V'),
   SPECIFIC_ELASTANCE_REF: c(13.5, 'cmH2O', 'Brief 2 §3/§6 Chiumello 2008: specific lung elastance ≈ 13.5 across groups', 'V'),
 
+  // ───────────────────────── Quiz (Spec §8) ─────────────────────────
+  QUIZ_PATTERN_MIN_FRACTION: c(0.1, 'fraction', 'A pattern counts as present in a quiz window when ≥ 10 % of the breaths (efforts for ineffective effort) carry it [M]; a single labelled breath in a minute is not a teaching target', 'M'),
+  QUIZ_FIX_WINDOW: c(60, 's', 'Spec §8: success = AI < 10 % over 60 s of simulated time with every safety limit met', 'V'),
+  QUIZ_TIME_FREE: c(60, 's', 'Time-to-fix below which the time score is full [M]', 'M'),
+  QUIZ_TIME_SPAN: c(1800, 's', 'Time over which the time score decays linearly from 1 to its floor [M]', 'M'),
+  QUIZ_CHANGES_FREE: c(3, 'setting changes', 'Number of setting changes with a full changes score [M]', 'M'),
+  QUIZ_CHANGES_PENALTY: c(0.05, 'per extra change', 'Score lost per setting change beyond the free ones [M]', 'M'),
+  QUIZ_FACTOR_FLOOR: c(0.5, 'fraction', 'Floor of the time and changes factors [M]', 'M'),
+
   // ───────────────────────── Clinical guardrails ─────────────────────────
   PBW_MALE_INTERCEPT: c(50, 'kg', 'Brief 1 §5 ARDSNet 2000: male PBW = 50 + 0.91·(height − 152.4)', 'L'),
   PBW_FEMALE_INTERCEPT: c(45.5, 'kg', 'Brief 1 §5 ARDSNet 2000: female PBW = 45.5 + 0.91·(height − 152.4)', 'L'),

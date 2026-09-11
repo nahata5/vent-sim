@@ -11,6 +11,8 @@ import type { VentSettings } from '../sim/vent/settings';
 import type { BalloonParams } from '../sim/patient/balloon';
 import type { DriveParams, NeuralBreath } from '../sim/patient/neural-drive';
 import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
+import type { GasParams } from '../sim/patient/gas-exchange';
+import type { PatientDrive } from '../sim/patient/patient';
 import { BATCH_CHANNELS, type PatientSummary, type ScenarioSpec, type SessionStatus } from './protocol';
 import { totalResistance } from '../sim/truth/labeler';
 
@@ -135,6 +137,17 @@ export class SimSession {
 
   setTimeWarp(warp: number): void {
     this.engine.setTimeWarp(warp);
+  }
+
+  setGas(partial: Partial<GasParams>): void {
+    this.engine.setGasParams(partial);
+  }
+
+  setPatientScale(scale: { rScale?: number; eScale?: number }): void {
+    const d: Partial<PatientDrive> = {};
+    if (scale.rScale !== undefined) d.rScale = Math.max(0.2, scale.rScale);
+    if (scale.eScale !== undefined) d.eScale = Math.max(0.2, scale.eScale);
+    this.engine.setBaseDrive(d);
   }
 
   setBalloon(balloon: BalloonParams): void {

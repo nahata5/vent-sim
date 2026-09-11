@@ -153,7 +153,7 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
         sweep: ctl.view.sweep,
         ranges: rangesRef.current,
         cursorT: cursorRef.current,
-        showBadges: true,
+        showBadges: ctl.view.badges,
         badges: bref.map,
         truthBadges: truthRef.current,
         badgeHits: hits,
@@ -180,7 +180,7 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
     const rect = wrap.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
-    if (y < badgeStripHeight({ showBadges: true, truthBadges: truth })) {
+    if (y < badgeStripHeight({ showBadges: ctl.view.badges, truthBadges: truth })) {
       // Badge strip: show the labels and their evidence for the breath under the pointer.
       const hit = hits.find((h) => x >= h.x0 && x <= h.x1);
       const l = hit ? ctl.labels.get(hit.index) : undefined;
@@ -213,9 +213,20 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
     cursorRef.current = null;
     setReadout(null);
   };
+  // A click on a badge opens the explain card for that breath (Spec §8).
+  const onClick = (ev: MouseEvent) => {
+    const wrap = wrapRef.current;
+    if (!wrap || !ctl.view.badges) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    const y = ev.clientY - rect.top;
+    if (y >= badgeStripHeight({ showBadges: true, truthBadges: truth })) return;
+    const hit = hits.find((h) => x >= h.x0 && x <= h.x1);
+    if (hit && ctl.labels.has(hit.index)) ctl.selectBreath(hit.index);
+  };
 
   return (
-    <div class="wave-wrap" ref={wrapRef} onMouseMove={onMove} onMouseLeave={onLeave} data-testid="waveforms">
+    <div class="wave-wrap" ref={wrapRef} onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick} data-testid="waveforms">
       <canvas ref={canvasRef} class="wave-canvas" aria-label="Ventilator waveforms: pressure, flow and volume sweeps" role="img" />
       {readout && (
         <div class={`cursor-readout ${readout.evidence ? 'badge-readout' : ''}`} style={{ left: readout.x, top: readout.y }} data-testid="cursor-readout">

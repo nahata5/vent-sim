@@ -357,3 +357,48 @@ layer). Render budget unchanged (`load.spec.ts` < 8 ms/frame).
 
 **Known issues:** R/I under-reads through a stiff chest wall (D-014, Q-4); the warped CO2 loop shows lag-driven
 periodic breathing above ≈ ×20 (Q-5); airway opening pressure and SpO2 are not modelled (LIMITATIONS).
+
+### M8 — Education: explain cards, quiz, instructor mode, progress, session and batch export (2026-09-11)
+
+**Built (TDD for the pure logic; D-015):**
+
+- `src/edu/cards/index.ts` — `CARDS` (21 patterns: definition, mechanism, signature, causes, ranked fixes,
+  pitfalls, citations from Brief 1 §3 / Brief 2), `caseEvidence()` (templated sentences from
+  `BreathLabel.evidence`, neural timing and settings), `effortEvidence()` for ineffective efforts,
+  `explainBreath()`. `src/ui/ExplainCard.tsx`: opened from the Explain tab or by clicking a badge
+  (`WaveformCanvas` `onClick` → `ctl.selectBreath`).
+- `src/edu/quiz.ts` — `truthPatternsInWindow`, `gradeIdentification` (Jaccard), `gradeFix` (AI < 10 % over 60 s,
+  ΔP ≤ 15, Pplat ≤ 30, Vt 4–8 mL/kg, no new severe alarm, extras), `quizScore` (50 % identification, 50 % fix
+  with time and setting-change factors). `src/edu/quiz-session.ts` — the idle → identify → identified → fix →
+  done machine on simulated time. `src/ui/QuizPanel.tsx`; the controller hides the badges during
+  identification, counts confirmed setting changes, builds the fix-window input from the truth labels,
+  monitor log and alarm log, and records the attempt.
+- `src/edu/progress.ts` — `ProgressStore` (localStorage `ventsim.progress.v1`, try/catch with a memory
+  fallback, best score / attempts / pass per scenario); shown in the scenario picker (`· best 88 ✓`).
+- `src/ui/InstructorPanel.tsx` — live drive (rate, Ti, Pmax, entrainment), R/EL multipliers (new protocol
+  `setPatientScale`), CO2 gain/VCO2 (`setGas`, `GasExchange.setParams`), and a scenario editor: load the
+  current JSON, edit, run (`ctl.loadScenarioDef`), export, import a file. `parseScenarioJson` validates the
+  shape.
+- `src/export/csv.ts` (`sessionCsv`, `csvFromHeadless`: t, paw, flow, vol, pes, breath_id, phase, optional
+  truth columns), `src/export/json.ts` (`sessionJson`, `sessionJsonFromHeadless`, `monitorBreaths`; schema
+  `ventsim-session/1` with scenario, seed, settings and injector logs, breaths, monitor values, truth labels,
+  efforts, detector labels with evidence, IE events, maneuvers, events, CO2 log, AI), `src/export/batch.ts`
+  (`runBatch`, `zipBatch`, manifest), `src/export/download.ts` (Blob + anchor, clipboard fallback),
+  `src/worker/batch.worker.ts`, `src/ui/ExportPanel.tsx`, `scripts/batch.ts` (`npm run batch -- --scenarios
+  a,b --seeds 1,2 --duration 60 --out batch.zip`).
+- Controller: `view.badges`, `view.drawerTab`, `co2Log`, `maneuverLog`, `monitorLog`, `settingChanges`, `quiz`,
+  `progress`, `selectedBreath`, `explanationFor`, `quizTruthPatterns`, `quizFixInput`, `exportCsv/Json`,
+  `loadScenarioDef`, `setDrive/setGas/setPatientScale`. App: tabbed drawer (Scenario · Explain · Quiz · Export).
+
+**Tests:** `tests/unit/cards.test.ts` 6, `quiz.test.ts` 7, `quiz-session.test.ts` 2, `progress.test.ts` 3,
+`export.test.ts` 6 (CSV shape with and without truth, generic reader, JSON contents, batch grid + zip round
+trip, perturbations in the manifest). Vitest 175/175 (28 files); lint clean; build clean (batch worker 158 kB).
+Playwright 22/22: `quiz.spec.ts` (identify with badges hidden → apply the fix → evaluate after 60 s →
+pass, score > 50, progress in localStorage and in the picker; explain card with case evidence; instructor
+JSON edit restarts with PEEP 9), `export.spec.ts` (CSV + truth and JSON downloads with the expected header
+and schema; batch zip of 2 seeds with manifest). Render budget unchanged.
+
+**Screenshots:** `docs/screenshots/m8-explain-card.png`, `docs/screenshots/m8-quiz-result.png`.
+
+**Known issues:** see LIMITATIONS "Education layer and export" (quiz extras not defined per scenario, 120 s
+signal window in the session CSV, EL/Ecw changes restart the scenario).

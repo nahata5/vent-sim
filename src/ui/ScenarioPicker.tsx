@@ -1,8 +1,11 @@
 import { SCENARIOS, type ScenarioDef } from '../edu/scenarios';
+import type { ScenarioProgress } from '../edu/progress';
 
 interface Props {
   current: ScenarioDef | null;
   onPick: (id: string) => void;
+  /** Learner progress per scenario id (best quiz score), shown in the option label. */
+  progress?: Record<string, ScenarioProgress>;
 }
 
 const CATEGORY_LABEL: Record<ScenarioDef['category'], string> = {
@@ -12,7 +15,7 @@ const CATEGORY_LABEL: Record<ScenarioDef['category'], string> = {
   capstone: 'Capstone',
 };
 
-export function ScenarioPicker({ current, onPick }: Props) {
+export function ScenarioPicker({ current, onPick, progress }: Props) {
   const groups = new Map<ScenarioDef['category'], ScenarioDef[]>();
   for (const s of SCENARIOS) groups.set(s.category, [...(groups.get(s.category) ?? []), s]);
   return (
@@ -25,6 +28,7 @@ export function ScenarioPicker({ current, onPick }: Props) {
             {list.map((s) => (
               <option value={s.id} key={s.id}>
                 {s.title}
+                {progress?.[s.id] ? ` · best ${progress[s.id]?.best}${progress[s.id]?.passed ? ' ✓' : ''}` : ''}
               </option>
             ))}
           </optgroup>

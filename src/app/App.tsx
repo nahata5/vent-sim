@@ -14,6 +14,11 @@ import { ScenarioPicker } from '../ui/ScenarioPicker';
 import { InjectorPanel } from '../ui/InjectorPanel';
 import { ValidationPage } from '../ui/ValidationPage';
 import { Co2Panel } from '../ui/Co2Panel';
+import { ExplainCard } from '../ui/ExplainCard';
+import { QuizPanel } from '../ui/QuizPanel';
+import { InstructorPanel } from '../ui/InstructorPanel';
+import { ExportPanel } from '../ui/ExportPanel';
+import type { DrawerTab } from './controller';
 import { defaultBalloon } from '../sim/patient/balloon';
 import type { BadgeHit } from '../ui/waveform-draw';
 
@@ -103,7 +108,7 @@ export function App() {
       <header class="app-header">
         <h1>VentSim</h1>
         <span class="muted small">v{APP_VERSION}</span>
-        <ScenarioPicker current={scenario} onPick={pick} />
+        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} />
         <TruthToggle on={view.truth} onChange={(on) => ctl.setTruth(on)} />
         <label class="inline balloon-toggle">
           <input type="checkbox" checked={balloonOn} onChange={(e) => ctl.setBalloon({ ...defaultBalloon(), ...ctl.balloon, enabled: (e.currentTarget).checked })} data-testid="balloon-toggle" />
@@ -119,50 +124,63 @@ export function App() {
           {settings && <SettingsPanel ctl={ctl} settings={settings} pendingOnVent={status?.pending ?? []} />}
           {status && <InjectorPanel ctl={ctl} active={status.injectors} />}
           {status?.co2 && <Co2Panel co2={status.co2} onWarp={(w) => ctl.setWarp(w)} />}
+          {status && <InstructorPanel ctl={ctl} />}
         </aside>
         <section class="col-center">
           <TimeControls ctl={ctl} view={view} tLatest={ctl.store.tLatest} tOldest={ctl.store.tOldest} />
           <WaveformCanvas ctl={ctl} truth={view.truth} balloon={balloonOn} perf={perf} hits={hits} />
           <div class="drawer">
             <LoopCanvas ctl={ctl} loops={view.truth ? [...BEDSIDE_LOOPS, ...TRUTH_LOOPS] : BEDSIDE_LOOPS} ecw={ctl.patient?.ecw ?? null} />
-            {scenario && (
-              <div class="scenario-info" data-testid="scenario-info">
-                <button type="button" class="link" onClick={() => setShowObjectives(!showObjectives)} aria-expanded={showObjectives}>
-                  {showObjectives ? '▾' : '▸'} {scenario.title}
-                </button>
-                {showObjectives && (
-                  <div class="small">
-                    <p>{scenario.summary}</p>
-                    <ul>
-                      {scenario.objectives.map((o) => (
-                        <li key={o}>{o}</li>
-                      ))}
-                    </ul>
-                    <p class="muted">
-                      Phenotype: {scenario.phenotype} · seed {String(scenario.seed)} · {scenario.drive ? 'spontaneous effort' : 'passive'}
-                      {scenario.targetPatterns.length ? ` · target: ${scenario.targetPatterns.join(', ')}` : ''}
-                    </p>
-                    {scenario.fix && (
-                      <div class="scenario-fix">
-                        <button
-                          type="button"
-                          class="primary"
-                          disabled={fixApplied}
-                          data-testid="apply-fix"
-                          onClick={() => {
-                            if (scenario.fix) ctl.applyFix(scenario.fix);
-                            setFixApplied(true);
-                          }}
-                        >
-                          {fixApplied ? 'Fix applied' : 'Apply suggested fix'}
-                        </button>
-                        <span class="muted">{scenario.fix.note}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+            <div class="drawer-pane" data-testid="drawer-pane">
+              <div class="tabs" role="tablist">
+                {(['scenario', 'explain', 'quiz', 'export'] as DrawerTab[]).map((tab) => (
+                  <button type="button" key={tab} role="tab" aria-selected={view.drawerTab === tab} class={view.drawerTab === tab ? 'active' : ''} onClick={() => ctl.setDrawerTab(tab)} data-testid={`tab-${tab}`}>
+                    {tab === 'scenario' ? 'Scenario' : tab === 'explain' ? 'Explain' : tab === 'quiz' ? 'Quiz' : 'Export'}
+                  </button>
+                ))}
               </div>
-            )}
+              {view.drawerTab === 'scenario' && scenario && (
+                <div class="scenario-info" data-testid="scenario-info">
+                  <button type="button" class="link" onClick={() => setShowObjectives(!showObjectives)} aria-expanded={showObjectives}>
+                    {showObjectives ? '▾' : '▸'} {scenario.title}
+                  </button>
+                  {showObjectives && (
+                    <div class="small">
+                      <p>{scenario.summary}</p>
+                      <ul>
+                        {scenario.objectives.map((o) => (
+                          <li key={o}>{o}</li>
+                        ))}
+                      </ul>
+                      <p class="muted">
+                        Phenotype: {scenario.phenotype} · seed {String(scenario.seed)} · {scenario.drive ? 'spontaneous effort' : 'passive'}
+                        {scenario.targetPatterns.length ? ` · target: ${scenario.targetPatterns.join(', ')}` : ''}
+                      </p>
+                      {scenario.fix && (
+                        <div class="scenario-fix">
+                          <button
+                            type="button"
+                            class="primary"
+                            disabled={fixApplied}
+                            data-testid="apply-fix"
+                            onClick={() => {
+                              if (scenario.fix) ctl.applyFix(scenario.fix);
+                              setFixApplied(true);
+                            }}
+                          >
+                            {fixApplied ? 'Fix applied' : 'Apply suggested fix'}
+                          </button>
+                          <span class="muted">{scenario.fix.note}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {view.drawerTab === 'explain' && <ExplainCard ctl={ctl} />}
+              {view.drawerTab === 'quiz' && <QuizPanel ctl={ctl} />}
+              {view.drawerTab === 'export' && <ExportPanel ctl={ctl} />}
+            </div>
           </div>
         </section>
         <aside class="col-right">

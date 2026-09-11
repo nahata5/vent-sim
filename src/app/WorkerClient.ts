@@ -7,6 +7,7 @@ import type { BalloonParams } from '../sim/patient/balloon';
 import type { MainToWorker, ScenarioSpec, WorkerToMain } from '../worker/protocol';
 import type { DriveParams } from '../sim/patient/neural-drive';
 import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
+import type { GasParams } from '../sim/patient/gas-exchange';
 
 export type WorkerListener = (m: WorkerToMain) => void;
 
@@ -51,6 +52,12 @@ export class WorkerClient {
   }
   setWarp(warp: number): void {
     this.send({ type: 'setWarp', warp });
+  }
+  setGas(partial: Partial<GasParams>): void {
+    this.send({ type: 'setGas', partial });
+  }
+  setPatientScale(scale: { rScale?: number; eScale?: number }): void {
+    this.send({ type: 'setPatientScale', scale });
   }
   setSpeed(speed: number): void {
     this.send({ type: 'setSpeed', speed });
