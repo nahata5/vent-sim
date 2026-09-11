@@ -1,123 +1,115 @@
 # Handoff — VentSim build state
 
-Updated 2026-09-11, mid-M6, for a fresh session continuing the goal in `docs/FABLE_GOAL_PROMPT.md`.
+Updated 2026-09-11 (second M6 session), for a fresh session continuing the goal in `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
 1. `docs/FABLE_GOAL_PROMPT.md` — the goal, non-negotiables, definition of done.
-2. `docs/superpowers/specs/2026-09-10-vent-sim-design.md` — the spec (§7 pattern catalog, §9 validation).
-3. `PROGRESS.md` — what each milestone built and its test results.
-4. `docs/DECISIONS.md` — D-001…D-011, every deviation and every non-obvious modelling choice.
-5. This file's "M6 state" section before touching the detector.
+2. `docs/superpowers/specs/2026-09-10-vent-sim-design.md` — the spec (§7 pattern catalog, §9 validation, §12 milestones).
+3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table is there).
+4. `docs/DECISIONS.md` — D-001…D-012; D-012 is the detector's measurement basis and two truth refinements.
+5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-3) — what the bedside cannot see and what the owner must decide.
+6. This file's "M6: what is left" before touching the UI.
 
 ## Where things stand
 
 | Milestone | State |
 |---|---|
 | M0–M5 | done (scaffold, physics, ventilator, effort, live UI on a deterministic worker) |
-| M6 | **in progress**: injectors, truth labeler, emergence matrix (§9.4) and 20 scenarios are done and green; the signal-only detector, scorer, tuning/held-out grids exist and the detector is mid-tuning (§9.5 not yet met); UI badges, AI tile, injector controls and the Validation page are not started |
+| M6 | **detector done** (§9.5 met on the held-out grid except delayed cycling 0.84 vs 0.85, documented); injectors, truth labeler, emergence matrix, 20 scenarios green; **UI wiring not started** |
 | M7–M9 | not started |
 
-`npm test` → 110 passed, 9 skipped (the held-out detector suite, gated by `RUN_HELDOUT=1`). `npm run lint` clean.
-`npm run test:e2e` → 8/8 (M5 suite; nothing in M6 touched the UI yet).
+`npm test` → 122 passed, 18 files (the held-out suite `tests/detector/heldout.test.ts` is un-gated and runs in CI).
+`npm run lint` clean. `npm run test:e2e` → 8/8 (M5 suite; nothing in M6 touched the UI yet).
+Last commit: `M6: detector meets §9.5 on the held-out grid…` on `main` (not yet pushed — push after the UI work
+or now, both fine).
 
 ## Hosting
 
 Netlify (D-008). `netlify.toml` builds `npm run build` → `dist`, Node 22; GitHub Actions is CI only. Intended URL
-https://vent-sim.netlify.app/ with alias `tomnahass.com/vent-sim/` (proxy rule in README). **The Netlify site did
-not exist as of 2026-09-11** (the subdomain returned a bare Netlify 404, so the name looks free): the owner must
-import `nahata5/vent-sim` in the Netlify UI (Add new site → Import an existing project → GitHub → repo; build
-settings come from `netlify.toml`; site name `vent-sim`). Verify the URL afterwards and update README/PROGRESS.
+https://vent-sim.netlify.app/ with alias `tomnahass.com/vent-sim/` (proxy rule in README). The Netlify site had
+not been created as of 2026-09-11: the owner must import `nahata5/vent-sim` in the Netlify UI (build settings
+come from `netlify.toml`; site name `vent-sim`). Verify the URL afterwards and update README/PROGRESS.
 
-## M6 state (read before continuing)
+## Detector: final numbers and how it works
 
-### Done and green
+Held-out grid (seeds 101–104, perturbed settings/drive, never tuned on), sensitivity/specificity: ineffective
+effort 0.93/0.99, double trigger 0.99/1.00, auto-trigger 0.97/0.99, premature cycling 0.95/0.99, delayed
+cycling 0.84/0.98 (target 0.85; accepted floor 0.80 in the test, reason in D-012 and LIMITATIONS), flow
+starvation 0.91/0.98, reverse trigger 0.85/1.00. Tuning grid is in `PROGRESS.md`.
 
-- **Injectors** `src/sim/injectors/index.ts`: leak (orifice at the Y-piece), cardiac (pleural sine → flow
-  oscillation ≈ A/R), secretions (band-limited 5–20 Hz R modulation), water (regular R oscillation), cough
-  (expiratory Pmus bursts provoked by inflation, `onBreathStart`), pneumothorax (Ppl offset + elastance ×),
-  mainstem (elastance ×2, R ×1.5), bronchospasm (ramped R ×). New drive term `eScale` in `PatientDrive`;
-  `BreathRecord.leakTrue`; change logs `Injectors.log` and `Ventilator.settingsLog` ride on `HeadlessResult`.
-  Tests: `tests/unit/injectors.test.ts` 8/8.
-- **Live drive changes**: `SimEngine.setDriveParams` → `NeuralDrive.setParams` (entrainment-off restarts the
-  free-running clock from now); worker messages `inject` and `setPatient`.
-- **Truth labeler** `src/sim/truth/labeler.ts` (`labelBreaths`, `labelRun`, `asynchronyIndex`): all §7 truth
-  rules, truth-only findings, AI with the Vaporidi cluster flag. Tests: `tests/unit/labeler.test.ts` 9/9.
-- **Scenarios**: 20 JSON files in `src/edu/scenarios/` with `injectors`, scripted `fix` and `criteria`;
-  `scenarioSchedule(def, {withFix})`, `applyFix`, `scenarioInjectorList`. The index imports files explicitly
-  (no `import.meta.glob`) so tsx scripts work.
-- **Emergence matrix** `tests/scenarios/emergence.test.ts` (§9.4): 14 rows green — each target pattern present
-  before the fix and AI < 10% within 60 s after it; passive baseline clean. `runEmergence(def)` is exported for
-  the Validation page.
-- **Detector scaffolding**: `src/detector/features.ts` (measured-only reader type; `readChannels` proves no
-  truth key is touched), `src/detector/detector.ts` (two-pass rule engine with evidence strings),
-  `src/detector/scorer.ts` (per-pattern confusion matrices, IE scored on expiratory efforts — D-011),
-  `src/detector/grids.ts` (TUNING seeds 1–4, HELD-OUT seeds 101–104 with setting/drive perturbations),
-  `scripts/tune-detector.ts` (prints sens/spec and per-case FP/FN; `npx tsx scripts/tune-detector.ts` or
-  `... heldout`). Debug helpers in `scripts/dev/` (git-ignored): `dump-features.ts <scenario[:seed]>`,
-  `trace.ts <scenario> <t0> <t1>`, `evidence.ts <scenario> <pattern>`.
+Files: `src/detector/features.ts` (measured-only reader, per-breath features; the notch search, cardiac
+autocorrelation, knee/shoulder, ramp convexity and τ fit live here), `src/detector/detector.ts` (two-pass
+rules with evidence strings; pass 2 handles stacking, auto-trigger vs stacked breath, and strips cycling
+labels from stacked breaths), `src/detector/scorer.ts` (`truthPositives`, `unscoredBreaths`, `scoreGrid`),
+`src/detector/grids.ts` (TUNING_GRID / HELD_OUT_GRID, `runGrid`), `scripts/tune-detector.ts`.
 
-### Detector: last tuning-grid numbers (36 cases) and what to do next
+Working method that paid off (keep it): change one rule, run `npx tsx scripts/tune-detector.ts` (≈ 20 s), and
+read the offending breaths with the git-ignored `scripts/dev/` tools before touching a threshold:
+`dump-features.ts <scenario[:seed]> | h:<held-out case id> | t:<tuning case id>` (one line per breath:
+truth vs detector labels and every feature; `dumpc.sh` prints a compact subset), `trace2.ts <scenario[:seed]>
+t0 t1 [step]` (Paw/flow/Pmus/Palv samples), `taulocal.ts` (local τ profile of an inspiration),
+`ie-efforts.ts` (ineffective efforts vs the next trigger), `evidence.ts <scenario> <pattern>`. Never tune on
+the held-out grid; looking at a held-out case to understand a miss is fine but any threshold set from it is
+tuning (D-012 records that `DET_DC_VC_CONCAVITY` was chosen after seeing held-out values, which is why the
+delayed-cycling floor was left at 0.80 rather than pushed).
 
-| pattern | sens | spec | note |
-|---|---|---|---|
-| double-trigger | 0.98 | 0.98 | done (Te < max(½·Ti, 0.6 s) + unexhaled volume; stacking after any machine breath within 1 s) |
-| premature-cycling | 0.78 | 0.98 | was 0.94 before the last round; see (3) |
-| delayed-cycling | 0.69 | 0.96 | COPD borderline cases (τ·ln(1/ETS) rule at 1.05 s); Ti-max breaths solid |
-| reverse-trigger | 0.56 | 0.97 | weak entrained efforts invisible; RT scenario Pmax raised to 8 in the last edit, re-run |
-| auto-trigger | 0.25 | 1.00 | see (1) |
-| ineffective-effort | 0.27 | 0.96 | was 0.57 two rounds ago; see (2) |
-| flow-starvation | 0.15 | 0.97 | FS scenario itself is fully detected; the DT scenario's 0.38 s breaths are not; see (4) |
+## M6: what is left (UI wiring, badges, AI tile, injector panel, fix button, Validation page)
 
-Regressions in the final round and the exact cause, so the next session can undo or finish them:
+Nothing below exists yet. The design was settled by reading the M5 code; follow it unless the code disagrees.
 
-1. **Auto-trigger.** Cardiac AT now needs `f.cardiacRegular` (positive zero crossings of the centered-moving-
-   average flow residual over the 5 s before the trigger, ≥ 3 crossings, period 0.4–1.25 s, CV < 0.35) with
-   amplitude ≥ `DET_AT_CARDIAC_OSC` (1.0 L/min on the smoothed residual; measured 1.4–1.5 in the AT scenario)
-   and pre-trigger flow rise < 12 L/min. Dumps show AT breaths at co 1.4–1.5 with the regular flag set, so the
-   remaining misses are the two ATs right after cycle-off (te 0.53) and the fr/noDip gate; check with
-   `dump-features.ts auto-trigger`. Leak-type AT uses `preFlowFloor > 0.5 L/min` (flow never below zero in the
-   0.5 s before the trigger) and currently catches 0 of 24 leak-scenario breaths: the leak scenario's breaths
-   have Te ≈ 2.5 s because the leak baseline (+5 L/min at PEEP 5) only appears once expiratory flow has decayed;
-   trace with `trace.ts leak-psv 13.2 15.8` showed flow still −1 L/min at 14.9 s, i.e. the vent-side flow does
-   not settle at +leak. Investigate why (leak solve? volume reset?) before tuning the rule.
-2. **Ineffective effort.** Notch Paw dips are now read on a 0.1 s moving average (raw minima were noise-biased
-   by ~0.4 cmH2O, which produced cardiac/secretion false positives). The COPD scenario's weak efforts
-   (Pmax 5, R 22) give deflections of 3–7 L/min above the extrapolated decay with smoothed dips ≈ 0.2–0.3, so
-   `DET_IE_FDEF_WITH_PDEF` 3 L/min + `DET_IE_PDEF_SMOOTH` 0.3 misses about half. Either lower the smoothed Pdef
-   to 0.2 (check secretions/cardiac FPs in the report) or add a slope feature (rate of the deflection). Also
-   confirm the notch "crest stall" logic (peak search stops after 0.1 s without a rise) did what was intended:
-   rises in the IE scenario should be ≈ 10–13 L/min, not 3–7.
-3. **Premature cycling.** `DET_PREM_NOTCH` was raised 5 → 8 → 10 L/min and now needs a smoothed Paw dip ≥ 0.25
-   (`DET_PREM_NOTCH_PDEF`) to stop cardiac notches; the fibrosis premature scenario lost 18 of 108 (fn11/fn7).
-   Check whether those breaths' notches fail on the dip or the rise, and whether `earlyReturn`
-   (`returnRatio < 0.55` with `expReturnTime < 1 s`) should carry them.
-4. **Flow starvation.** Truth = PTP of Pmus during a VC inspiration ≥ 1 cmH2O·s. Detector = concavity ≥ 1, ramp
-   min < PEEP + 0.5, or `ptpDeficit ≥ 1` against a passive prediction (set PEEP + R_ref·Q + V/C_pass with R_ref =
-   running max of the resistive-step R, C_pass = τe,max/R_ref, trapped volume from the previous breath). In the
-   double-trigger scenario every breath starts with an active effort, so the step R is itself depressed and the
-   prediction is too low; there is no passive reference. Decide: accept and document (short-Ti FS is invisible
-   without a passive breath), score FS only on scenarios with a passive reference, or find a better reference.
-5. **High resistance** (non-core): the step-R rule now requires end-expiratory flow > −3 L/min (auto-PEEP inflates
-   the step); the bronchospasm scenario's eef is exactly −3, so it now misses. Use −5 or the auto-PEEP label.
-6. **Leak** (non-core): ΣVte/ΣVti over 8 breaths < 0.85 still fires in the fibrosis premature scenario (0.71–0.83);
-   the stacked-pair accounting there is asymmetric (`evidence.ts premature-cycling leak`).
+1. **Protocol additions** (`src/worker/protocol.ts`, `src/worker/session.ts`): `PatientSummary.rTotal` (use
+   `totalResistance(m)` from the labeler) and `SessionStatus.rScale`/`eScale` (last entry of
+   `engine.injectors.log`). Both are needed by `contextFromSettings` for the main-thread labeler.
+2. **Controller** (`src/app/controller.ts`): keep `settingsLog: Array<{t, settings}>` (push on `ready` and on
+   every `status` whose settings object changed) and `injectorLog: InjectorLogEntry[]` (from
+   `status.injectors/rScale/eScale`). Add `labels: Map<number, { truth: BreathLabel; det: DetectedBreath }>`,
+   `ieEvents`, `ai: AsynchronyIndex | null`. In `onBreathClosed` schedule one analysis pass (setTimeout 0 or
+   `requestIdleCallback`, never inside rAF) that builds a `LabelInput` over the StreamStore (`read` →
+   `store.read`, `indexAt`, `breaths: store.breaths` closed only, `neural: store.neural`, `events:
+   store.events`, `ctxAt` via `contextFromSettings(settingsAt(t), injectorAt(t), {rTotal, el, ecw})`,
+   `tEnd: store.tLatest`, `hasDrive: patient.hasDrive`) and a `DetectorInput` (`reader = {n: store.length,
+   fs, read: store.read for the 5 measured keys, indexAt}`, `breaths: store.breaths.map(measuredBreath)`,
+   `events`, `ctxAt: deviceContext(settingsAt(t))`), runs `labelBreaths` and `detect`, and computes
+   `asynchronyIndex(labels, tLatest − 180, tLatest)` (the store holds 120 s; say "last 2 min" in the UI).
+   Cost is ≈ 50–100 ms for 40 breaths; if a frame is dropped, limit the pass to the last 60 s of breaths.
+3. **Badges** (`src/ui/waveform-draw.ts`, `WaveformCanvas.tsx`): replace `badgeText(trigger, cycle)` with
+   pattern badges from `ctl.labels` (short codes IE, DT, AT, PC, DC, FS, RT, AP, LK, SC, HR, LC, OV, CG,
+   colour per pattern; keep the trigger letter when no pattern). When the truth layer is on draw a second
+   badge row with the truth labels (double `BADGE_STRIP`). In `onMove`, when `y < BADGE_STRIP`, hit-test the
+   badge under `x` and show the evidence strings in the readout.
+4. **AI tile** (`MonitorPanel.tsx`): tile `AI` = `ai.ai.toFixed(0)%`, unit `events/cycles`, red class when
+   `severe`, plus an "IE cluster" flag when `cluster`; `data-testid="mon-AI"`.
+5. **Injector panel** (`src/ui/InjectorPanel.tsx`): eight checkboxes bound to `status.injectors`; toggling
+   sends `ctl.worker.inject(kind, on ? {} : null)` (`Injectors.set` merges partial params with defaults);
+   `data-testid="inj-<kind>"`.
+6. **Apply suggested fix** (scenario-info in `App.tsx`): when `scenario.fix` exists show the note and a
+   button `data-testid="apply-fix"` calling `ctl.applyFix(fix)` = `applySettings(fix.settings)`,
+   `worker.setPatient(fix.drive)` (`entrainment: null` is a valid partial), and `worker.inject(kind, value ?? null)`
+   for each key of `fix.injectors`.
+7. **Validation page** (`src/ui/ValidationPage.tsx`, rendered by `App` when `location.hash === '#validation'`):
+   move `runEmergence` from `tests/scenarios/emergence.test.ts` to `src/detector/validation.ts` (the test
+   imports it from there). `scripts/validation-snapshot.ts` writes `src/validation/snapshot.json`
+   `{generatedAt, commit, emergence: EmergenceRow[], heldOut: PatternScore[] (without byCase), tuning: same,
+   vitest: {passed, files}}`; the page renders the snapshot on first paint (emergence matrix table, one
+   confusion matrix per core pattern with sens/spec vs target, the analytic test list) and a "Recompute in
+   this browser" button that runs the same functions in `src/worker/validation.worker.ts`, streaming rows.
+8. **Playwright** (`tests/e2e/m6.spec.ts`): badges (load `ineffective-effort` at 4×, wait ≈ 40 s sim, expect
+   `window.__ventsim.ctl.labels` to hold a detector `ineffective-effort` or `delayed-cycling`, hover the badge
+   strip and expect evidence text in the readout), AI tile (`double-trigger` scenario → `mon-AI` > 10 %),
+   injector toggle (`inj-leak` → `status.injectors` contains `leak` within 2 s and the Leak tile rises),
+   Validation page (`/#validation` → ≥ 14 emergence rows, 7 confusion matrices). Keep `load.spec.ts`'s
+   < 8 ms/frame budget green.
+9. Then: PROGRESS M6 final entry with screenshots (`docs/screenshots/m6-*.png` via Playwright), DECISIONS
+   entry if anything deviates, commit, `git push`, and on to M7.
 
-Working method that paid off: change one rule, run `npx tsx scripts/tune-detector.ts` (≈ 20 s), and look at
-`dump-features.ts` for the offending scenario before touching thresholds. Never tune on the held-out grid.
+## M7 pointers
 
-### Not started in M6
-
-- UI: pattern badges above breaths (detector label; truth label when the truth layer is on), AI% tile and
-  cluster flag, an injector panel (toggle leak/cardiac/secretions/water/cough/pneumothorax/mainstem/
-  bronchospasm live via `worker.inject`), an "apply suggested fix" button (`ScenarioFix` → `applySettings`,
-  `setPatient`, `inject`), and `ValidationPage.tsx` behind `#validation` showing the emergence matrix
-  (`runEmergence`) and per-pattern confusion matrices (`scoreGrid(runGrid(HELD_OUT_GRID))`), run in a worker
-  with a static JSON snapshot generated by a script for the first paint.
-- The controller must run the labeler and detector on the main thread from the StreamStore on each closed
-  breath (`labelBreaths` / `detect` with readers over the store; settings and injector timelines come from the
-  status messages, `SessionStatus.injectors`).
-- PROGRESS/DECISIONS entries for M6, screenshots, commit, deploy.
+Spec §4 (recruitable-population lung, CO2 loop with time warp), §5 (R/I, decremental PEEP trial, stress
+index), §6 (mechanical power). Files expected are in the PROGRESS.md plan table (M7 row). TDD for everything
+in `src/sim`: write `tests/physics/{recruitment,stress-index,ri,co2}.test.ts` first. The dashboard rows for
+PMI, stress index and R/I are placeholders waiting for these maneuvers (`LungStressDashboard.tsx`), and
+`SimSession.requestManeuver` has `ri`/`peep-trial` stubs.
 
 ## Architecture as built (src/)
 
@@ -128,16 +120,19 @@ Working method that paid off: change one rule, run `npx tsx scripts/tune-detecto
   breaths, events, maneuvers, neural breaths, `settingsLog`, `injectorLog`, mechanics summary.
 - `sim/patient/` — `params.ts`, `presets.ts` (8 phenotypes), `recoil.ts`, `airway-node.ts`, `patient.ts`
   (`PatientDrive` incl. `eScale`), `neural-drive.ts` (`setParams`), `balloon.ts`.
-- `sim/vent/` — `settings.ts`, `ventilator.ts` (FSM, holds incl. effort-interrupted exp hold D-009, occlusions,
-  alarms, `pendingKeys`, `settingsLog`), `sensor-chain.ts`.
-- `sim/injectors/index.ts` — see above. `sim/truth/labeler.ts`, `sim/truth/lung-stress.ts`.
-- `monitor/monitor.ts` (measured only), `monitor/bands.ts` (Brief 2 §6 bands, power surrogates).
-- `detector/` — see above. `edu/scenarios/` — 20 JSON + `index.ts`.
+- `sim/vent/` — `settings.ts`, `ventilator.ts` (FSM, holds, occlusions, alarms, `pendingKeys`, `settingsLog`),
+  `sensor-chain.ts`.
+- `sim/injectors/index.ts` — leak, cardiac, secretions, water, cough, pneumothorax, mainstem, bronchospasm;
+  `log: InjectorLogEntry[]`, `activeKinds()`. `sim/truth/labeler.ts` (`labelBreaths`, `labelRun`,
+  `asynchronyIndex`, `contextFromSettings`, `totalResistance`), `sim/truth/lung-stress.ts`.
+- `monitor/monitor.ts` (measured only), `monitor/bands.ts`.
+- `detector/` — see above. `edu/scenarios/` — 20 JSON + `index.ts` (`ScenarioFix`, `applyFix`,
+  `scenarioSchedule`, `scenarioInjectorList`).
 - `worker/session.ts` (pure core), `worker/sim.worker.ts`, `worker/protocol.ts` (`inject`, `setPatient`,
   `SessionStatus.injectors`).
-- `app/controller.ts`, `app/StreamStore.ts`, `app/WorkerClient.ts` (`inject`, `setPatient`), `app/App.tsx`.
-- `ui/` — waveform/loop canvases, panels (M5). `config/constants.ts` — every constant cited (`DET_*`, `LABEL_*`
-  added in M6).
+- `app/controller.ts`, `app/StreamStore.ts` (120 s ring buffers, breath/event/neural tables),
+  `app/WorkerClient.ts`, `app/App.tsx`.
+- `ui/` — waveform/loop canvases, panels (M5). `config/constants.ts` — every constant cited (`DET_*`, `LABEL_*`).
 
 ## Conventions that matter
 
@@ -146,11 +141,30 @@ Working method that paid off: change one rule, run `npx tsx scripts/tune-detecto
 - Constants: no magic numbers; add to `constants.ts` with a source tag before using.
 - Tests first for physics/detector; never loosen a threshold without a DECISIONS entry.
 - Truth labels define the scoring; when the detector and truth disagree on a definition, fix the definition in
-  `DECISIONS.md` (see D-011 for the ones already settled) rather than bending the rule.
+  `DECISIONS.md` (D-011, D-012) rather than bending the rule; add the clinical question to `QUESTIONS.md`.
 - `scripts/dev/` is git-ignored scratch space; `scripts/tune-detector.ts` is tracked.
 
-## Open clinical questions
+## Prompt for the next session
 
-`docs/QUESTIONS.md` is still empty. Candidates from M6 worth the owner's view: whether flow starvation on very
-short VC breaths (Ti < 0.4 s) should count as detectable at the bedside, and whether COPD on PSV with ETS 35%
-should be labeled delayed cycling when the neural Ti happens to be long.
+> Continue building VentSim in this repo (main branch). Read docs/HANDOFF.md first (especially "M6: what is
+> left"), then PROGRESS.md and docs/DECISIONS.md (D-001…D-012). The goal and non-negotiables are in
+> docs/FABLE_GOAL_PROMPT.md; the spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md.
+>
+> State: M0–M5 done. M6 detector is finished and committed: §9.5 met on the held-out grid (delayed cycling
+> 0.84 against 0.85, documented in D-012/LIMITATIONS/Q-2, accepted floor 0.80 in the test); Vitest 122/122
+> with the held-out suite un-gated; lint clean; Playwright 8/8. Do not re-tune the detector unless a UI test
+> exposes a bug; never tune on the held-out grid.
+>
+> Task 1 — finish M6's UI exactly as listed in HANDOFF "M6: what is left" items 1–9: protocol additions,
+> main-thread labeler + detector from the StreamStore on each closed breath (off the animation frame),
+> pattern badges with evidence on hover (truth row when the truth layer is on), AI% tile with the cluster
+> flag, injector panel (eight injectors via worker.inject), "apply suggested fix" from ScenarioFix,
+> ValidationPage behind #validation (emergence matrix + per-pattern confusion matrices from a static JSON
+> snapshot generated by a script, recomputable in a worker), Playwright coverage for badges, AI tile,
+> injector toggle and the Validation page. Keep 60 fps (load.spec.ts asserts < 8 ms/frame). Then update
+> PROGRESS.md (M6 final entry with numbers and screenshots) and DECISIONS.md, commit, push.
+>
+> Task 2 — M7 per the spec: recruitable-population lung, decremental PEEP trial, stress index, R/I,
+> mechanical power, CO2 loop with time warp. TDD for everything in src/sim (tests/physics first). Update
+> the dashboard placeholders, PROGRESS, DECISIONS, commit, push. When you reach a good place around 50%
+> context, update docs/HANDOFF.md and write the next prompt into it.
