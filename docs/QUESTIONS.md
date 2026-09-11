@@ -52,3 +52,11 @@ The brief gives a normal ventilatory response of 1–3 L/min/mmHg. The loop uses
 warped loop oscillate between apnea and hyperpnoea in the under-assist scenario. **Default:** the low gain
 with warp ×10 in the two CO2 scenarios. Alternative: a gain in the brief's range with the warp capped at ×5, or
 a gain that the instructor sets per scenario (the `gas` block already accepts `gainPmax`/`gainRate`).
+
+## Owner decisions (2026-09-11, second round)
+
+Q-4 and Q-5: **keep the defaults** (owner decision). The recruiter scenario stays anchored to the Gattinoni
+chest wall with the recruitable fraction 0.4 (measured R/I ≈ 0.35–0.4; the 0.5 cutoff remains the cited
+teaching threshold and the truth layer shows the recruited volume), and the CO2 → drive gains stay at
+0.06/0.03 per mmHg with warp ×10 in the CO2 scenarios. D-014 and the tests in `tests/physics/{ri,co2}.test.ts`
+pin both; do not reopen without a new clinical reason.

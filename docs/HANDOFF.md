@@ -74,8 +74,7 @@ pushed on `main`; **live at https://vent-sim.netlify.app/** (every push to `main
 All spec milestones are built and the definition of done is walked item by item in `PROGRESS.md` (M9).
 Remaining items are owner decisions and optional extensions:
 
-1. **Owner questions** `docs/QUESTIONS.md` Q-4 (re-anchor the recruiter phenotype so the single-breath R/I
-   reads ≥ 0.5?) and Q-5 (CO2 → drive gain vs warp stability). Both have defaults in place.
+1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
    signal-only idea appears; never tune on the held-out grid.
 3. **Alias** `tomnahass.com/vent-sim/`: add the two `_redirects` lines from README to the personal site and
@@ -144,15 +143,16 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > Continue VentSim in this repo (main branch, clean tree). Read docs/HANDOFF.md first, then PROGRESS.md (the
 > M9 definition-of-done walkthrough) and docs/DECISIONS.md (D-001…D-015). The goal and non-negotiables are
 > in docs/FABLE_GOAL_PROMPT.md; the spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md. The owner
-> has answered docs/QUESTIONS.md Q-1…Q-3 (keep the defaults); Q-4 and Q-5 are open.
+> has answered docs/QUESTIONS.md Q-1…Q-5: keep the defaults; do not reopen them.
 >
 > State: M0–M9 done and deployed at https://vent-sim.netlify.app/. Vitest 180/180 (held-out detector suite
 > un-gated), lint clean, Playwright 25/25, build clean. Do not revisit finished milestones except to fix a
 > bug; never tune the detector on the held-out grid; regenerate src/validation/snapshot.json after any
 > scenario change and the MODEL.md constants table after any constants change.
 >
-> Task — work through HANDOFF "What is left (post-M9)" in order, applying any owner answers to Q-4/Q-5
-> first (each answer is a DECISIONS entry plus the tests that pin it), then the optional extensions the
-> owner picks; keep tests first, constants cited, docs current, and update PROGRESS.md, commit, push and
-> check the live site after each piece. When you reach a good place around 50 % context, update
+> Task — work through HANDOFF "What is left (post-M9)" items 3–4 in order: verify the tomnahass.com/vent-sim/
+> alias once the redirect is in place, then the optional extensions (scenario-specific quiz extras, a
+> "find all the problems" capstone scenario with several injectors, the schematic SpO2 stretch goal clearly
+> labelled as such, live Ecw/EL instructor control); keep tests first, constants cited, docs current, and
+> update PROGRESS.md, commit, push and check the live site after each piece. When you reach a good place around 50 % context, update
 > docs/HANDOFF.md and write the next prompt into it.
