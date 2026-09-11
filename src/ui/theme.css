@@ -731,6 +731,10 @@ tr.band-danger .metric-value {
   gap: 4px 8px;
   margin: 4px 0;
 }
+.instructor-body .quizview input[type='text'] {
+  width: 100%;
+  font-size: 11px;
+}
 .instructor-body input[type='number'] {
   width: 64px;
 }

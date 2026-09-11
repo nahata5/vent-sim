@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import type { SessionController } from '../app/controller';
 import type { ScenarioDef } from '../edu/scenarios';
 import { downloadBytes } from '../export/download';
+import { QUIZ_HIDE_KEYS, QUIZ_HIDE_LABELS, bedsideHide, quizLink, type QuizHideKey } from '../edu/quiz-view';
 
 interface Props {
   ctl: SessionController;
@@ -44,6 +45,7 @@ export function InstructorPanel({ ctl }: Props) {
   const [msg, setMsg] = useState('');
   const co2 = ctl.status?.co2 ?? null;
   const currentJson = () => JSON.stringify(ctl.scenario ?? {}, null, 2);
+  const link = quizLink(ctl.scenario?.id ?? '', ctl.view.quizHide, `${location.origin}${location.pathname}`);
   return (
     <section class="panel instructor" aria-label="Instructor mode" data-testid="instructor-panel">
       <h2>
@@ -136,6 +138,50 @@ export function InstructorPanel({ ctl }: Props) {
               </button>
             </div>
           )}
+          <div class="row quizview" data-testid="quizview">
+            <b>Quiz view</b>
+            <span class="muted">Hidden from the learner while a quiz runs (or while a quiz link is locked):</span>
+            {QUIZ_HIDE_KEYS.map((key) => (
+              <label class="inline" key={key} title={QUIZ_HIDE_LABELS[key]}>
+                <input
+                  type="checkbox"
+                  checked={ctl.view.quizHide.has(key)}
+                  onChange={(e) => {
+                    const next = new Set<QuizHideKey>(ctl.view.quizHide);
+                    if (e.currentTarget.checked) next.add(key);
+                    else next.delete(key);
+                    ctl.setQuizHide(next);
+                  }}
+                  data-testid={`quizview-${key}`}
+                />
+                <span>{key}</span>
+              </label>
+            ))}
+            <button type="button" onClick={() => ctl.setQuizHide(bedsideHide())} data-testid="quizview-bedside">
+              Bedside
+            </button>
+            <button type="button" onClick={() => ctl.setQuizHide([])} data-testid="quizview-none">
+              Show all
+            </button>
+            <input type="text" readOnly value={link} aria-label="Locked quiz link" data-testid="quizview-link" onFocus={(e) => e.currentTarget.select()} />
+            <button
+              type="button"
+              onClick={() => {
+                const clip = navigator.clipboard;
+                if (!clip) {
+                  setMsg('copy blocked: select the link field and copy it');
+                  return;
+                }
+                void clip
+                  .writeText(link)
+                  .then(() => setMsg('quiz link copied'))
+                  .catch(() => setMsg('copy blocked: select the link field and copy it'));
+              }}
+              data-testid="quizview-copy"
+            >
+              Copy quiz link
+            </button>
+          </div>
           <div class="row editor">
             <b>Scenario editor</b>
             <textarea value={json} onInput={(e) => setJson(e.currentTarget.value)} placeholder="Scenario JSON (load current to start)" rows={8} data-testid="instr-json" spellcheck={false} />

@@ -64,6 +64,31 @@ test('bedside quiz link: locked view hides the source material, the debrief reve
   expect(stored).toContain('"debrief"');
 });
 
+test('instructor: quiz view checkboxes set the hide set and the link is copyable', async ({ page }) => {
+  await page.goto('/#ineffective-effort');
+  await fast(page);
+  await page.getByTestId('instructor-toggle').click();
+  await page.getByTestId('quizview-truth').check();
+  await page.getByTestId('quizview-pes').check();
+  expect(await page.evaluate(() => [...(window.__ventsim?.ctl.view.quizHide ?? [])].sort())).toEqual(['pes', 'truth']);
+  await expect(page.getByTestId('quizview-link')).toHaveValue(/#ineffective-effort\?quiz=truth,pes$/);
+  // Outside a quiz the hide set has no effect.
+  await expect(page.getByTestId('truth-toggle')).toBeEnabled();
+  await expect(page.getByTestId('dashboard')).toBeVisible();
+  await page.getByTestId('quizview-bedside').click();
+  expect(await page.evaluate(() => window.__ventsim?.ctl.view.quizHide.size)).toBe(6);
+  await expect(page.getByTestId('quizview-link')).toHaveValue(/\?quiz=bedside$/);
+  // During a quiz the set applies: start one and check the dashboard is gone.
+  await waitForSim(page, 21);
+  await page.getByTestId('tab-quiz').click();
+  await page.getByTestId('quiz-start').click();
+  await expect(page.getByTestId('dashboard')).toHaveCount(0);
+  await expect(page.getByTestId('truth-toggle')).toBeDisabled();
+  // Not locked: the instructor panel is still there and the picker enabled.
+  await expect(page.getByTestId('instructor-panel')).toBeVisible();
+  await expect(page.getByTestId('scenario-select')).toBeEnabled();
+});
+
 test('plain scenario hash: nothing hidden, not locked (existing behaviour)', async ({ page }) => {
   await page.goto('/#ineffective-effort');
   await fast(page);
