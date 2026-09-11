@@ -27,3 +27,9 @@ In PC-AC at a set rate close to the patient's, an effort sometimes begins within
 breath. **Default:** the effort is assisted (not ineffective, not a reverse trigger), and the breath is a
 delayed trigger when it started more than 0.25 s after the effort onset. Alternative: count it as
 ineffective (the patient did not trigger) and as a synchrony failure in the asynchrony index.
+
+## Owner decisions (2026-09-11)
+
+Q-1, Q-2 and Q-3: **keep the defaults** (owner decision). The truth rules, the detector, the scoring domain
+and the test floors stay as documented in D-011, D-012 and LIMITATIONS.md; do not reopen these without a
+new clinical reason.
