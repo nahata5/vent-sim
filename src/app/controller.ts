@@ -579,7 +579,10 @@ export class SessionController {
 
   /** Apply a scenario's scripted fix: settings, drive and injector changes, as the emergence test does. */
   applyFix(fix: ScenarioFix): void {
-    if (fix.settings) this.worker.applySettings(fix.settings);
+    if (fix.settings) {
+      this.settingChanges += 1;
+      this.worker.applySettings(fix.settings);
+    }
     if (fix.drive) this.worker.setPatient(fix.drive);
     if (fix.injectors) {
       for (const kind of INJECTOR_KINDS) {

@@ -696,3 +696,13 @@ tr.band-danger .metric-value {
   gap: 4px 8px;
   margin: 4px 0;
 }
+
+/* ── M9: focus visibility (keyboard operability) ── */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid #4fc3f7;
+  outline-offset: 2px;
+}

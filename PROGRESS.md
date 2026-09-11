@@ -402,3 +402,47 @@ and schema; batch zip of 2 seeds with manifest). Render budget unchanged.
 
 **Known issues:** see LIMITATIONS "Education layer and export" (quiz extras not defined per scenario, 120 s
 signal window in the session CSV, EL/Ecw changes restart the scenario).
+
+### M9 — Hardening: docs, determinism and performance tests, accessibility (2026-09-11)
+
+**Built:** `README.md` (what it does, run/test/build/batch, using the app, docs table, architecture tree,
+hosting); `docs/MODEL.md` (every equation with symbols, units and sources: loop, two-compartment mechanics,
+airway node and leak, Venegas and recruitable recoil, muscles and force–velocity, entrainment, CO2 loop,
+balloon, ventilator FSM/servo/trigger/cycling/alarms/sensor chain, every maneuver, monitor and power
+formulas, the truth-rule table, the detector summary, and a constants table of all 251 constants generated
+by `scripts/model-constants.ts`); `docs/VALIDATION.md` (spec §9.1–9.8 with the covering tests and the
+current numbers, plus the M7/M8 suites); `tests/physics/determinism.test.ts` (every scenario byte-identical
+across engines; labels, maneuvers and the CO2 log repeat; the worker session equals the headless stream for
+any chunking; a different seed differs); `tests/physics/performance.test.ts` (heaviest scenarios ≥ 50× real
+time); accessibility: `tests/e2e/a11y.spec.ts` with `@axe-core/playwright` (no serious or critical WCAG 2A/AA
+violations on the main page with the quiz open and on the Validation page; keyboard reach of the drawer
+tabs and maneuver buttons; the alarm bar is an `aria-live` region), `:focus-visible` outlines in
+`theme.css`; the Validation page shows the app version and links to MODEL/VALIDATION/LIMITATIONS; applying
+a scenario's suggested fix now counts as a setting change in the quiz.
+
+**Tests:** Vitest 180/180 (30 files); Playwright 25/25 (+ 6 screenshot tests behind `SCREENSHOTS=1`); lint
+clean; build clean. Live at https://vent-sim.netlify.app/.
+
+**Definition of done (`docs/FABLE_GOAL_PROMPT.md`), item by item:**
+
+1. Spec §9 green in CI — analytic (`analytic.test.ts` 7/7), partition (`partition.test.ts` 8/8 plus
+   recruitment and stress index), effort calibration (`effort-calibration.test.ts`: k1 −0.736, k2 0.62–0.64),
+   emergence matrix for every scenario with targets (`emergence.test.ts` 15/15, fixes bring AI < 10 % within
+   60 s), detector targets on the held-out grid (`heldout.test.ts`: all core patterns above target except
+   delayed cycling 0.84 vs 0.85 with the accepted 0.80 floor documented in D-012 and LIMITATIONS; reverse
+   trigger 0.85/1.00), determinism (`determinism.test.ts`, `session.test.ts`), performance
+   (`performance.test.ts` ≥ 50×; `load.spec.ts` < 8 ms/frame), Playwright smoke and feature tests (25).
+2. In-app Validation page — `#validation`: physics suite list, emergence matrix, per-pattern confusion
+   matrices against the §9.5 targets from the snapshot, recompute in the browser, links to the docs.
+3. Deployed at a public static URL — https://vent-sim.netlify.app/ (D-008; Pages was blocked by the
+   account's custom domain), redeploys on every push.
+4. Docs — README.md, docs/MODEL.md, docs/VALIDATION.md, docs/DECISIONS.md (D-001…D-015),
+   docs/LIMITATIONS.md (incl. schematic/absent SpO2, single-store CO2, R/I limits, education/export limits).
+5. Clinician walkthrough — load any of the 24 scenarios, see the badges labelled live with evidence on
+   hover, click a badge for the explain card with case-specific evidence, toggle the truth layer for Ppl,
+   Pes, PL (by region) and Pmus with the extra loops, change and confirm settings or apply the suggested fix
+   and watch the AI tile and the lung-stress bands respond (`m6.spec.ts`, `quiz.spec.ts`, `m7.spec.ts`).
+
+**Open items for the owner:** Q-4 (should the recruiter phenotype be re-anchored to read R/I ≥ 0.5) and
+Q-5 (CO2 → drive gain vs warp stability); the `tomnahass.com/vent-sim/` proxy alias is unverified until the
+personal site carries the redirect rule.

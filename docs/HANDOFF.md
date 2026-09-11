@@ -1,17 +1,19 @@
 # Handoff — VentSim build state
 
-Updated 2026-09-11 (M8 complete), for a fresh session continuing the goal in `docs/FABLE_GOAL_PROMPT.md`.
+Updated 2026-09-11 (M9 complete: all milestones done), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
 1. `docs/FABLE_GOAL_PROMPT.md` — the goal, non-negotiables, definition of done.
 2. `docs/superpowers/specs/2026-09-10-vent-sim-design.md` — the spec (§7 pattern catalog, §8 education, §9
    validation, §10 export, §12 milestones).
-3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers).
+3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers, the M9
+   definition-of-done walkthrough).
 4. `docs/DECISIONS.md` — D-001…D-015; D-012 is the detector's measurement basis, D-014 the M7 physics
    (recruited gas, R/I limits, CO2 loop gains, the settings-log bug), D-015 the education/export choices.
 5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-5; Q-1…Q-3 answered: keep the defaults).
-6. This file's "M9: what is left" before touching anything.
+6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md` — the user-facing docs (M9).
+7. This file's "What is left" before touching anything.
 
 ## Where things stand
 
@@ -20,10 +22,10 @@ Updated 2026-09-11 (M8 complete), for a fresh session continuing the goal in `do
 | M0–M6 | done (scaffold, physics, ventilator, effort, live UI, labeler, injectors, detector, Validation page) |
 | M7 | **done**: recruitable-population lung with real recruited gas, stress index, R/I, decremental PEEP trial, Gattinoni full power, CO2 → drive loop with time warp, truth recruitment readouts, 4 new scenarios, Playwright |
 | M8 | **done**: explain cards with case evidence, quiz (identify → fix → score), instructor mode with a scenario editor, progress in localStorage, session CSV/JSON, batch zip (worker + `scripts/batch.ts`) |
-| M9 | not started (hardening: performance, accessibility, README, MODEL.md, VALIDATION.md, limitations) |
+| M9 | **done**: README, MODEL.md (equations + 251-constant table via `scripts/model-constants.ts`), VALIDATION.md, determinism and performance tests, axe accessibility pass, keyboard/focus, Validation page links; definition-of-done walked in PROGRESS |
 
-`npm test` → 175 passed, 28 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
-→ 22/22 (+ 6 screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and
+`npm test` → 180 passed, 30 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
+→ 25/25 (+ 6 screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and
 pushed on `main`; **live at https://vent-sim.netlify.app/** (every push to `main` redeploys).
 
 ## M7 as built (map of the code)
@@ -67,33 +69,24 @@ pushed on `main`; **live at https://vent-sim.netlify.app/** (every push to `main
 - App drawer tabs (`tab-scenario|explain|quiz|export`, `ctl.view.drawerTab`).
 - Tests: `tests/unit/{cards,quiz,quiz-session,progress,export}.test.ts`, `tests/e2e/{quiz,export}.spec.ts`.
 
-## M9: what is left
+## What is left (post-M9)
 
-Spec §12 M9: hardening — performance, accessibility, docs (README, MODEL.md with equations and citations,
-VALIDATION.md, DECISIONS.md, known limitations), and every §9 item green. Concretely:
+All spec milestones are built and the definition of done is walked item by item in `PROGRESS.md` (M9).
+Remaining items are owner decisions and optional extensions:
 
-1. **Docs**: `README.md` (run, build, deploy, architecture, the scenario library, the quiz, exports; the
-   Netlify URL and the `tomnahass.com/vent-sim/` proxy note), `docs/MODEL.md` (every equation with symbols,
-   units and citations: two-compartment mechanics, chest wall and pleural gradient, Venegas and recruitable
-   recoil (D-013/D-014), viscoelastic element, airway node and leak, Pmus generator with force–velocity,
-   entrainment, balloon, CO2 loop, ventilator FSM, sensor chain, maneuvers, monitor formulas, truth rules,
-   detector rules with thresholds, power formulas; generate the constants table from `listConstants()`),
-   `docs/VALIDATION.md` (§9 items with the test names and the current numbers: analytic, partition,
-   calibration, emergence matrix, held-out detector table, determinism, performance, e2e; how to regenerate
-   the snapshot), refresh `docs/LIMITATIONS.md` and add the SpO2 note.
-2. **Performance**: a `tests/physics/performance.test.ts` (headless ≥ 50× real time, 60 s in < 1.2 s; the
-   worker's 1× CPU share is already tiny) and `tests/physics/determinism.test.ts` (byte-identical streams for
-   the same seed across two engines and across chunked `SimSession.advance`; a determinism test exists in
-   `session.test.ts`, make the §9.6 one explicit). Keep `load.spec.ts` < 8 ms/frame.
-3. **Accessibility**: keyboard operability of every control (tabs are buttons; confirm the settings panel and
-   the injector checkboxes are reachable; add `aria-live` to the alarm bar), badge codes carry text
-   (already), colour never the only encoding (bands have text), focus styles in `theme.css`; run an axe pass
-   via Playwright (`@axe-core/playwright` is a dev dependency to add) on the main page and the validation
-   page and fix what it reports.
-4. **Validation page**: add the constants table and links to MODEL.md/VALIDATION.md; show the app version and
-   the snapshot commit.
-5. Final `PROGRESS.md` M9 entry, `HANDOFF.md`, commit, push, live check; then the definition-of-done checklist
-   in `docs/FABLE_GOAL_PROMPT.md` walked item by item with the evidence for each.
+1. **Owner questions** `docs/QUESTIONS.md` Q-4 (re-anchor the recruiter phenotype so the single-breath R/I
+   reads ≥ 0.5?) and Q-5 (CO2 → drive gain vs warp stability). Both have defaults in place.
+2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
+   signal-only idea appears; never tune on the held-out grid.
+3. **Alias** `tomnahass.com/vent-sim/`: add the two `_redirects` lines from README to the personal site and
+   verify.
+4. **Optional**: scenario-specific quiz extras (`ScenarioDef` field → `gradeFix` extras, e.g. PL,ee ≥ 0 for
+   the obesity scenario), SpO2 stretch goal (Spec §4.6, clearly schematic), a "find all the problems"
+   capstone scenario with several injectors, an instructor-side Ecw/EL live control (needs a patient
+   rebuild at the current volume), light theme for the panels (waveform screen stays dark), i18n.
+5. Keep the working method: tests first for anything in `src/sim`/`src/detector`/`src/edu` logic, constants
+   cited, deviations in DECISIONS, clinical questions in QUESTIONS, regenerate the snapshot after scenario or
+   detector changes, `SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts` for the docs.
 
 ## Hosting
 
@@ -148,18 +141,18 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 
 ## Prompt for the next session
 
-> Continue building VentSim in this repo (main branch, clean tree). Read docs/HANDOFF.md first, then
-> PROGRESS.md and docs/DECISIONS.md (D-001…D-015). The goal and non-negotiables are in
-> docs/FABLE_GOAL_PROMPT.md; the spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md. The owner has
-> answered docs/QUESTIONS.md Q-1…Q-3: keep the defaults; Q-4 and Q-5 are open, keep their defaults too.
+> Continue VentSim in this repo (main branch, clean tree). Read docs/HANDOFF.md first, then PROGRESS.md (the
+> M9 definition-of-done walkthrough) and docs/DECISIONS.md (D-001…D-015). The goal and non-negotiables are
+> in docs/FABLE_GOAL_PROMPT.md; the spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md. The owner
+> has answered docs/QUESTIONS.md Q-1…Q-3 (keep the defaults); Q-4 and Q-5 are open.
 >
-> State: M0–M8 done and deployed at https://vent-sim.netlify.app/. Vitest 175/175 (held-out detector suite
-> un-gated), lint clean, Playwright 22/22, build clean. Do not revisit M0–M8 except to fix a bug; never tune
-> the detector on the held-out grid; regenerate src/validation/snapshot.json after any scenario change.
+> State: M0–M9 done and deployed at https://vent-sim.netlify.app/. Vitest 180/180 (held-out detector suite
+> un-gated), lint clean, Playwright 25/25, build clean. Do not revisit finished milestones except to fix a
+> bug; never tune the detector on the held-out grid; regenerate src/validation/snapshot.json after any
+> scenario change and the MODEL.md constants table after any constants change.
 >
-> Task — M9 per the spec §12 and HANDOFF "M9: what is left": README.md, docs/MODEL.md (every equation with
-> symbols, units, citations, constants table), docs/VALIDATION.md (every §9 item with test names and current
-> numbers), LIMITATIONS refresh, explicit determinism and performance tests, accessibility pass (keyboard,
-> aria-live alarms, axe via Playwright), Validation page links; then walk the definition-of-done checklist in
-> docs/FABLE_GOAL_PROMPT.md with evidence per item. PROGRESS.md M9 entry, DECISIONS, commit, push, live check.
-> When you reach a good place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.
+> Task — work through HANDOFF "What is left (post-M9)" in order, applying any owner answers to Q-4/Q-5
+> first (each answer is a DECISIONS entry plus the tests that pin it), then the optional extensions the
+> owner picks; keep tests first, constants cited, docs current, and update PROGRESS.md, commit, push and
+> check the live site after each piece. When you reach a good place around 50 % context, update
+> docs/HANDOFF.md and write the next prompt into it.

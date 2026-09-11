@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import snapshotJson from '../validation/snapshot.json';
+import { APP_VERSION } from '../config/version';
 import type { EmergenceRow, PatternScoreSummary } from '../detector/validation';
 import { CORE_PATTERNS } from '../detector/scorer';
 import { PATTERN_CODES } from './waveform-draw';
@@ -102,7 +103,18 @@ export function ValidationPage() {
   return (
     <div class="validation" data-testid="validation-page">
       <p class="muted small">
-        {source} · <a href="#">back to the simulator</a>
+        {source} · app v{APP_VERSION} · <a href="#">back to the simulator</a> ·{' '}
+        <a href="https://github.com/nahata5/vent-sim/blob/main/docs/MODEL.md" target="_blank" rel="noreferrer">
+          MODEL.md
+        </a>{' '}
+        ·{' '}
+        <a href="https://github.com/nahata5/vent-sim/blob/main/docs/VALIDATION.md" target="_blank" rel="noreferrer">
+          VALIDATION.md
+        </a>{' '}
+        ·{' '}
+        <a href="https://github.com/nahata5/vent-sim/blob/main/docs/LIMITATIONS.md" target="_blank" rel="noreferrer">
+          LIMITATIONS.md
+        </a>
       </p>
       <section class="panel">
         <h2>Physics and calibration suites (Spec §9.1–9.3)</h2>
