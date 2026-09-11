@@ -1,0 +1,41 @@
+{
+  "id": "mainstem",
+  "order": 200,
+  "category": "injector",
+  "title": "Mainstem intubation: one lung ventilated",
+  "summary": "At 20 s the tube advances into a mainstem bronchus: compliance roughly halves and resistance rises. In VC both Ppeak and Pplat climb; in PC the tidal volume would fall at the same pressure.",
+  "phenotype": "normal",
+  "drive": null,
+  "injectors": {
+    "mainstem": {
+      "at": 20
+    }
+  },
+  "settings": {
+    "mode": "VC-AC",
+    "peep": 5,
+    "vt": 450,
+    "rr": 14,
+    "peakFlow": 50,
+    "pause": 0.3
+  },
+  "seed": 34,
+  "objectives": [
+    "Recognize a global compliance drop and think of tube position.",
+    "Pull the tube back (remove the injector) and watch compliance recover."
+  ],
+  "targetPatterns": [
+    "low-compliance"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Tube withdrawn to mid-trachea.",
+    "injectors": {
+      "mainstem": null
+    }
+  },
+  "criteria": {
+    "minFraction": 0.8,
+    "aiAfter": 10
+  }
+}

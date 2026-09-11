@@ -7,6 +7,9 @@ import { TRUTH_CHANNELS, type TruthChannel } from './channels';
 import type { BreathRecord, ManeuverResult, VentEvent } from './types';
 import type { PatientDrive } from './patient/patient';
 import type { NeuralBreath } from './patient/neural-drive';
+import type { VentSettings } from './vent/settings';
+import type { InjectorLogEntry } from './injectors';
+import { totalResistance } from './truth/labeler';
 
 export interface HeadlessOptions extends EngineOptions {
   duration: number; // s
@@ -28,6 +31,13 @@ export interface HeadlessResult {
   events: VentEvent[];
   maneuvers: ManeuverResult[];
   neuralBreaths: NeuralBreath[];
+  settingsLog: Array<{ t: number; settings: VentSettings }>;
+  injectorLog: InjectorLogEntry[];
+  pbw: number;
+  frc: number;
+  hasDrive: boolean;
+  /** Mechanics summary for the labeler's resistance/compliance truth rules. */
+  mechanics: { rTotal: number; el: number; ecw: number };
 }
 
 export function runHeadless(opts: HeadlessOptions): HeadlessResult {
@@ -75,5 +85,11 @@ export function runHeadless(opts: HeadlessOptions): HeadlessResult {
     events: engine.events,
     maneuvers: engine.maneuvers,
     neuralBreaths: engine.neuralBreaths,
+    settingsLog: engine.vent.settingsLog,
+    injectorLog: engine.injectors.log,
+    pbw: opts.patient.mechanics.pbw,
+    frc: opts.patient.mechanics.frc,
+    hasDrive: engine.neural !== null,
+    mechanics: { rTotal: totalResistance(opts.patient.mechanics), el: opts.patient.mechanics.el, ecw: opts.patient.mechanics.ecw },
   };
 }

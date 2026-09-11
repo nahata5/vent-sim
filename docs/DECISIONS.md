@@ -134,3 +134,32 @@ is the plateau. Tested in `tests/unit/ventilator.test.ts` ("expiratory hold in a
 - **Mechanical power surrogate.** VC uses Gattinoni simplified when a plateau exists, Giosa 2019 when it
   does not; PC/PSV use Becher simplified (Brief 2 §3). The truth value ∫Paw·dV and the lung power ∫PL·dV
   are shown next to it when the truth layer is on.
+
+## D-011 · M6 definitions settled between truth and detector (2026-09-11)
+
+- **Ineffective efforts are scored on expiratory efforts.** The §9.5 target follows Chen 2008 and BetterCare,
+  whose criteria are for ineffective efforts during expiration (IEE). Efforts that begin inside a machine
+  insufflation are still labeled by the truth (`EffortLabel.phase = 'insp'`) and by the detector when a flow
+  hump is visible, but they do not enter the confusion matrix (`scorer.ts`, `truthPositives`).
+- **High resistance / low compliance are physiologic states, not injector flags.** Truth: total inspiratory
+  resistance (preset × injector) ≥ 25 cmH2O/(L/s) (`LABEL_HIGH_R`; asthma and bronchospasm yes, COPD 22 no);
+  static Crs < 30 mL/cmH2O (`LABEL_LOW_C`, fibrosis) or lung elastance ≥ 1.3× the scenario baseline
+  (`LABEL_E_SCALE`, mainstem/pneumothorax). The detector estimates R from the inspiratory resistive step in VC
+  (the whole-breath fit mixes inspiratory and expiratory R) and C from the equation-of-motion fit only in
+  controlled modes on breaths without an asynchrony flag (effort corrupts the fit in PSV).
+- **Mainstem intubation starts at 20 s** (like the pneumothorax) so both the truth (elastance step) and the
+  detector (compliance drop vs its own baseline) see a change; a compliance of 41 mL/cmH2O from t = 0 in a
+  normal preset is not "low" by any absolute rule.
+- **Auto-PEEP truth uses the relaxed alveolar pressure**, Palv + Pmus_eff at the end of expiration, so a
+  continuous effort across stacked breaths does not hide trapped gas or fake a negative reading.
+- **Expiratory notches are measured against the extrapolated passive decay** (running-max τe), not against
+  the local minimum, so an effort riding on a fast decay (fibrosis) counts for its deflection only and a
+  monotonic decay toward zero never counts; a notch must fall back or reverse.
+- **Scenario design choices for detectability:** the reverse-trigger scenario uses Pmax 8 (Brief 1 §3.5: Pmax
+  3–15 selects the phenotype; 6 gave efforts that no bedside rule can see), the ineffective-effort scenario
+  uses rate 22 / Pmax 5 so the Tassaux-style fix (ETS 70%, PS 6, PEEP 5) resolves it within 60 s, and the
+  flow-starvation scenario's neural Ti (0.75 s) matches the machine Ti so it isolates flow starvation from
+  premature cycling; its fix is pressure support (a higher VC flow shortens Ti below the neural Ti and trades
+  starvation for premature cycling, which the emergence test caught).
+- **Expiratory holds abort on effort** (D-009) and **the held-out detector suite is gated** by `RUN_HELDOUT=1`
+  until §9.5 is met, so CI stays a truthful gate for what is finished.

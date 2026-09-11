@@ -73,6 +73,13 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
     case 'maneuver':
       session?.requestManeuver(msg.kind);
       break;
+    case 'inject':
+      session?.inject(msg.kind, msg.params);
+      postStatus();
+      break;
+    case 'setPatient':
+      session?.setDriveParams(msg.drive);
+      break;
     case 'setSpeed':
       speed = Math.min(4, Math.max(0.25, msg.speed));
       postStatus();

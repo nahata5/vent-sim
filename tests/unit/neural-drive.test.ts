@@ -4,6 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { NeuralDrive, defaultDriveParams, pmusWaveform } from '@sim/patient/neural-drive';
 import { createRng } from '@sim/math/prng';
+import { runHeadless } from '@sim/headless';
+import { defaultSettings } from '@sim/vent/settings';
+import { presetPatient } from '@sim/patient/presets';
 
 describe('Pmus waveform', () => {
   it('rises parabolically to Pmax at the end of neural Ti and relaxes exponentially', () => {
@@ -111,5 +114,29 @@ describe('NeuralDrive clock', () => {
       min = Math.min(min, d.pmusIso);
     }
     expect(min).toBeLessThan(-3);
+  });
+});
+
+describe('live drive changes (sedation / instructor controls)', () => {
+  it('setParams changes rate, Pmax and entrainment without restarting the clock', () => {
+    const patient = presetPatient('ards-pulmonary');
+    patient.drive = { ...defaultDriveParams(), rate: 10, ti: 0.9, pmax: 6, entrainment: { ratio: 1, delay: 0.4, jitter: 0.03 } };
+    const res = runHeadless({
+      patient,
+      settings: { ...defaultSettings('VC-AC'), peep: 10, vt: 420, peakFlow: 45, rr: 18 },
+      seed: 9,
+      duration: 90,
+      schedule: [{ t: 45, action: (e) => e.setDriveParams({ entrainment: null, rate: 20, pmax: 10 }) }],
+    });
+    const before = res.neuralBreaths.filter((b) => b.tOnset > 5 && b.tOnset < 45);
+    const after = res.neuralBreaths.filter((b) => b.tOnset > 50 && b.tOnset < 90);
+    expect(before.every((b) => b.entrained)).toBe(true);
+    expect(after.some((b) => b.entrained)).toBe(false);
+    expect(after.length / 40).toBeGreaterThan(16 / 60); // ≈ 20/min free-running
+    const pmaxAfter = after.reduce((s, b) => s + b.pmax, 0) / after.length;
+    expect(pmaxAfter).toBeGreaterThan(8.5);
+    // No neural breath is lost or duplicated around the change.
+    const onsets = res.neuralBreaths.map((b) => b.tOnset);
+    for (let i = 1; i < onsets.length; i++) expect((onsets[i] ?? 0) - (onsets[i - 1] ?? 0)).toBeGreaterThan(0.3);
   });
 });

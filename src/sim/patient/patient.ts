@@ -24,6 +24,8 @@ export interface PatientDrive {
   leak: ((paw: number) => number) | null;
   /** Multiplicative resistance modifier from injectors (1 = none). */
   rScale: number;
+  /** Multiplicative lung-elastance modifier from injectors (1 = none; mainstem ≈ 2, pneumothorax 1.5–2). */
+  eScale: number;
   /** Additive pleural offsets per compartment from injectors (e.g. pneumothorax), cmH2O. */
   pplExtra: [number, number];
   /** Force–velocity coefficient and reference flow for Pmus_eff (Spec §4.4). */
@@ -74,7 +76,7 @@ export class PatientModel {
   }
 
   static passiveDrive(): PatientDrive {
-    return { pmusIso: 0, pcard: 0, leak: null, rScale: 1, pplExtra: [0, 0], kFv: 0, qRef: 1 };
+    return { pmusIso: 0, pcard: 0, leak: null, rScale: 1, eScale: 1, pplExtra: [0, 0], kFv: 0, qRef: 1 };
   }
 
   get state(): Float64Array {
@@ -168,7 +170,9 @@ export class PatientModel {
     for (let i = 0; i < N; i++) {
       const c = this.comp[i] as CompartmentDerived;
       ppl[i] = pcwRec + c.g - c.alpha * pmus + drive.pcard + (drive.pplExtra[i] ?? 0);
-      pl[i] = c.pl0 + (this.recoil[i] as LungRecoil).pressure(vs[i] ?? 0) + (pve[i] ?? 0);
+      // Recoil is zero at V = 0 (D-003), so scaling it scales elastance around FRC and the static
+      // equilibrium at PEEP shifts down, as it does for a stiffer lung.
+      pl[i] = c.pl0 + drive.eScale * (this.recoil[i] as LungRecoil).pressure(vs[i] ?? 0) + (pve[i] ?? 0);
       palv[i] = (ppl[i] ?? 0) + (pl[i] ?? 0);
     }
 

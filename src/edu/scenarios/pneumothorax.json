@@ -1,0 +1,41 @@
+{
+  "id": "pneumothorax",
+  "order": 190,
+  "category": "injector",
+  "title": "Pneumothorax at 20 s: peak and plateau both rise",
+  "summary": "An abrupt fall in compliance with a pleural pressure offset: Ppeak and Pplat rise together, driving pressure rises, and in the truth layer pleural pressure jumps. Compare with bronchospasm.",
+  "phenotype": "normal",
+  "drive": null,
+  "injectors": {
+    "pneumothorax": {
+      "at": 20
+    }
+  },
+  "settings": {
+    "mode": "VC-AC",
+    "peep": 5,
+    "vt": 450,
+    "rr": 14,
+    "peakFlow": 50,
+    "pause": 0.3
+  },
+  "seed": 33,
+  "objectives": [
+    "Distinguish a compliance fall (both Ppeak and Pplat up) from a resistance rise (Ppeak only).",
+    "Chest drain (remove the injector) restores the baseline."
+  ],
+  "targetPatterns": [
+    "low-compliance"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Chest drain placed.",
+    "injectors": {
+      "pneumothorax": null
+    }
+  },
+  "criteria": {
+    "minFraction": 0.8,
+    "aiAfter": 10
+  }
+}

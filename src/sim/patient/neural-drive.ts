@@ -137,8 +137,20 @@ export class NeuralDrive {
     this.rateScale = rateScale;
   }
 
+  private tNow = 0;
+
+  /**
+   * Live parameter change (sedation slider, instructor controls, scripted fixes). Switching entrainment off
+   * restarts the free-running clock from now so the patient does not fire a burst of catch-up efforts.
+   */
   setParams(partial: Partial<DriveParams>): void {
+    const hadEntrainment = this.params.entrainment !== null;
     this.params = { ...this.params, ...partial };
+    if (hadEntrainment && this.params.entrainment === null) {
+      this.pendingEntrained = [];
+      this.lastPeriod = 60 / clamp(this.params.rate * this.rateScale, 4, 60);
+      this.tNextOnset = Math.max(this.tNextOnset, this.tNow + 0.5 * this.lastPeriod);
+    }
   }
 
   /** Machine breath start hook for entrainment. */
@@ -187,6 +199,7 @@ export class NeuralDrive {
 
   /** Advance the clock to time t and evaluate Pmus_iso(t). */
   advance(t: number, _dt: number): void {
+    this.tNow = t;
     const p = this.params;
     if (p.entrainment) {
       while (this.pendingEntrained.length > 0 && (this.pendingEntrained[0] ?? Infinity) <= t) {

@@ -1,0 +1,41 @@
+{
+  "id": "premature-cycling",
+  "order": 150,
+  "category": "dyssynchrony",
+  "title": "Fibrosis on PSV with high ETS: premature cycling and double triggers",
+  "summary": "A short time constant (stiff lung) makes inspiratory flow decay quickly; with ETS 60% the ventilator cycles off long before the neural Ti ends. The continuing effort notches early expiratory flow and often re-triggers a second breath.",
+  "phenotype": "fibrosis",
+  "drive": {
+    "rate": 22,
+    "ti": 1.0,
+    "pmax": 8
+  },
+  "settings": {
+    "mode": "PSV",
+    "peep": 8,
+    "ps": 8,
+    "ets": 0.6
+  },
+  "seed": 22,
+  "objectives": [
+    "Recognize early cycling: abrupt end of a short breath, expiratory flow that returns toward zero, then a second trigger.",
+    "Fix by lowering ETS toward 5–10% (or a set Ti) so the breath lasts as long as the effort."
+  ],
+  "targetPatterns": [
+    "premature-cycling",
+    "double-trigger"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "ETS 5%, PS 10, PEEP 6: the breath now spans the neural Ti.",
+    "settings": {
+      "ets": 0.05,
+      "ps": 10,
+      "peep": 6
+    }
+  },
+  "criteria": {
+    "minFraction": 0.3,
+    "aiAfter": 10
+  }
+}

@@ -5,6 +5,8 @@ import type { ManeuverKind } from '../sim/types';
 import type { VentSettings } from '../sim/vent/settings';
 import type { BalloonParams } from '../sim/patient/balloon';
 import type { MainToWorker, ScenarioSpec, WorkerToMain } from '../worker/protocol';
+import type { DriveParams } from '../sim/patient/neural-drive';
+import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
 
 export type WorkerListener = (m: WorkerToMain) => void;
 
@@ -40,6 +42,12 @@ export class WorkerClient {
   }
   maneuver(kind: ManeuverKind): void {
     this.send({ type: 'maneuver', kind });
+  }
+  inject<K extends InjectorKind>(kind: K, params: Partial<InjectorParamMap[K]> | null): void {
+    this.send({ type: 'inject', kind, params });
+  }
+  setPatient(drive: Partial<DriveParams>): void {
+    this.send({ type: 'setPatient', drive });
   }
   setSpeed(speed: number): void {
     this.send({ type: 'setSpeed', speed });

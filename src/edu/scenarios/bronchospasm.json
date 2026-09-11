@@ -1,0 +1,42 @@
+{
+  "id": "bronchospasm",
+  "order": 180,
+  "category": "injector",
+  "title": "Bronchospasm: peak rises, plateau does not",
+  "summary": "Airway resistance climbs to 2.5× over 20 s. In volume control Ppeak rises while Pplat (pause) barely moves: the extra pressure is resistive. Expiration lengthens.",
+  "phenotype": "normal",
+  "drive": null,
+  "injectors": {
+    "bronchospasm": {
+      "rScale": 2.5,
+      "rampSeconds": 20
+    }
+  },
+  "settings": {
+    "mode": "VC-AC",
+    "peep": 5,
+    "vt": 450,
+    "rr": 14,
+    "peakFlow": 50,
+    "pause": 0.3
+  },
+  "seed": 32,
+  "objectives": [
+    "Use Ppeak − Pplat to separate resistive from elastic pressure.",
+    "Bronchodilator (remove the injector) and watch Ppeak fall back."
+  ],
+  "targetPatterns": [
+    "high-resistance"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Bronchodilator: resistance back to baseline.",
+    "injectors": {
+      "bronchospasm": null
+    }
+  },
+  "criteria": {
+    "minFraction": 0.8,
+    "aiAfter": 10
+  }
+}

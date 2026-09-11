@@ -9,7 +9,8 @@ import { TRUTH_CHANNELS } from '../sim/channels';
 import type { BreathRecord, ManeuverKind, VentEvent } from '../sim/types';
 import type { VentSettings } from '../sim/vent/settings';
 import type { BalloonParams } from '../sim/patient/balloon';
-import type { NeuralBreath } from '../sim/patient/neural-drive';
+import type { DriveParams, NeuralBreath } from '../sim/patient/neural-drive';
+import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
 import { BATCH_CHANNELS, type PatientSummary, type ScenarioSpec, type SessionStatus } from './protocol';
 
 export interface SessionOutput {
@@ -123,6 +124,14 @@ export class SimSession {
     }
   }
 
+  inject<K extends InjectorKind>(kind: K, params: Partial<InjectorParamMap[K]> | null): void {
+    this.engine.injectors.set(kind, params);
+  }
+
+  setDriveParams(partial: Partial<DriveParams>): void {
+    this.engine.setDriveParams(partial);
+  }
+
   setBalloon(balloon: BalloonParams): void {
     this.engine.balloon = balloon.enabled ? balloon : null;
     this.engine.vent.applySettings({ esophagealBalloon: balloon.enabled });
@@ -136,6 +145,7 @@ export class SimSession {
     const vent = this.engine.vent;
     return {
       t: this.engine.t,
+      injectors: this.engine.injectors.activeKinds(),
       phase: vent.phase,
       alarms: vent.activeAlarms(),
       inBackup: vent.inBackup,

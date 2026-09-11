@@ -45,6 +45,8 @@ export interface BreathRecord {
   vteMeasured: number;
   peakFlowMeasured: number;
   ppeakMeasured: number;
+  /** True leak volume over the whole cycle (∫ Q_leak dt), L. */
+  leakTrue: number;
 }
 
 export type ManeuverKind = 'insp' | 'exp' | 'p01' | 'pocc' | 'occlusion-test' | 'ri' | 'peep-trial';

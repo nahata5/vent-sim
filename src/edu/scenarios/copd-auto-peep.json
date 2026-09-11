@@ -1,0 +1,43 @@
+{
+  "id": "copd-auto-peep",
+  "order": 160,
+  "category": "preset",
+  "title": "COPD, high rate in VC: dynamic hyperinflation",
+  "summary": "Rate 24 with a 4 s expiratory time constant: expiratory flow never reaches zero, end-expiratory alveolar pressure climbs well above the set PEEP of 0, and plateau pressure drifts up breath by breath.",
+  "phenotype": "copd",
+  "drive": null,
+  "settings": {
+    "mode": "VC-AC",
+    "peep": 0,
+    "vt": 500,
+    "rr": 24,
+    "peakFlow": 50
+  },
+  "seed": 24,
+  "objectives": [
+    "Read auto-PEEP from the flow trace (non-zero end-expiratory flow) and confirm it with an expiratory hold.",
+    "Fix by lowering the rate and shortening Ti (higher flow) to lengthen Te."
+  ],
+  "targetPatterns": [
+    "auto-peep"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Rate 12, peak flow 80, Vt 450: Te triples and trapped volume falls.",
+    "settings": {
+      "rr": 12,
+      "peakFlow": 80,
+      "vt": 450
+    }
+  },
+  "criteria": {
+    "minFraction": 0.8,
+    "aiAfter": 10,
+    "extra": [
+      {
+        "metric": "peepiTrue",
+        "max": 4
+      }
+    ]
+  }
+}

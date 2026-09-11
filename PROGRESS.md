@@ -188,3 +188,32 @@ the red band, Ti max alarm).
 **Known issues:** PMI, stress index and R/I rows are placeholders until M7. The displayed volume can dip
 below zero late in a long expiration (integrated measured flow, as on a real device). `setPatient` (instructor
 controls) is not in the protocol yet (M8). The Netlify URL needs its first-build check by the owner.
+
+### M6 — Labeler, injectors, emergence matrix; detector in progress (2026-09-11, not finished)
+
+**Built:** `src/sim/injectors/index.ts` (leak, cardiac, secretions, water, cough provoked by inflation,
+pneumothorax, mainstem, bronchospasm; all terms in the equations via `PatientDrive`, new `eScale`; change log
+for the labeler), `BreathRecord.leakTrue`, `Ventilator.settingsLog`, live drive changes
+(`SimEngine.setDriveParams`, worker `setPatient`, `inject`). `src/sim/truth/labeler.ts`: every Spec §7 truth
+rule (effort–breath matching from neural timing vs trigger events, reverse trigger with phase lock, IE incl.
+phase, delayed/premature/delayed cycling margins, flow starvation by PTP, overshoot, auto-PEEP on the relaxed
+end-expiratory Palv, leak, injector findings, truth-only pendelluft/overdistension/high/low effort) and the
+asynchrony index with the Vaporidi cluster flag. Scenario library grown to 20 JSON files with injectors,
+scripted fixes and criteria (`scenarioSchedule`, `applyFix`); new: auto-trigger, leak-psv, flow-starvation,
+premature-cycling, copd-auto-peep, secretions, bronchospasm, pneumothorax (at 20 s), mainstem (at 20 s).
+`tests/scenarios/emergence.test.ts` (§9.4). Detector: `src/detector/{features,detector,scorer,grids}.ts` and
+`scripts/tune-detector.ts` (signal-only rule engine with evidence strings, measured-only reader type,
+tuning grid seeds 1–4 vs held-out seeds 101–104 with perturbations), `tests/detector/heldout.test.ts` (gated
+by `RUN_HELDOUT=1` until the targets are met).
+
+**Tests:** Vitest 110 passed, 9 skipped (held-out suite). New green: injectors 8/8, labeler 9/9, neural-drive
+live change 1/1, emergence matrix 14/14 (every target pattern present; AI < 10% within 60 s after each fix;
+passive baseline clean). Lint clean. Playwright unchanged (8/8).
+
+**Detector status (tuning grid, 36 cases):** double trigger 0.98/0.98, premature cycling 0.78/0.98, delayed
+cycling 0.69/0.96, reverse trigger 0.56/0.97, auto-trigger 0.25/1.00, ineffective effort 0.27/0.96, flow
+starvation 0.15/0.97 (sensitivity/specificity). §9.5 not met; the causes of each gap and the next concrete
+steps are in `docs/HANDOFF.md` "M6 state".
+
+**Not done in M6:** UI (pattern badges, AI tile, injector panel, apply-fix button, Validation page), main-thread
+wiring of labeler and detector, screenshots, deploy check.

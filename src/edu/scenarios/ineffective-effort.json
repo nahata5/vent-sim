@@ -3,11 +3,46 @@
   "order": 110,
   "category": "dyssynchrony",
   "title": "COPD over-assisted on PSV: ineffective efforts",
-  "summary": "PS 16 with ETS 10% prolongs insufflation and traps gas. Weak efforts (Pmax 4) cannot overcome intrinsic PEEP; the flow trace shows a notch and Paw a dip with no breath delivered.",
+  "summary": "PS 16 with ETS 10% prolongs insufflation and traps gas. Weak efforts (Pmax 5) cannot overcome intrinsic PEEP and the residual expiratory flow; the flow trace shows a notch and Paw a dip with no breath delivered.",
   "phenotype": "copd",
-  "drive": { "rate": 26, "ti": 0.8, "pmax": 4, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.15 },
-  "settings": { "mode": "PSV", "peep": 0, "ps": 16, "ets": 0.1, "tiMax": 2.5, "flowTrigger": 3, "apneaTime": 30 },
+  "drive": {
+    "rate": 22,
+    "ti": 0.8,
+    "pmax": 5,
+    "cvRate": 0.1,
+    "cvTi": 0.1,
+    "cvPmax": 0.15
+  },
+  "settings": {
+    "mode": "PSV",
+    "peep": 0,
+    "ps": 16,
+    "ets": 0.1,
+    "tiMax": 2.5,
+    "flowTrigger": 3,
+    "apneaTime": 30
+  },
   "seed": 11,
-  "objectives": ["Find the missed efforts: an expiratory flow notch toward zero with a small Paw dip and no trigger.", "Fix it by lowering PS, raising ETS to shorten Ti, and adding external PEEP to offset PEEPi."],
-  "targetPatterns": ["ineffective-effort", "delayed-cycling", "auto-peep"]
+  "objectives": [
+    "Find the missed efforts: an expiratory flow notch toward zero with a small Paw dip and no trigger.",
+    "Fix it by lowering PS, raising ETS to shorten Ti, and adding external PEEP to offset PEEPi."
+  ],
+  "targetPatterns": [
+    "ineffective-effort",
+    "delayed-cycling"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Tassaux-style: ETS 70% to shorten Ti, PS down to 6, PEEP 5 against PEEPi, trigger 1.5 L/min.",
+    "settings": {
+      "ps": 6,
+      "ets": 0.7,
+      "peep": 5,
+      "flowTrigger": 1.5
+    }
+  },
+  "criteria": {
+    "minFraction": 0.2,
+    "aiAfter": 10
+  }
 }

@@ -1,0 +1,45 @@
+{
+  "id": "leak-psv",
+  "order": 140,
+  "category": "injector",
+  "title": "Cuff leak on PSV: auto-triggering and prolonged breaths",
+  "summary": "An orifice leak at the Y-piece (≈ 8 L/min at 20 cmH2O). The expiratory baseline flow offset looks like inspiratory demand, so the ventilator auto-triggers; during insufflation the leak keeps flow above the cycle-off threshold.",
+  "phenotype": "normal",
+  "drive": {
+    "rate": 12,
+    "ti": 1.0,
+    "pmax": 6
+  },
+  "injectors": {
+    "leak": {
+      "k": 0.04
+    }
+  },
+  "settings": {
+    "mode": "PSV",
+    "peep": 5,
+    "ps": 10,
+    "ets": 0.25,
+    "flowTrigger": 2
+  },
+  "seed": 23,
+  "objectives": [
+    "Spot the leak: Vte < Vti, volume not returning to baseline, loops that do not close.",
+    "Fix the leak (cuff) and watch triggering normalize; note that leak compensation alone is not enough here."
+  ],
+  "targetPatterns": [
+    "leak",
+    "auto-trigger"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Re-inflate the cuff (leak removed).",
+    "injectors": {
+      "leak": null
+    }
+  },
+  "criteria": {
+    "minFraction": 0.3,
+    "aiAfter": 10
+  }
+}

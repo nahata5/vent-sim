@@ -1,0 +1,45 @@
+{
+  "id": "auto-trigger",
+  "order": 130,
+  "category": "dyssynchrony",
+  "title": "Post-cardiac-surgery: auto-triggering on a sensitive flow trigger",
+  "summary": "Compliant lungs with low resistance transmit cardiac oscillations to the airway (≈ 4 L/min flow swings). A 1 L/min flow trigger fires on the heartbeat: breaths with no preceding Paw dip, rate above the patient's own.",
+  "phenotype": "normal",
+  "drive": {
+    "rate": 12,
+    "ti": 1.0,
+    "pmax": 8
+  },
+  "injectors": {
+    "cardiac": {
+      "amp": 0.8
+    }
+  },
+  "settings": {
+    "mode": "PSV",
+    "peep": 5,
+    "ps": 8,
+    "ets": 0.35,
+    "flowTrigger": 1
+  },
+  "seed": 21,
+  "objectives": [
+    "Recognize breaths that start without an effort: no Paw dip, no flow inflection, timing locked to the heartbeat.",
+    "Fix by switching to a pressure trigger (or a less sensitive flow trigger) without missing real efforts."
+  ],
+  "targetPatterns": [
+    "auto-trigger"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Pressure trigger 1.5 cmH2O: cardiac Paw swings stay below it, real efforts still trigger.",
+    "settings": {
+      "triggerType": "pressure",
+      "pressureTrigger": 1.5
+    }
+  },
+  "criteria": {
+    "minFraction": 0.3,
+    "aiAfter": 10
+  }
+}

@@ -6,11 +6,12 @@ import { k } from '../config/constants';
 import { createRng, type Rng } from './math/prng';
 import { PatientModel, type PatientDrive } from './patient/patient';
 import type { PatientParams } from './patient/params';
-import { NeuralDrive, type NeuralBreath } from './patient/neural-drive';
+import { NeuralDrive, type DriveParams, type NeuralBreath } from './patient/neural-drive';
 import { balloonZ, pesFromPleural, type BalloonParams } from './patient/balloon';
 import { Ventilator } from './vent/ventilator';
 import { SensorChain } from './vent/sensor-chain';
 import { clampSettings, type VentSettings } from './vent/settings';
+import { Injectors } from './injectors';
 import { PHASE_CODE, TRUTH_CHANNELS, type TruthChannel } from './channels';
 import type { BreathRecord, ManeuverResult, Phase, TriggerCause, VentEvent } from './types';
 
@@ -36,6 +37,8 @@ export class SimEngine {
   readonly vent: Ventilator;
   readonly sensors: SensorChain;
   readonly neural: NeuralDrive | null;
+  /** Fault injectors (leak, cardiac, secretions, water, cough, pneumothorax, mainstem, bronchospasm). */
+  readonly injectors: Injectors;
   balloon: BalloonParams | null;
   heartRate: number;
   t = 0;
@@ -51,6 +54,7 @@ export class SimEngine {
   private driveOverride: Partial<PatientDrive> = {};
   private vtiTrueAcc = 0;
   private vteTrueAcc = 0;
+  private leakAcc = 0;
   private pesTrue = 0;
   /** Listeners for device-rate samples and breath completion. */
   onSample: ((s: DeviceSample) => void) | null = null;
@@ -75,6 +79,7 @@ export class SimEngine {
     }
     this.balloon = opts.patient.balloon?.enabled ? opts.patient.balloon : null;
     this.heartRate = opts.patient.heartRate ?? k('HEART_RATE_DEFAULT');
+    this.injectors = new Injectors(this.rng.fork('injectors'), this.dt, this.heartRate);
     this.pesTrue = this.computePes(0);
     this.sensors.prime(settings.peep, this.pesTrue);
     this.stepsPerSample = Math.round(1 / settings.deviceRate / this.dt);
@@ -95,9 +100,24 @@ export class SimEngine {
     return this.neural?.breaths ?? [];
   }
 
-  private currentDrive(): PatientDrive {
-    const pmusIso = this.neural ? this.neural.pmusIso : 0;
-    return { ...this.baseDrive, pmusIso, ...this.driveOverride };
+  /** Live neural-drive change (sedation, instructor controls). No-op for a passive patient. */
+  setDriveParams(partial: Partial<DriveParams>): void {
+    this.neural?.setParams(partial);
+  }
+
+  private currentDrive(t: number): PatientDrive {
+    const neuralPmus = this.neural ? this.neural.pmusIso : 0;
+    const inj = this.injectors.termsAt(t);
+    const d: PatientDrive = {
+      ...this.baseDrive,
+      pmusIso: neuralPmus + inj.pmusExtra,
+      pcard: this.baseDrive.pcard + inj.pcard,
+      leak: inj.leak ?? this.baseDrive.leak,
+      rScale: this.baseDrive.rScale * inj.rScale,
+      eScale: this.baseDrive.eScale * inj.eScale,
+      pplExtra: [this.baseDrive.pplExtra[0] + inj.pplExtra[0], this.baseDrive.pplExtra[1] + inj.pplExtra[1]],
+    };
+    return { ...d, ...this.driveOverride };
   }
 
   private computePes(t: number): number {
@@ -118,7 +138,9 @@ export class SimEngine {
     this.sensors.resetVolume();
     this.vtiTrueAcc = 0;
     this.vteTrueAcc = 0;
+    this.leakAcc = 0;
     this.neural?.onVentBreath(t);
+    this.injectors.onBreathStart(t);
     this.breaths.push({
       index: this.breaths.length,
       tStart: t,
@@ -133,12 +155,14 @@ export class SimEngine {
       vteMeasured: 0,
       peakFlowMeasured: 0,
       ppeakMeasured: 0,
+      leakTrue: 0,
     });
   }
 
   private closeBreath(b: BreathRecord, t: number): void {
     b.tEnd = t;
     b.vteTrue = this.vteTrueAcc;
+    b.leakTrue = this.leakAcc;
     b.vteMeasured = this.sensors.vte;
     if (Number.isNaN(b.tPauseEnd)) b.tPauseEnd = b.tInspEnd;
     this.onBreath?.(b);
@@ -154,9 +178,10 @@ export class SimEngine {
     const phase = this.vent.phase;
     const inInsp = SimEngine.isInsp(phase);
     this.neural?.advance(t, this.dt);
-    const drive = this.currentDrive();
+    const drive = this.currentDrive(t);
     const bc = this.vent.actuate(t, this.dt, this.patient.out.paw);
     const out = this.patient.step(this.dt, bc, drive);
+    this.leakAcc += out.qLeak * this.dt;
     this.pesTrue = this.computePes(t);
     this.sensors.push(out.paw, out.qv, this.pesTrue, inInsp);
 

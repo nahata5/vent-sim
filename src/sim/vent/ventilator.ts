@@ -127,12 +127,15 @@ export class Ventilator {
   /** Estimated expiratory leak baseline for optional leak compensation (L/s). */
   private leakBaseline = 0;
   private lastPeepTotal: number | null = null;
+  /** Settings actually in effect over time (initial + each commit), for the labeler and exports. */
+  readonly settingsLog: Array<{ t: number; settings: VentSettings }> = [];
 
   constructor(settings: VentSettings) {
     this.settings = clampSettings(settings);
     this.plan = this.makePlan(this.settings);
     this.psrc = this.settings.peep;
     this.lastPaw = this.settings.peep;
+    this.settingsLog.push({ t: 0, settings: this.settings });
   }
 
   get current(): VentSettings {
@@ -172,12 +175,14 @@ export class Ventilator {
     this.settings = clampSettings(this.settings);
     this.plan.peep = this.settings.peep;
     if (this.pending && Object.keys(this.pending).length === 0) this.pending = null;
+    this.settingsLog.push({ t: this.tNow, settings: this.settings });
   }
 
   private commitPending(): void {
     if (!this.pending) return;
     this.settings = clampSettings({ ...this.settings, ...this.pending });
     this.pending = null;
+    this.settingsLog.push({ t: this.tNow, settings: this.settings });
   }
 
   /** Request an end-expiratory occlusion maneuver (P0.1, ΔPocc, or the balloon occlusion test). */

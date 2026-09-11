@@ -1,0 +1,44 @@
+{
+  "id": "flow-starvation",
+  "order": 105,
+  "category": "dyssynchrony",
+  "title": "ARDS with strong demand on low-flow VC: flow starvation",
+  "summary": "Square flow 40 L/min against a 12 cmH2O effort. The patient pulls harder than the ventilator delivers: the Paw ramp is scooped (concave), sometimes down to PEEP, and the displayed compliance looks falsely good.",
+  "phenotype": "ards-pulmonary",
+  "drive": {
+    "rate": 18,
+    "ti": 0.75,
+    "pmax": 12,
+    "cvRate": 0.1,
+    "cvTi": 0.1,
+    "cvPmax": 0.1
+  },
+  "settings": {
+    "mode": "VC-AC",
+    "peep": 10,
+    "vt": 420,
+    "rr": 14,
+    "peakFlow": 38
+  },
+  "seed": 12,
+  "objectives": [
+    "Recognize the scooped Paw ramp of flow starvation and the effort behind it in the truth layer.",
+    "Fix by letting flow follow demand (pressure support or PC) or, in VC, a much higher decelerating flow with a Ti matched to the effort."
+  ],
+  "targetPatterns": [
+    "flow-starvation"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Pressure support 12 (ETS 25%): flow now follows the patient's demand and the breath lasts as long as the effort.",
+    "settings": {
+      "mode": "PSV",
+      "ps": 12,
+      "ets": 0.25
+    }
+  },
+  "criteria": {
+    "minFraction": 0.5,
+    "aiAfter": 10
+  }
+}

@@ -9,6 +9,8 @@ import type { PatientParams } from '../sim/patient/params';
 import type { BalloonParams } from '../sim/patient/balloon';
 import type { NeuralBreath } from '../sim/patient/neural-drive';
 import type { AlarmId } from '../sim/vent/ventilator';
+import type { DriveParams } from '../sim/patient/neural-drive';
+import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
 
 export type TruthKey = `truth.${TruthChannel}`;
 export type ChannelKey = MeasuredChannel | TruthKey;
@@ -34,6 +36,7 @@ export interface ScenarioSpec {
 
 export interface SessionStatus {
   t: number;
+  injectors: InjectorKind[];
   phase: Phase;
   alarms: AlarmId[];
   inBackup: boolean;
@@ -55,6 +58,8 @@ export type MainToWorker =
   | { type: 'applySettings'; partial: Partial<VentSettings> }
   | { type: 'setBalloon'; balloon: BalloonParams }
   | { type: 'maneuver'; kind: ManeuverKind }
+  | { type: 'inject'; kind: InjectorKind; params: Partial<InjectorParamMap[InjectorKind]> | null }
+  | { type: 'setPatient'; drive: Partial<DriveParams> }
   | { type: 'setSpeed'; speed: number }
   | { type: 'pause' }
   | { type: 'resume' };
