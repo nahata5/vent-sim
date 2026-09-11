@@ -104,11 +104,14 @@ delay line only; breathing is not warped, which is why the gains sit at the low 
 
 Pes is a measurement of Ppl at the balloon's height z (0.7 of the lung height by default, `PES_Z_DEFAULT`):
 ```
-Pes = k(fill, position)·Ppl(z) + P_offset(+3 supine) + P_ew(fill) + P_card·sin(2π·HR·t/60)
+Pes = k(fill, position)·Ppl(z) + P_offset(+3 supine) + P_ew(fill) + P_card(t)
 ```
 k rises from 0.55 at 0.5 mL to 0.96 at the best fill (3.5 mL, Mojoli 2016) and falls when over-filled;
-P_ew = E_wall·max(0, fill − V_free) (1.1 cmH2O/mL); a gastric placement returns IAP + β·Pmus + γ·Ecw·V. The
-occlusion test (Baydur) is ΔPes/ΔPaw over one occluded effort on cardiac-smoothed signals.
+P_ew = E_wall·max(0, fill − V_free) (1.1 cmH2O/mL); a gastric placement returns IAP + β·Pmus + γ·Ecw·V.
+P_card(t) is the cardiac artifact: one systolic bump per beat (a raised cosine over `PES_CARDIAC_WIDTH` of
+the cardiac cycle, `PES_CARDIAC_PP` = 1.5 cmH2O peak-to-peak, beat-mean removed so Pes averaged over a beat
+is the model value). The occlusion test (Baydur) and the ΔPes readout of the lung-stress dashboard read Pes
+averaged over `OCCLUSION_SMOOTHING` (0.3 s) so the artifact does not inflate the swing (D-016).
 
 ## 6. Ventilator (Spec §5, Brief 1 §2)
 
@@ -199,7 +202,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (251 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (252 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -267,7 +270,8 @@ Generated from `src/config/constants.ts` (251 constants). Confidence: V = verifi
 | `BALLOON_HIGH_POSITION_FACTOR` | 0.6 | fraction | M | Swing attenuation of a high-positioned balloon [M] |
 | `ESO_WALL_ELASTANCE` | 1.1 | cmH2O/mL | V | Brief 2 §1.3 Mojoli 2016: esophageal wall elastance 1.1 ± 0.5 |
 | `ESO_WALL_FREE_VOLUME` | 1.6 | mL | M | Fill below which no wall pressure develops; gives Pew ≈ 2.0 at 3.5 mL and 2.6 at 4 mL (Mojoli: 2.0, 3.0) |
-| `PES_CARDIAC_AMP` | 1.5 | cmH2O | M | Brief 2 §1.3: cardiac artifact on Pes ≈ 1–3 cmH2O [M] |
+| `PES_CARDIAC_PP` | 1.5 | cmH2O | M | Brief 2 §1.3: cardiac artifact on Pes ≈ 1–3 cmH2O peak-to-peak; mid-range [M] |
+| `PES_CARDIAC_WIDTH` | 0.3 | fraction of the cardiac cycle | M | Duration of the systolic bump on Pes: a raised-cosine pulse over ~30 % of the beat (about a systolic ejection at 80/min), baseline for the rest [M] |
 | `HEART_RATE_DEFAULT` | 80 | /min | L | Typical ICU heart rate; cardiac artifact band 0.8–4 Hz (Brief 2 §1.3) |
 | `IAP_DEFAULT` | 8 | cmH2O | V | Brief 2 Table 1: normal IAP 8.5 ± 3 (Gattinoni 1998) |
 | `PGA_BETA` | 0.4 | fraction | M | Brief 2 §1.2: Pga = IAP + β·Pmus, β ≈ 0.3–0.5 [M] |

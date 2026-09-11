@@ -10,7 +10,9 @@ entry names the decision or milestone that introduced it. Newest additions last 
 - **In injured lungs a well-placed esophageal balloon reads an occlusion-test ratio above 1** by design
   (regional transmission α_D = 1.35, D-007); this is a teaching point, not a calibration error.
 - **Cardiac oscillation is a single sinusoid at a fixed heart rate** (M6 injector); there is no heart-rate
-  variability and no respiratory sinus arrhythmia.
+  variability and no respiratory sinus arrhythmia. The cardiac artifact on Pes is a fixed-shape systolic
+  bump at the same fixed rate (D-016), the same on every patient; it does not grow when the balloon sits
+  low behind the heart, and it is not present on the true pleural channels unless the cardiac injector is on.
 - **CO2 is a single lumped store** (M7, D-014): one mass balance with a 3 min time constant, one chemoreceptor
   delay, no separate lung/tissue/brain compartments, no O2 or peripheral chemoreceptor term, fixed VCO2 and
   dead space. SpO2 is not modelled.

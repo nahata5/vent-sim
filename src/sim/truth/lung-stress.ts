@@ -17,6 +17,8 @@ export interface BreathIndices {
   iEnd: number;
   frc: number; // L
   rr: number; // /min, for power
+  /** Sample rate of the reader (Hz); enables the OCCLUSION_SMOOTHING moving average on Pes for ΔPes. */
+  fs?: number;
 }
 
 export interface TruthBreathMetrics {
@@ -67,15 +69,25 @@ export function truthBreathMetrics(r: TruthReader, b: BreathIndices): TruthBreat
   let energy = 0;
   let lungEnergy = 0;
   const v0 = g('truth.vlung', iS);
+  // ΔPes is read on Pes averaged over OCCLUSION_SMOOTHING, as the occlusion test does, so the cardiac
+  // artifact does not inflate the swing (D-016).
+  const win = b.fs ? Math.max(1, Math.round(k('OCCLUSION_SMOOTHING') * b.fs)) : 1;
+  const pesHist: number[] = [];
+  let pesSum = 0;
   for (let i = iS; i <= iE; i++) {
     const v = g('truth.vlung', i);
     vMax = Math.max(vMax, v);
     plMaxND = Math.max(plMaxND, g('truth.plND', i));
     plMaxD = Math.max(plMaxD, g('truth.plD', i));
     pmusPeak = Math.max(pmusPeak, g('truth.pmus', i));
-    const pes = g('pes', i);
-    pesMax = Math.max(pesMax, pes);
-    pesMin = Math.min(pesMin, pes);
+    pesHist.push(g('pes', i));
+    pesSum += g('pes', i);
+    if (pesHist.length > win) pesSum -= pesHist.shift() ?? 0;
+    if (pesHist.length === win) {
+      const pes = pesSum / win;
+      pesMax = Math.max(pesMax, pes);
+      pesMin = Math.min(pesMin, pes);
+    }
     const qND = g('truth.qND', i);
     const qD = g('truth.qD', i);
     if ((qND < -0.01 && qD > 0.01) || (qD < -0.01 && qND > 0.01)) pendelluft = true;

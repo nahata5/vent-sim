@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runHeadless } from '@sim/headless';
 import { defaultSettings } from '@sim/vent/settings';
 import { linearPatient } from '@sim/patient/params';
+import { cardiacArtifact } from '@sim/patient/balloon';
 import { breathEnergy, truthBreathMetrics, type TruthReader } from '@sim/truth/lung-stress';
 import { bandFor, powerSurrogate } from '@/monitor/bands';
 
@@ -59,10 +60,27 @@ describe('lung-stress truth metrics', () => {
     expect(m.vt).toBeCloseTo(0.5, 2);
     expect(m.strain).toBeCloseTo(0.5 / 1.5, 2);
     expect(m.pmusPeak).toBeCloseTo(6, 1);
-    expect(m.dPes).toBeCloseTo(4, 1);
+    expect(m.dPes).toBeCloseTo(4, 0);
     // ∫Paw dV over inspiration: 5·0.5 + ½·15·0.5 = 6.25 cmH2O·L → 0.098·15·6.25 = 9.19 J/min
     expect(m.powerTruth).toBeCloseTo(9.19, 1);
     expect(m.pendelluft).toBe(true);
+  });
+
+  it('reads ΔPes through the cardiac smoothing so a heart-rate ripple does not inflate the swing', () => {
+    // 100 Hz, 1 s effort with a 4 cmH2O Pes swing, plus the model's cardiac artifact at 80/min.
+    const n = 300;
+    const fs = 100;
+    const t = new Float32Array(n);
+    const pes = new Float32Array(n);
+    const zeros = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      t[i] = i / fs;
+      pes[i] = 8 - 4 * Math.sin(Math.PI * Math.min(1, i / 100)) + cardiacArtifact(t[i] ?? 0, 80);
+    }
+    const cols: Record<string, Float32Array> = { t, pes };
+    const reader: TruthReader = { n, get: (ch, i) => cols[ch]?.[i] ?? zeros[i] ?? 0 };
+    const m = truthBreathMetrics(reader, { iStart: 0, iInspEnd: 100, iEnd: 299, frc: 1.5, rr: 15, fs });
+    expect(Math.abs(m.dPes - 4)).toBeLessThan(0.7);
   });
 });
 

@@ -51,9 +51,22 @@ export interface PesInputs {
   heartRate: number;
 }
 
+/**
+ * Cardiac artifact on Pes: one systolic bump per beat (raised cosine over PES_CARDIAC_WIDTH of the cycle,
+ * peak-to-peak PES_CARDIAC_PP), with its beat-mean removed so Pes averaged over a beat is the model value.
+ */
+export function cardiacArtifact(t: number, heartRate: number): number {
+  const pp = k('PES_CARDIAC_PP');
+  const w = k('PES_CARDIAC_WIDTH');
+  const phase = (t * heartRate) / 60;
+  const frac = phase - Math.floor(phase);
+  const bump = frac < w ? 0.5 * (1 - Math.cos((2 * Math.PI * frac) / w)) : 0;
+  return pp * (bump - 0.5 * w);
+}
+
 /** The displayed esophageal pressure before the sensor chain. */
 export function pesFromPleural(b: BalloonParams, inp: PesInputs): number {
-  const cardiac = k('PES_CARDIAC_AMP') * Math.sin((2 * Math.PI * inp.heartRate * inp.t) / 60);
+  const cardiac = cardiacArtifact(inp.t, inp.heartRate);
   if (b.position === 'stomach') {
     // Gastric pressure: IAP + β·Pmus + γ·Ecw·V (Brief 2 §1.2 optional abdominal model [M]).
     return k('IAP_DEFAULT') + k('PGA_BETA') * inp.pmusEff + k('PGA_GAMMA') * inp.ecwV + balloonWallPressure(b.fillVolume) + cardiac;

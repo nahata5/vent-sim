@@ -405,7 +405,7 @@ export class SessionController {
     const rr = this.monitor.rrTotal > 0 ? this.monitor.rrTotal : period > 0 ? 60 / period : 0;
     this.latestTruth = truthBreathMetrics(
       { n: s.length, get: (ch, i) => s.read(ch, i) },
-      { iStart, iInspEnd, iEnd, frc: this.patient.frc, rr },
+      { iStart, iInspEnd, iEnd, frc: this.patient.frc, rr, fs: s.fs },
     );
     this.latestRecruit = { recruitedVolume: b.frcAeratedEE - this.patient.frc, tidalRecruitUnits: b.tidalRecruitUnits, openFraction: b.openFractionEE };
   }

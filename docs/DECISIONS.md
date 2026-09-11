@@ -376,3 +376,23 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   fflate; `scripts/batch.ts` does the same in Node.
 - **The drawer became tabbed** (Scenario · Explain · Quiz · Export) so the loops keep their space; the
   instructor panel lives under the injectors on the left. A badge click opens its explain card.
+
+## D-016 · Cardiac artifact on Pes is a systolic pulse, and ΔPes is read cardiac-smoothed (2026-09-11)
+
+- **Problem.** The balloon added a pure sinusoid of amplitude 1.5 cmH2O (3 cmH2O peak-to-peak) at the heart
+  rate to Pes in every balloon scenario. In a passive VC breath the respiratory Pes swing is Ecw·Vt ≈ 3 cmH2O,
+  so the ripple was as large as the breath and the trace read as a continuous wobble; during expiration it
+  was a bare sine wave. Brief 2 §1.3 gives the artifact as ≈ 1–3 cmH2O, which in the source tracings is
+  peak-to-peak, so the constant was at the top of the range and mis-applied as an amplitude.
+- **Waveform.** `cardiacArtifact(t, HR)`: a raised-cosine bump over `PES_CARDIAC_WIDTH` = 0.3 of the cardiac
+  cycle with peak-to-peak `PES_CARDIAC_PP` = 1.5 cmH2O (mid-range), baseline for the rest of the beat, with
+  the beat-mean subtracted so Pes averaged over a beat equals the model Pes (PL,ee and the occlusion test are
+  unbiased). The fundamental stays at the heart rate, inside the 0.8–4 Hz band the detector's cardiac
+  features assume; the detector does not read Pes, so its held-out numbers are unchanged. [M]
+- **ΔPes readout.** `truthBreathMetrics` now takes the reader's `fs` and reads the Pes swing on a moving
+  average over `OCCLUSION_SMOOTHING` (0.3 s), the same window the occlusion test uses. The raw max − min had
+  added up to the full ripple to ΔPes, which meant the over-assist band (ΔPes < `DPES_LOW` = 3) could never
+  fire. Residual error under the modelled artifact is < 0.7 cmH2O (`lung-stress.test.ts`); a 1 s half-sine
+  effort loses ≈ 4 % of its swing to the window.
+- **Not done.** No amplitude dependence on balloon position (larger behind the heart), no heart-rate
+  variability; recorded in LIMITATIONS.

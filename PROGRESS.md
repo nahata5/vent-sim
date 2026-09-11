@@ -446,3 +446,15 @@ clean; build clean. Live at https://vent-sim.netlify.app/.
 **Open items for the owner:** Q-4 (should the recruiter phenotype be re-anchored to read R/I ≥ 0.5) and
 Q-5 (CO2 → drive gain vs warp stability); the `tomnahass.com/vent-sim/` proxy alias is unverified until the
 personal site carries the redirect rule.
+
+## Post-M9 · Pes cardiac artifact fix (2026-09-11)
+
+Owner review of the live site: the Pes trace with the balloon on read as a "continual in and out". Root
+cause: a pure sinusoid of 3 cmH2O peak-to-peak at the heart rate added to Pes in every balloon scenario,
+as large as the passive respiratory swing (Ecw·Vt ≈ 3), and the dashboard ΔPes was a raw max − min that
+included the whole ripple (the ΔPes < 3 over-assist band could never fire). Fix (D-016): the artifact is
+now a systolic pulse (`cardiacArtifact`, `PES_CARDIAC_PP` 1.5 peak-to-peak, `PES_CARDIAC_WIDTH` 0.3 of the
+beat, beat-mean removed); ΔPes is read on the 0.3 s cardiac-smoothed Pes like the occlusion test
+(`truthBreathMetrics` takes `fs`). Tests first: `tests/unit/balloon.test.ts` (pulse shape, peak-to-peak,
+periodicity, unbiased mean), `lung-stress.test.ts` (ΔPes within 0.7 of truth under the artifact). MODEL.md
+§5 and the constants table, LIMITATIONS and DECISIONS updated; snapshot regenerated. Vitest 183/183.
