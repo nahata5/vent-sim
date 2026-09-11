@@ -670,6 +670,60 @@ tr.band-danger .metric-value {
 .quiz li.fail {
   color: var(--danger);
 }
+.debrief h3 {
+  margin: 8px 0 2px;
+  font-size: 13px;
+}
+.debrief h4 {
+  margin: 4px 0 2px;
+  font-size: 12px;
+}
+.debrief ol,
+.debrief ul {
+  margin: 2px 0;
+  padding-left: 18px;
+}
+.debrief p {
+  margin: 3px 0;
+}
+.debrief .evidence-case {
+  background: rgba(79, 195, 247, 0.08);
+  border-left: 3px solid #4fc3f7;
+  padding: 3px 6px;
+  margin: 2px 0 4px;
+}
+.debrief .debrief-keys {
+  border-collapse: collapse;
+  margin: 3px 0;
+}
+.debrief .debrief-keys th,
+.debrief .debrief-keys td {
+  padding: 1px 10px 1px 0;
+  text-align: left;
+}
+.debrief .mark-matched .mark,
+.debrief .mark-found .mark {
+  color: #81c784;
+}
+.debrief .mark-partial .mark {
+  color: #ffd54f;
+}
+.debrief .mark-not-done .mark,
+.debrief .mark-opposite .mark,
+.debrief .mark-missed .mark,
+.debrief .mark-extra .mark {
+  color: var(--danger);
+}
+.debrief .two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.debrief .card {
+  border-top: 1px solid var(--border);
+  padding: 4px 0 6px;
+  font-size: 12px;
+}
 .instructor-body .row {
   display: flex;
   flex-wrap: wrap;

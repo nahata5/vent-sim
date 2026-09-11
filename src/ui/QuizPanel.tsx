@@ -3,6 +3,7 @@ import type { SessionController } from '../app/controller';
 import { PATTERN_IDS, type PatternId } from '../sim/truth/labeler';
 import { CARDS } from '../edu/cards';
 import { k } from '../config/constants';
+import { DebriefPanel } from './DebriefPanel';
 
 interface Props {
   ctl: SessionController;
@@ -23,6 +24,7 @@ export function QuizPanel({ ctl }: Props) {
     setPicks(next);
   };
   const progress = ctl.scenario ? ctl.progress.get(ctl.scenario.id) : null;
+  const lastDebrief = progress?.history.at(-1)?.debrief;
   return (
     <div class="quiz" data-testid="quiz-panel" data-phase={q.phase}>
       {q.phase === 'idle' && (
@@ -30,10 +32,11 @@ export function QuizPanel({ ctl }: Props) {
           <p>
             Labels hidden, you name the patterns of the last {k('QUIZ_FIX_WINDOW')} s, then you fix them: AI below {k('AI_SEVERE')} % over {k('QUIZ_FIX_WINDOW')} s with ΔP ≤ {k('DP_LIMIT')}, Pplat ≤ {k('PPLAT_LIMIT')}, Vt {k('VT_PBW_LOW')}–{k('VT_PBW_HIGH')} mL/kg and no new severe alarm.
           </p>
-          {progress && (
-            <p class="muted">
+          {progress && !ctl.quizHides('scenario') && (
+            <p class="muted" data-testid="quiz-progress">
               This scenario: {progress.attempts} attempt{progress.attempts === 1 ? '' : 's'}, best {progress.best}
               {progress.passed ? ', fixed at least once' : ''}.
+              {lastDebrief ? ` Last attempt: ${lastDebrief.pass ? 'fixed' : 'not fixed'} — ${lastDebrief.changes.join('; ')}` : ''}
             </p>
           )}
           <button type="button" class="primary" onClick={() => ctl.startQuiz()} data-testid="quiz-start" disabled={t < 20}>
@@ -85,15 +88,19 @@ export function QuizPanel({ ctl }: Props) {
           <p>
             <b data-testid="quiz-score">Score {q.result.score}</b> · fix {q.result.fix.pass ? 'passed' : 'failed'} · {q.result.seconds.toFixed(0)} s · {q.result.changes} change{q.result.changes === 1 ? '' : 's'} · identification {((q.identification?.score ?? 0) * 100).toFixed(0)} %
           </p>
-          <ul>
-            {q.result.fix.checks.map((c) => (
-              <li key={c.id} class={c.ok ? '' : 'fail'}>
-                {c.ok ? '✓' : '✗'} {c.label}
-                {c.value !== null ? `: ${typeof c.value === 'number' ? c.value.toFixed(1) : c.value}` : ''}
-                {!c.verified ? ' (not verified: take an inspiratory hold)' : ''}
-              </li>
-            ))}
-          </ul>
+          {ctl.lastDebrief ? (
+            <DebriefPanel d={ctl.lastDebrief} checks={q.result.fix.checks} />
+          ) : (
+            <ul>
+              {q.result.fix.checks.map((c) => (
+                <li key={c.id} class={c.ok ? '' : 'fail'}>
+                  {c.ok ? '✓' : '✗'} {c.label}
+                  {c.value !== null ? `: ${typeof c.value === 'number' ? c.value.toFixed(1) : c.value}` : ''}
+                  {!c.verified ? ' (not verified: take an inspiratory hold)' : ''}
+                </li>
+              ))}
+            </ul>
+          )}
           <button type="button" onClick={() => ctl.endQuiz()} data-testid="quiz-end">
             Done
           </button>

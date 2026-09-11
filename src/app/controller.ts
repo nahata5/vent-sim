@@ -23,8 +23,10 @@ import type { DriveParams } from '../sim/patient/neural-drive';
 import type { PatternId } from '../sim/truth/labeler';
 import { QuizSession } from '../edu/quiz-session';
 import { ProgressStore } from '../edu/progress';
-import { SEVERE_ALARMS, extrasFromTruth, truthPatternsInWindow, type FixInput } from '../edu/quiz';
+import { SEVERE_ALARMS, extrasFromTruth, truthPatternsInWindow, type FixGrade, type FixInput } from '../edu/quiz';
 import { effortEvidence, explainBreath, type BreathExplanation } from '../edu/cards';
+import type { QuizHideKey } from '../edu/quiz-view';
+import { buildDebrief, injectorChange, settingChangesFrom, type Debrief, type SettingChange } from '../edu/debrief';
 import { sessionCsv } from '../export/csv';
 import { sessionJson, type SessionJson } from '../export/json';
 import { downloadBytes, type DownloadOutcome } from '../export/download';
@@ -69,6 +71,10 @@ export interface ViewState {
   truth: boolean;
   /** Pattern badges on the waveforms (hidden during the identification phase of a quiz). */
   badges: boolean;
+  /** Instructor's hide set for the bedside view (design 2026-09-11, D-019); acts only while a quiz runs or the session is locked. */
+  quizHide: Set<QuizHideKey>;
+  /** Set by a quiz link; cleared on evaluate / end. Hides the instructor panel and disables the picker and truth toggle. */
+  quizLocked: boolean;
   drawerTab: DrawerTab;
   frozen: boolean;
   /** Time shown at the sweep cursor when frozen; NaN = live. */
@@ -95,7 +101,7 @@ export class SessionController {
   latestSpo2: Spo2Readout | null = null;
   maneuvers: ManeuverReadouts = { ...NO_MANEUVERS };
   alarmLog: Array<Extract<VentEvent, { type: 'alarm' }>> = [];
-  view: ViewState = { truth: false, badges: true, drawerTab: 'scenario', frozen: false, tView: NaN, sweep: 12, speed: 1, paused: false };
+  view: ViewState = { truth: false, badges: true, quizHide: new Set(), quizLocked: false, drawerTab: 'scenario', frozen: false, tView: NaN, sweep: 12, speed: 1, paused: false };
   ready = false;
   /** CO2 samples (≈ 1/s) since the scenario started, for the panel history and the export. */
   co2Log: Co2Sample[] = [];
@@ -107,6 +113,15 @@ export class SessionController {
   truthLog: Array<{ tStart: number; m: TruthBreathMetrics }> = [];
   /** Confirmed setting changes since the scenario started (quiz score). */
   settingChanges = 0;
+  /** Confirmed setting and injector changes since the scenario started (debrief, D-019). */
+  settingsChangeLog: SettingChange[] = [];
+  /** The learner's identification picks (debrief). */
+  quizPicks: PatternId[] = [];
+  /** Debrief of the last evaluated quiz; null until evaluate. */
+  lastDebrief: Debrief | null = null;
+  private aiAtFixStart: number | null = null;
+  private settingsAtFixStart: VentSettings | null = null;
+  private injectorsAtFixStart: string[] = [];
   quiz = new QuizSession();
   progress = new ProgressStore();
   /** Breath index whose explain card is open (badge click), or null for the latest labelled breath. */
@@ -164,6 +179,9 @@ export class SessionController {
     this.monitorLog = [];
     this.truthLog = [];
     this.settingChanges = 0;
+    this.settingsChangeLog = [];
+    this.quizPicks = [];
+    this.lastDebrief = null;
     this.selectedBreath = null;
     this.quiz.reset();
     this.labels = new Map();
@@ -200,6 +218,9 @@ export class SessionController {
     this.monitorLog = [];
     this.truthLog = [];
     this.settingChanges = 0;
+    this.settingsChangeLog = [];
+    this.quizPicks = [];
+    this.lastDebrief = null;
     this.selectedBreath = null;
     this.quiz.reset();
     this.labels = new Map();
@@ -439,6 +460,7 @@ export class SessionController {
 
   applySettings(partial: Partial<VentSettings>): void {
     this.settingChanges += 1;
+    if (this.status) this.settingsChangeLog.push(...settingChangesFrom(this.store.tLatest, this.status.settings, partial));
     this.worker.applySettings(partial);
   }
 
@@ -466,10 +488,35 @@ export class SessionController {
     this.notify();
   }
 
+  // ─────────── bedside view (design 2026-09-11, D-019) ───────────
+
+  /** True when `key` is hidden right now: the instructor set it and a quiz is running or the session is locked. */
+  quizHides(key: QuizHideKey): boolean {
+    if (!this.view.quizHide.has(key)) return false;
+    const p = this.quiz.phase;
+    return this.view.quizLocked || p === 'identify' || p === 'identified' || p === 'fix';
+  }
+
+  setQuizHide(keys: Iterable<QuizHideKey>): void {
+    this.view.quizHide = new Set(keys);
+    if (this.quizHides('explain') && this.view.drawerTab === 'explain') this.view.drawerTab = 'quiz';
+    this.notify();
+  }
+
+  /** A quiz link: apply its hide set, lock the session and open the Quiz tab. */
+  lockQuiz(hide: Iterable<QuizHideKey>): void {
+    this.view.quizHide = new Set(hide);
+    this.view.quizLocked = true;
+    this.view.drawerTab = 'quiz';
+    if (this.view.truth && this.quizHides('truth')) this.view.truth = false;
+    this.notify();
+  }
+
   // ─────────── explain cards ───────────
 
   /** Open the explain card for a breath (badge click). */
   selectBreath(index: number | null): void {
+    if (this.quizHides('explain')) return;
     this.selectedBreath = index;
     this.view.drawerTab = 'explain';
     this.notify();
@@ -500,6 +547,7 @@ export class SessionController {
     this.quiz.start(this.store.tLatest);
     this.view.badges = false;
     this.view.drawerTab = 'quiz';
+    this.lastDebrief = null;
     this.notify();
   }
 
@@ -512,14 +560,19 @@ export class SessionController {
   }
 
   submitQuizPicks(picks: PatternId[]): void {
+    this.quizPicks = [...picks];
     this.quiz.submitIdentification(picks, this.quizTruthPatterns());
-    this.view.badges = true;
+    // Badges return unless the truth layer is hidden for this quiz (then they wait for the debrief).
+    this.view.badges = !this.quizHides('truth');
     this.notify();
   }
 
   startQuizFix(): void {
     this.quiz.startFix(this.store.tLatest, this.settingChanges);
     this.alarmsAtFixStart = this.alarmLog.length;
+    this.aiAtFixStart = this.ai?.ai ?? null;
+    this.settingsAtFixStart = this.status?.settings ?? null;
+    this.injectorsAtFixStart = this.status?.injectors.slice() ?? [];
     this.notify();
   }
 
@@ -539,15 +592,61 @@ export class SessionController {
   evaluateQuiz(): void {
     if (!this.quiz.fixWindowReady(this.store.tLatest)) return;
     const r = this.quiz.evaluate(this.store.tLatest, this.quizFixInput(), this.settingChanges);
+    this.lastDebrief = this.buildQuizDebrief(r.fix);
+    r.attempt.debrief = this.lastDebrief.summary;
     if (this.scenario) this.progress.record(this.scenario.id, r.attempt);
     this.view.badges = true;
+    this.view.quizLocked = false;
     this.notify();
   }
 
   endQuiz(): void {
     this.quiz.reset();
     this.view.badges = true;
+    this.view.quizLocked = false;
     this.notify();
+  }
+
+  /** Latest case-evidence sentences per truth pattern (explain-card templates), for the debrief. */
+  private latestEvidenceByPattern(patterns: PatternId[]): Partial<Record<PatternId, string[]>> {
+    const out: Partial<Record<PatternId, string[]>> = {};
+    const settings = this.settings;
+    if (!settings || !this.patient) return out;
+    const labels = [...this.labels.values()]
+      .map((l) => l.truth)
+      .filter((l): l is BreathLabel => l !== null)
+      .sort((a, b) => b.tStart - a.tStart);
+    for (const p of patterns) {
+      if (p === 'ineffective-effort') {
+        const e = [...this.efforts].reverse().find((x) => x.ineffective);
+        if (e) out[p] = effortEvidence(e, settings);
+        continue;
+      }
+      const l = labels.find((x) => x.patterns.includes(p));
+      if (!l) continue;
+      const neural = l.neuralIndex !== null ? (this.store.neural.find((n) => n.index === l.neuralIndex) ?? null) : null;
+      const ex = explainBreath({ label: l, neural, settings, pbw: this.patient.pbw }).find((c) => c.card.id === p);
+      if (ex) out[p] = ex.evidence;
+    }
+    return out;
+  }
+
+  private buildQuizDebrief(fixGrade: FixGrade): Debrief {
+    const truthPatterns = this.quiz.identification?.truth ?? this.quizTruthPatterns();
+    const t0 = this.quiz.fixWindowStart;
+    return buildDebrief({
+      changes: this.settingsChangeLog.filter((c) => c.t >= t0 - 1e-9),
+      truthPatterns,
+      picks: this.quizPicks,
+      fixGrade,
+      aiBefore: this.aiAtFixStart,
+      fix: this.scenario?.fix ?? null,
+      settingsAtFixStart: this.settingsAtFixStart,
+      finalSettings: this.status?.settings ?? null,
+      injectorsAtFixStart: this.injectorsAtFixStart,
+      finalInjectors: this.status?.injectors.slice() ?? [],
+      evidence: this.latestEvidenceByPattern(truthPatterns),
+    });
   }
 
   // ─────────── export ───────────
@@ -605,6 +704,7 @@ export class SessionController {
 
   /** Toggle an injector live (default parameters when enabling). */
   setInjector<K extends InjectorKind>(kind: K, params: Partial<InjectorParamMap[K]> | null): void {
+    this.settingsChangeLog.push(injectorChange(this.store.tLatest, kind, params !== null));
     this.worker.inject(kind, params);
   }
 
@@ -612,12 +712,18 @@ export class SessionController {
   applyFix(fix: ScenarioFix): void {
     if (fix.settings) {
       this.settingChanges += 1;
+      if (this.status) this.settingsChangeLog.push(...settingChangesFrom(this.store.tLatest, this.status.settings, fix.settings));
       this.worker.applySettings(fix.settings);
     }
     if (fix.drive) this.worker.setPatient(fix.drive);
     if (fix.injectors) {
       for (const kind of INJECTOR_KINDS) {
-        if (kind in fix.injectors) this.worker.inject(kind, fix.injectors[kind] ?? null);
+        if (kind in fix.injectors) {
+          const params = fix.injectors[kind] ?? null;
+          const wasOn = this.status?.injectors.includes(kind) ?? false;
+          if ((params !== null) !== wasOn) this.settingsChangeLog.push(injectorChange(this.store.tLatest, kind, params !== null));
+          this.worker.inject(kind, params);
+        }
       }
     }
     this.notify();
@@ -646,6 +752,7 @@ export class SessionController {
   }
 
   setTruth(on: boolean): void {
+    if (on && (this.view.quizLocked || this.quizHides('truth'))) return;
     this.view.truth = on;
     this.notify();
   }
