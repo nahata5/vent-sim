@@ -30,8 +30,9 @@ https://vent-sim.netlify.app/#validation.
 - **Schematic SpO2** tile (clearly labelled; a monotone sketch from FiO2, aerated fraction, mean Paw and a
   scenario base shunt, not a gas-exchange model — `docs/MODEL.md` §5b).
 - **Education**: 25 scenarios including a "find all the problems" capstone, explain cards with case-specific evidence, a quiz (identify the patterns
-  with the badges hidden, then fix them within safety limits), instructor mode with live patient controls
-  and a JSON scenario editor, progress in localStorage.
+  with the badges hidden, then fix them within safety limits) with an instructor-set **bedside view** (hide
+  truth, Pes, scenario text, derived numbers, explain cards, CO2), a locked quiz link and a templated debrief
+  on submit, instructor mode with live patient controls and a JSON scenario editor, progress in localStorage.
 - **Export**: session CSV and JSON, and a batch generator (browser worker or Node) that zips labeled datasets.
 
 ## Run, test, build
@@ -62,6 +63,15 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
   and citations in the tooltips; truth-only rows are marked `T`.
 - **Drawer tabs**: Scenario · Explain · Quiz · Export. The **CO2 loop** panel appears in scenarios that carry
   the loop (PaCO2, delayed chemoreceptor signal, VA, drive scale, time warp).
+- **Quiz bedside view** (Instructor panel → Quiz view): tick what the learner must not see during a quiz —
+  truth layer, Pes, scenario text, derived numbers (lung-stress dashboard), explain cards, CO2 — or press
+  **Bedside** for all six. Outside a quiz the set has no effect, so the case can be previewed normally.
+  **Copy quiz link** gives `…/#<scenario-id>?quiz=bedside` (or a comma-separated key list); opening it
+  locks the session: no Instructor panel, picker and truth toggle disabled, truth exports hidden, Quiz tab
+  open. On **Evaluate** the lock lifts and a debrief lists what you changed, what was happening (found /
+  missed / extra), the recommended fix key by key (matched / partial / not done / opposite) with the AI
+  before and after, and the physiology and recognition from the explain cards. The lock is a classroom
+  convenience, not security: the URL is editable.
 - **Validation** (`#validation`): analytic test list, the emergence matrix and per-pattern confusion
   matrices from the snapshot, with a "Recompute in this browser" button.
 
@@ -71,7 +81,7 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
 |---|---|
 | [`docs/MODEL.md`](docs/MODEL.md) | Every equation with symbols, units and citations; the constants table |
 | [`docs/VALIDATION.md`](docs/VALIDATION.md) | Spec §9 items, the tests that cover them and the current numbers |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Deviations from the spec and choices it left open (D-001…D-015) |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Deviations from the spec and choices it left open (D-001…D-019) |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What is schematic, what the bedside cannot see, where the model stops |
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Clinical questions for the owner with the defaults built around |
 | [`PROGRESS.md`](PROGRESS.md) | Build log per milestone with test results and screenshots |

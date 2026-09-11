@@ -1,7 +1,8 @@
 # Handoff — VentSim build state
 
 Updated 2026-09-11 (M9 complete; post-M9 extensions done: Pes artifact fix, quiz extras, capstone, schematic
-SpO2, live EL/Ecw), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
+SpO2, live EL/Ecw, quiz bedside view + debrief D-019), for a fresh session continuing from
+`docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
@@ -10,9 +11,10 @@ SpO2, live EL/Ecw), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.
    validation, §10 export, §12 milestones).
 3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers, the M9
    definition-of-done walkthrough).
-4. `docs/DECISIONS.md` — D-001…D-018; D-012 is the detector's measurement basis, D-014 the M7 physics
+4. `docs/DECISIONS.md` — D-001…D-019; D-012 is the detector's measurement basis, D-014 the M7 physics
    (recruited gas, R/I limits, CO2 loop gains, the settings-log bug), D-015 the education/export choices,
-   D-016 the Pes cardiac artifact and cardiac-smoothed ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw.
+   D-016 the Pes cardiac artifact and cardiac-smoothed ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw,
+   D-019 the quiz bedside view, locked link and templated debrief.
 5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-5; Q-1…Q-3 answered: keep the defaults).
 6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md` — the user-facing docs (M9).
 7. This file's "What is left" before touching anything.
@@ -25,10 +27,10 @@ SpO2, live EL/Ecw), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.
 | M7 | **done**: recruitable-population lung with real recruited gas, stress index, R/I, decremental PEEP trial, Gattinoni full power, CO2 → drive loop with time warp, truth recruitment readouts, 4 new scenarios, Playwright |
 | M8 | **done**: explain cards with case evidence, quiz (identify → fix → score), instructor mode with a scenario editor, progress in localStorage, session CSV/JSON, batch zip (worker + `scripts/batch.ts`) |
 | M9 | **done**: README, MODEL.md (equations + constants table via `scripts/model-constants.ts`), VALIDATION.md, determinism and performance tests, axe accessibility pass, keyboard/focus, Validation page links; definition-of-done walked in PROGRESS |
-| Post-M9 | **done** (2026-09-11): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018) |
+| Post-M9 | **done** (2026-09-11): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) |
 
-`npm test` → 195 passed, 33 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
-→ 28/28 (+ 6 screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and
+`npm test` → 212 passed, 35 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
+→ 31/31 (+ 6 screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and
 pushed on `main`; **live at https://vent-sim.netlify.app/** (every push to `main` redeploys). Note: the
 performance test (`≥ 50× real time`) is a wall-clock test; under a loaded machine it fails inside the
 parallel full run (28–49×) while passing alone (see PROGRESS post-M9); it also fails the same way on the
@@ -98,6 +100,22 @@ pre-change commits, so treat that as environment, not regression, and re-run it 
   (controller updates its `PatientSummary` from it); `WorkerClient.setMechanics`; `InstructorPanel` inputs
   `instr-el`, `instr-ecw`, button `instr-apply-el`. Tests `tests/physics/live-mechanics.test.ts`,
   `session.test.ts`, `quiz.spec.ts`.
+- **Quiz bedside view + debrief (D-019)**: `src/edu/quiz-view.ts` (`QUIZ_HIDE_KEYS`, `QUIZ_HIDE_LABELS`,
+  `bedsideHide`, `parseQuizHash`, `quizLink`), `src/edu/debrief.ts` (`SettingChange`, `settingChangesFrom`,
+  `injectorChange`, `formatChange`, `fixMark`, `buildDebrief`), `progress.ts` `DebriefSummary` /
+  `QuizAttempt.debrief`; controller `view.quizHide` / `view.quizLocked`, `quizHides(key)`, `setQuizHide`,
+  `lockQuiz`, `settingsChangeLog` (fed by `applySettings`, `applyFix`, `setInjector`), `quizPicks`,
+  `lastDebrief` (built in `evaluateQuiz` from the identification truth, the log since `fixWindowStart`, the
+  settings/injectors snapshot at fix start and the latest card evidence); `setTruth` and `selectBreath`
+  refuse while hidden. `App.tsx` reads `#<id>?quiz=` at load and on hashchange (`hashPage()` is the part
+  before `?`), passes `TruthToggle.disabled`, `ScenarioPicker.disabled/mask`, `MonitorPanel.hideBalloonTiles`,
+  `ExportPanel.hideTruth`, drops the Explain tab, dashboard, Validation link, CO2 panel and Instructor panel
+  as the hide set says; `WaveformCanvas` skips the badge hover when `explain` is hidden.
+  `src/ui/DebriefPanel.tsx` (`debrief-panel`, `debrief-changes`, `debrief-happening`, `debrief-fix`,
+  `debrief-fix-note`, `debrief-key-<key>`, `debrief-physiology`); Instructor panel `quizview-<key>`,
+  `quizview-bedside`, `quizview-none`, `quizview-link`, `quizview-copy`. Constant `QUIZ_FIX_BAND`. Tests
+  `tests/unit/{quiz-view,debrief}.test.ts`, `progress.test.ts`, `tests/e2e/quiz-bedside.spec.ts`. Plan:
+  `docs/superpowers/plans/2026-09-11-quiz-bedside-view.md`.
 
 ## What is left (post-M9)
 
@@ -106,27 +124,30 @@ All spec milestones and the optional extensions listed in the previous handoff a
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
    signal-only idea appears; never tune on the held-out grid.
-3. **Alias** `tomnahass.com/vent-sim/`: the redirect rules are now in the personal site's repo
-   (`~/Documents/development/personal-website/netlify.toml`, commit 4d756ac pushed to
-   `github.com/nahata5/personal-website` main on 2026-09-11; remote switched to https because the SSH key
-   is not loaded). DNS already points at Netlify, so nothing on Namecheap. Netlify's GitHub webhook fired
-   but 15 min later the alias still returned the personal site's 404 and no deploy status was posted, so
-   the personal site's build (Hugo 0.95 + `netlify-plugin-hugo-cache-resources`, last built 2023) has
-   probably failed. The owner must check that site's deploy log in the Netlify dashboard (or run
-   `npx netlify-cli login` in the session so the log can be read from here). Re-check with
-   `curl -sSL -o /dev/null -w '%{url_effective} %{http_code}\n' https://tomnahass.com/vent-sim/` and expect
-   200 with the VentSim `<title>`, then check that `assets/index-*.js` is proxied too.
-4. **Next feature (owner-approved design, build next)**: the quiz "bedside view" and debrief —
-   `docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md`. Instructor-set hide set (truth, Pes,
-   scenario text, derived numbers, explain cards, CO2), a "Bedside" preset, checkboxes plus a copyable
-   locked quiz link (`#<id>?quiz=bedside`), and a four-section debrief on submit (what you changed, what was
-   happening, the recommended fix key by key, physiology and recognition from the cards). Tests are listed
-   in the spec §6; work tests-first and follow the superpowers writing-plans → executing-plans flow.
+3. **Alias** `tomnahass.com/vent-sim/` — **root cause found 2026-09-11 (evening), owner action needed.**
+   The redirect rules are in the personal site's repo (`~/Documents/development/personal-website/netlify.toml`,
+   commit 4d756ac on `github.com/nahata5/personal-website` main). DNS already points at Netlify. The
+   personal site's Netlify build fails at "preparing repo": `git@github.com: Permission denied (publickey)`
+   when cloning `nahata5/personal-website`, and `gh api repos/nahata5/personal-website/keys` returns `[]`,
+   so Netlify's deploy key is no longer on the GitHub repo (the webhook itself is fine: last response 204).
+   Fix in the Netlify dashboard for the personal site: Site configuration → Build & deploy → Continuous
+   deployment → "Manage repository" → link the repository again (re-installs the deploy key), or copy the
+   site's deploy key from that page and add it under the GitHub repo's Settings → Deploy keys (read-only is
+   enough; `gh repo deploy-key add <file> -R nahata5/personal-website` also works). Then trigger a deploy
+   and re-check with `curl -sSL -o /dev/null -w '%{url_effective} %{http_code}\n' https://tomnahass.com/vent-sim/`
+   (expect 200 with the VentSim `<title>`), then check that `assets/index-*.js` is proxied too. Nothing in
+   this repo can change the outcome. If the Hugo 0.95 build fails next, that log is the next thing to read.
+4. **Quiz bedside view + debrief — done** (D-019, six commits 2454a79…95f112b + docs, live). See the map
+   above. Small follow-ups if wanted: mask the other case titles in the picker when `scenario` is hidden
+   but the session is not locked; an instructor review page for the stored `QuizAttempt.debrief`
+   summaries (today they show as one line in the Quiz tab's idle state); a `mark` for `fix.drive`
+   recommendations (the debrief lists settings and injectors only).
 5. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a screenshot
    refresh for the docs (`SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts`) now that the
-   Monitor has the SpO2 tile and the Instructor panel the elastance row, a Pes-position dependence of the
-   cardiac artifact (larger behind the heart), quiz extras for more scenarios (e.g. `dPes ≤ 8` for the
-   P-SILI scenario), and an explain-card/objective for the capstone that lists the fix order.
+   Monitor has the SpO2 tile, the Instructor panel the elastance row and the Quiz view section, and the
+   quiz result the debrief; a Pes-position dependence of the cardiac artifact (larger behind the heart);
+   quiz extras for more scenarios (e.g. `dPes ≤ 8` for the P-SILI scenario); an explain-card/objective for
+   the capstone that lists the fix order.
 6. Keep the working method: tests first for anything in `src/sim`/`src/detector`/`src/edu` logic, constants
    cited, deviations in DECISIONS, clinical questions in QUESTIONS, regenerate the snapshot after scenario or
    detector changes, `SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts` for the docs.
@@ -134,8 +155,9 @@ All spec milestones and the optional extensions listed in the previous handoff a
 ## Hosting
 
 Netlify (D-008). `netlify.toml` builds `npm run build` → `dist`, Node 22; GitHub Actions is CI only. Live at
-https://vent-sim.netlify.app/; every push to `main` redeploys. The alias `tomnahass.com/vent-sim/` needs the
-proxy rule in README on the personal site and is not yet verified (404 on 2026-09-11, see "What is left" 3).
+https://vent-sim.netlify.app/; every push to `main` redeploys. The alias `tomnahass.com/vent-sim/` has its
+proxy rules on the personal site but that site's Netlify build cannot clone its repo (deploy key missing;
+404 on 2026-09-11, owner action in "What is left" 3).
 Deploy check used after each push: poll the served `assets/index-*.js` for a string unique to the commit.
 
 ## Detector: final numbers and how it works
@@ -187,24 +209,27 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 ## Prompt for the next session
 
 > Continue VentSim in this repo (main branch, clean tree). Read docs/HANDOFF.md first, then PROGRESS.md (the
-> M9 definition-of-done walkthrough and the post-M9 entries) and docs/DECISIONS.md (D-001…D-018). The goal
+> M9 definition-of-done walkthrough and the post-M9 entries) and docs/DECISIONS.md (D-001…D-019). The goal
 > and non-negotiables are in docs/FABLE_GOAL_PROMPT.md; the spec is
 > docs/superpowers/specs/2026-09-10-vent-sim-design.md. The owner has answered docs/QUESTIONS.md Q-1…Q-5:
 > keep the defaults; do not reopen them.
 >
 > State: M0–M9 and the post-M9 extensions (Pes artifact fix, quiz extras, capstone, schematic SpO2, live
-> EL/Ecw) are done and deployed at https://vent-sim.netlify.app/. Vitest 195/195 (held-out detector suite
-> un-gated; the performance test is wall-clock and must be re-run alone if the parallel run is under load),
-> lint clean, Playwright 28/28, build clean. Do not revisit finished milestones except to fix a bug; never
-> tune the detector on the held-out grid; regenerate src/validation/snapshot.json after any scenario change
-> and the MODEL.md constants table after any constants change.
+> EL/Ecw, quiz bedside view + debrief D-019) are done and deployed at https://vent-sim.netlify.app/.
+> Vitest 212/212 (held-out detector suite un-gated; the performance test is wall-clock and must be re-run
+> alone if the parallel run is under load), lint clean, Playwright 31/31 (the M8 quiz test can flake under
+> a loaded full run because the fix outcome depends on wall-clock click timing; re-run it alone), build
+> clean. Do not revisit finished milestones except to fix a bug; never tune the detector on the held-out
+> grid; regenerate src/validation/snapshot.json after any scenario change and the MODEL.md constants table
+> after any constants change.
 >
-> Task — build the quiz "bedside view" and debrief from the owner-approved design in
-> docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md (HANDOFF "What is left" item 4): first
-> write the implementation plan (superpowers writing-plans) from the spec, then execute it tests-first
-> (spec §6 lists the tests), keeping the existing quiz behaviour unchanged when no hide set is given.
-> Commit, push and check the live site after each task; add D-019 to DECISIONS, a PROGRESS entry and the
-> README quiz section. Before starting, re-check the tomnahass.com/vent-sim/ alias with the curl in
-> HANDOFF item 3 and report the result (the fix is pushed to the personal site's repo; only its Netlify
-> build can be at fault now). When you reach a good place around 50 % context, update docs/HANDOFF.md and
-> write the next prompt into it.
+> Task — first, the alias: HANDOFF "What is left" item 3 has the root cause (the personal site's Netlify
+> deploy key is missing on github.com/nahata5/personal-website). If the owner has re-linked the repo, verify
+> with the curl there and record the result in PROGRESS and HANDOFF; if not, remind them and move on.
+> Then pick the next item with the owner: either the D-019 follow-ups in item 4 (picker masking while
+> unlocked, an instructor review of stored debrief summaries, a mark for `fix.drive` recommendations) or
+> one of the optional items in 5 (the docs screenshot refresh is cheap and overdue: run
+> `SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts` and check the images in
+> docs/screenshots). For anything new, brainstorm → spec → writing-plans → execute tests-first, one commit
+> and deploy check per task, a DECISIONS entry for any choice the spec left open, and a PROGRESS entry. When
+> you reach a good place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.

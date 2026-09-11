@@ -436,3 +436,31 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   `SessionStatus.mechanics` (the controller updates its `PatientSummary` from it so the main-thread truth
   labeler's compliance rules follow the change), `InstructorPanel` inputs `instr-el`, `instr-ecw`,
   button `instr-apply-el`. The `EL ×` multiplier stays as it was (it composes with the absolute value).
+
+## D-019 · Quiz bedside view, locked link and templated debrief (2026-09-11)
+
+- **What is hidden and why.** Six keys (`src/edu/quiz-view.ts`): `truth` (layer, toggle, truth badges,
+  truth-only readouts), `pes` (the Pes row and the tiles that need the balloon), `scenario` (title →
+  "Case", summary, objectives, targets, suggested fix, best score), `derived` (lung-stress dashboard,
+  Validation link, balloon-only tiles), `explain` (tab, badge click, badge hover evidence), `co2` (panel
+  and warp). The preset `bedside` is all six: what a resident sees at the bedside is the ventilator screen
+  and the monitor, nothing that names the case or exposes the model. The set is stored in
+  `ctl.view.quizHide` and acts only while a quiz is in `identify`/`identified`/`fix` or the session is
+  locked (`ctl.quizHides(key)`), so the instructor previews the case normally.
+- **Badges** were already hidden during identification (M8); with `truth` hidden they stay hidden through
+  the fix phase and return with the debrief, because the truth badge row would otherwise name the pattern.
+- **Locking is not security.** `#<id>?quiz=<keys|bedside>` sets `ctl.view.quizLocked`: the Instructor
+  panel is not rendered, the picker and the truth toggle are disabled, truth exports are hidden. The lock
+  lifts on `evaluateQuiz` and `endQuiz`. The URL is editable; a learner who edits it has opted out of the
+  exercise, which is acceptable in a classroom.
+- **Debrief is templated** (`src/edu/debrief.ts`, no LLM, D-015): the confirmed setting changes since the
+  fix window started (`settingsChangeLog`, appended in `applySettings`, `applyFix` and `setInjector`, one
+  entry per changed key, alarm limits per limit, injectors as on/off), the truth patterns by card title
+  with the latest case-evidence sentence and found / missed / extra marks, the scenario `fix.note` and
+  its settings key by key with a mark — **matched** (same direction, within `QUIZ_FIX_BAND` = 25 % of the
+  recommended step of the recommended value), **partial** (same direction), **not done**, **opposite** —
+  plus the AI before and after and the failed checks, then mechanism, signature, causes, pitfalls and the
+  ranked fixes from the cards. Grading is unchanged. A compact summary (changes, patterns, pass) is stored
+  with the attempt (`QuizAttempt.debrief`) and shown in the Quiz tab's idle state.
+- **Not done.** No per-learner identity, no server, no instructor dashboard; the picker still lists the
+  other case titles when `scenario` is hidden and the session is not locked (the learner may switch cases).

@@ -521,3 +521,29 @@ status on the commit; the site's Hugo 0.95 build has probably failed and must be
 dashboard (no Netlify credentials on this machine). Owner request for a quiz "bedside view" with a debrief
 was designed and approved: `docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md`; to be built in
 a fresh session (HANDOFF item 4).
+
+## Post-M9 · Quiz bedside view and debrief (2026-09-11)
+
+D-019, design `docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md`, plan
+`docs/superpowers/plans/2026-09-11-quiz-bedside-view.md` (six tasks, executed tests-first, one commit and
+deploy check each). Hide set (`src/edu/quiz-view.ts`: six keys, `bedside` preset, `parseQuizHash` /
+`quizLink`), controller `quizHides` / `setQuizHide` / `lockQuiz`, `settingsChangeLog` (confirmed commits,
+scripted fixes, injector toggles), debrief builder (`src/edu/debrief.ts`: change list, found / missed /
+extra, recommended fix key by key with matched / partial / not-done / opposite, outcome, card physiology),
+`DebriefPanel` inside the quiz result, Instructor panel "Quiz view" (checkboxes, Bedside, Show all,
+copyable locked link), `QuizAttempt.debrief` summary shown in the Quiz tab's idle state. `App.tsx` reads
+`#<id>?quiz=` at load and on hashchange; the hash page part is the text before `?`. One constant,
+`QUIZ_FIX_BAND` 0.25 [M]; MODEL.md table regenerated; no scenario or detector change, so no snapshot change.
+
+Tests first: `tests/unit/quiz-view.test.ts` (round trip, bedside, unknown keys, locked only with `?quiz=`),
+`tests/unit/debrief.test.ts` (change log per key and per alarm limit, formatting, marks, identification
+marks, missing evidence, card titles, injectors, no-fix scenario), `tests/unit/progress.test.ts` (summary
+persists), `tests/e2e/quiz-bedside.spec.ts` (locked link hides truth toggle, instructor panel, Explain tab,
+dashboard, Validation link, scenario text and apply-fix; fix through the settings panel; debrief names the
+PS and ETS changes, "Ineffective effort", the Tassaux note and marks PS matched; unlock on evaluate; plain
+hash unchanged; instructor checkboxes and link). The `settingsChangeLog` reset is asserted in the e2e
+(empty after load) because the controller cannot be constructed under Vitest (`WorkerClient` needs a
+`Worker`). Vitest 212/212 (the performance test re-run alone after failing under the concurrent Playwright
+run, as before), lint clean, Playwright 31/31, build clean. One flake seen: in a full parallel run the M8
+quiz test once evaluated `data-pass` 0 (the fix outcome depends on where the wall-clock clicks land in
+simulated time at 4×); it passed alone and in the next full run, and the grading code is untouched.
