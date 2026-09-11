@@ -469,3 +469,13 @@ result. Obesity requires PL,ee ≥ 0 and PL,ei ≤ 20; abdominal hypertension an
 PL,ee ≥ 0. Tests first: `quiz.test.ts` (worst compartment, window mean, null → unverified), `scenarios.test.ts`
 (the three scenarios define it; every extra names a known metric with a limit), `quiz.spec.ts` (the obesity
 quiz result lists the PL,ee check). D-015 updated.
+
+## Post-M9 · Capstone scenario "find all the problems" (2026-09-11)
+
+`src/edu/scenarios/capstone.json` (Spec §8 #18, category `capstone`): the over-assisted COPD patient on PSV
+(PS 16, ETS 10 %, PEEP 0, weak variable drive) with a cuff leak (k 0.03) and mobile secretions. Five truth
+patterns coexist and the emergence matrix requires each in ≥ 20 % of breaths before the fix: ineffective
+effort 0.63 of efforts, delayed cycling 1.00, auto-PEEP 1.00, leak 1.00, secretions 1.00; AI 100 % before
+the fix and 0 % after it (cuff re-inflated, suctioned, ETS 70 %, PS 6, PEEP 5, trigger 1.5). Test first:
+`scenarios.test.ts` (in the library, ≥ 2 dyssynchrony targets, ≥ 2 injectors, fix removes every injector);
+the emergence test picks it up automatically (now 14 rows). Snapshot regenerated; VALIDATION.md list updated.

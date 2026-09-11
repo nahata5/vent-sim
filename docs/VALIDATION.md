@@ -48,7 +48,8 @@ Every scenario with target patterns: the target present in ≥ the scenario's mi
 (efforts for ineffective effort) between 10 s and the fix at 60 s, AI < 10 % within 60 s after the scripted
 fix, no pattern on the passive baseline. Rows on the Validation page. Scenarios: double-trigger,
 flow-starvation, ineffective-effort, reverse-trigger, auto-trigger, leak-psv, premature-cycling,
-copd-auto-peep, secretions, bronchospasm, pneumothorax, mainstem, co2-under-assist (+ the passive baseline).
+copd-auto-peep, secretions, bronchospasm, pneumothorax, mainstem, co2-under-assist, capstone (five coexisting
+patterns: ineffective effort, delayed cycling, auto-PEEP, leak, secretions) (+ the passive baseline).
 
 ## §9.5 Detector on the held-out grid — `tests/detector/heldout.test.ts` (9)
 

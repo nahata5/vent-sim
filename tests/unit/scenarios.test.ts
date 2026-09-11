@@ -65,3 +65,15 @@ describe('scenario quiz extras', () => {
     }
   });
 });
+
+describe('capstone scenario (Spec §8 #18: "find all the problems")', () => {
+  it('is in the library with several coexisting problems: two dyssynchrony patterns and two injectors at least', () => {
+    const def = scenarioById('capstone');
+    expect(def.category).toBe('capstone');
+    expect(Object.keys(def.injectors ?? {}).length).toBeGreaterThanOrEqual(2);
+    const dys = def.targetPatterns.filter((p) => ['ineffective-effort', 'delayed-cycling', 'auto-trigger', 'double-trigger', 'premature-cycling', 'reverse-trigger', 'flow-starvation'].includes(p));
+    expect(dys.length).toBeGreaterThanOrEqual(2);
+    expect(def.targetPatterns.length).toBeGreaterThanOrEqual(4);
+    expect(def.fix?.injectors && Object.values(def.fix.injectors).every((v) => v === null)).toBe(true);
+  });
+});

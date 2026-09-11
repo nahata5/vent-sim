@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-11T21:50:53.017Z",
- "commit": "41df53a",
+ "generatedAt": "2026-09-11T21:57:15.175Z",
+ "commit": "27e4209",
  "emergence": [
   {
    "id": "double-trigger",
@@ -203,6 +203,41 @@
     }
    ],
    "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "capstone",
+   "targets": [
+    {
+     "pattern": "ineffective-effort",
+     "fraction": 0.631578947368421,
+     "required": 0.2
+    },
+    {
+     "pattern": "delayed-cycling",
+     "fraction": 1,
+     "required": 0.2
+    },
+    {
+     "pattern": "auto-peep",
+     "fraction": 1,
+     "required": 0.2
+    },
+    {
+     "pattern": "leak",
+     "fraction": 1,
+     "required": 0.2
+    },
+    {
+     "pattern": "secretions",
+     "fraction": 1,
+     "required": 0.2
+    }
+   ],
+   "aiBefore": 100,
    "aiAfter": 0,
    "aiLimit": 10,
    "extra": [],

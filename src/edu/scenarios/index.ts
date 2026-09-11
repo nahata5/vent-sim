@@ -96,8 +96,10 @@ import peepTrialRecruiter from './peep-trial-recruiter.json';
 import peepTrialNonRecruiter from './peep-trial-non-recruiter.json';
 import co2OverAssist from './co2-over-assist.json';
 import co2UnderAssist from './co2-under-assist.json';
+import capstone from './capstone.json';
 
 const RAW: unknown[] = [
+  capstone,
   peepTrialRecruiter,
   peepTrialNonRecruiter,
   co2OverAssist,

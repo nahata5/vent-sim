@@ -27,7 +27,7 @@ https://vent-sim.netlify.app/#validation.
   signal-only detector with evidence strings validated on a held-out grid, an asynchrony index, and eight
   fault injectors (leak, cardiac, secretions, water, cough, pneumothorax, mainstem, bronchospasm) that act
   as terms in the equations.
-- **Education**: 24 scenarios, explain cards with case-specific evidence, a quiz (identify the patterns
+- **Education**: 25 scenarios including a "find all the problems" capstone, explain cards with case-specific evidence, a quiz (identify the patterns
   with the badges hidden, then fix them within safety limits), instructor mode with live patient controls
   and a JSON scenario editor, progress in localStorage.
 - **Export**: session CSV and JSON, and a batch generator (browser worker or Node) that zips labeled datasets.

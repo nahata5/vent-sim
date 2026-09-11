@@ -1,0 +1,59 @@
+{
+  "id": "capstone",
+  "order": 300,
+  "category": "capstone",
+  "title": "Capstone: find all the problems",
+  "summary": "A COPD patient over-assisted on PSV (PS 16, ETS 10 %, PEEP 0) with a cuff leak and mobile secretions. Several problems coexist: missed efforts, prolonged insufflations, gas trapping, a leak that the loops betray, and a sawtooth on expiratory flow. Identify every pattern, then fix the settings, the cuff and the airway.",
+  "phenotype": "copd",
+  "drive": {
+    "rate": 22,
+    "ti": 0.8,
+    "pmax": 5,
+    "cvRate": 0.1,
+    "cvTi": 0.1,
+    "cvPmax": 0.15
+  },
+  "injectors": {
+    "leak": { "k": 0.03 },
+    "secretions": {}
+  },
+  "settings": {
+    "mode": "PSV",
+    "peep": 0,
+    "ps": 16,
+    "ets": 0.1,
+    "tiMax": 2.5,
+    "flowTrigger": 3,
+    "apneaTime": 30
+  },
+  "seed": 42,
+  "objectives": [
+    "List every pattern: ineffective efforts, delayed cycling, auto-PEEP, leak and secretions.",
+    "Order the fixes: re-inflate the cuff and suction first, then shorten Ti (ETS up, PS down) and offset PEEPi with external PEEP."
+  ],
+  "targetPatterns": [
+    "ineffective-effort",
+    "delayed-cycling",
+    "auto-peep",
+    "leak",
+    "secretions"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Cuff re-inflated, suctioned; ETS 70 %, PS 6, PEEP 5, trigger 1.5 L/min.",
+    "settings": {
+      "ps": 6,
+      "ets": 0.7,
+      "peep": 5,
+      "flowTrigger": 1.5
+    },
+    "injectors": {
+      "leak": null,
+      "secretions": null
+    }
+  },
+  "criteria": {
+    "minFraction": 0.2,
+    "aiAfter": 10
+  }
+}
