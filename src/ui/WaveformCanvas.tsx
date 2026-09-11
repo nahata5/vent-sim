@@ -181,7 +181,12 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
     if (y < badgeStripHeight({ showBadges: ctl.view.badges, truthBadges: truth })) {
-      // Badge strip: show the labels and their evidence for the breath under the pointer.
+      // Badge strip: show the labels and their evidence for the breath under the pointer (not in a bedside quiz, D-019).
+      if (ctl.quizHides('explain')) {
+        cursorRef.current = null;
+        setReadout(null);
+        return;
+      }
       const hit = hits.find((h) => x >= h.x0 && x <= h.x1);
       const l = hit ? ctl.labels.get(hit.index) : undefined;
       if (!hit || !l) {

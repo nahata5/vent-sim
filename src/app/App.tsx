@@ -21,6 +21,7 @@ import { ExportPanel } from '../ui/ExportPanel';
 import type { DrawerTab } from './controller';
 import { defaultBalloon } from '../sim/patient/balloon';
 import type { BadgeHit } from '../ui/waveform-draw';
+import { parseQuizHash } from '../edu/quiz-view';
 
 export const DISCLAIMER =
   'VentSim is for education only. It is not a medical device and not a clinical decision aid.';
@@ -34,8 +35,9 @@ declare global {
 const DEFAULT_SCENARIO = SCENARIOS[0]?.id ?? 'normal-passive';
 const VALIDATION_HASH = 'validation';
 
+/** Page part of the hash: `#copd?quiz=bedside` → `copd`; `#validation` → `validation`. */
 function hashPage(): string {
-  return location.hash.replace(/^#\/?/, '');
+  return location.hash.replace(/^#\/?/, '').split('?')[0] ?? '';
 }
 
 export function App() {
@@ -54,7 +56,15 @@ export function App() {
       const hash = hashPage();
       return SCENARIOS.some((s) => s.id === hash) ? hash : DEFAULT_SCENARIO;
     };
-    if (hashPage() !== VALIDATION_HASH) ctl.loadScenario(fromHash());
+    // A quiz link (`#<id>?quiz=…`, D-019) applies its hide set and locks the session.
+    const applyQuizLink = () => {
+      const info = parseQuizHash(location.hash);
+      if (info?.locked && info.scenarioId === ctl.scenario?.id) ctl.lockQuiz(info.hide);
+    };
+    if (hashPage() !== VALIDATION_HASH) {
+      ctl.loadScenario(fromHash());
+      applyQuizLink();
+    }
     const onHash = () => {
       setPage(hashPage());
       if (hashPage() === VALIDATION_HASH) return;
@@ -63,6 +73,7 @@ export function App() {
         setFixApplied(false);
         ctl.loadScenario(id);
       }
+      applyQuizLink();
     };
     window.addEventListener('hashchange', onHash);
     // Coarse refresh for the time readout while live.
@@ -80,6 +91,17 @@ export function App() {
   const view = ctl.view;
   const balloonOn = ctl.balloon.enabled;
   const scenario = ctl.scenario;
+  // Bedside quiz view (D-019): what is hidden right now (only while a quiz runs or the session is locked).
+  const hideTruth = ctl.quizHides('truth');
+  const hidePes = ctl.quizHides('pes');
+  const hideScenario = ctl.quizHides('scenario');
+  const hideDerived = ctl.quizHides('derived');
+  const hideExplain = ctl.quizHides('explain');
+  const hideCo2 = ctl.quizHides('co2');
+  const locked = view.quizLocked;
+  const truthOn = view.truth && !hideTruth;
+  const pesOn = balloonOn && !hidePes;
+  const tabs = (['scenario', 'explain', 'quiz', 'export'] as DrawerTab[]).filter((t) => !(hideExplain && t === 'explain'));
 
   const pick = (id: string) => {
     location.hash = id;
@@ -108,32 +130,34 @@ export function App() {
       <header class="app-header">
         <h1>VentSim</h1>
         <span class="muted small">v{APP_VERSION}</span>
-        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} />
-        <TruthToggle on={view.truth} onChange={(on) => ctl.setTruth(on)} />
+        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} disabled={locked} mask={hideScenario} />
+        <TruthToggle on={truthOn} onChange={(on) => ctl.setTruth(on)} disabled={locked || hideTruth} />
         <label class="inline balloon-toggle">
           <input type="checkbox" checked={balloonOn} onChange={(e) => ctl.setBalloon({ ...defaultBalloon(), ...ctl.balloon, enabled: (e.currentTarget).checked })} data-testid="balloon-toggle" />
           <span class="small">Esophageal balloon</span>
         </label>
-        <a class="small muted" href="#validation" data-testid="validation-link">
-          Validation
-        </a>
+        {!hideDerived && (
+          <a class="small muted" href="#validation" data-testid="validation-link">
+            Validation
+          </a>
+        )}
       </header>
       <AlarmBar active={status?.alarms ?? []} inBackup={status?.inBackup ?? false} pendingCount={status?.pending.length ?? 0} />
       <main class="app-main" data-testid="app-main">
         <aside class="col-left">
           {settings && <SettingsPanel ctl={ctl} settings={settings} pendingOnVent={status?.pending ?? []} />}
           {status && <InjectorPanel ctl={ctl} active={status.injectors} />}
-          {status?.co2 && <Co2Panel co2={status.co2} onWarp={(w) => ctl.setWarp(w)} />}
-          {status && <InstructorPanel ctl={ctl} />}
+          {status?.co2 && !hideCo2 && <Co2Panel co2={status.co2} onWarp={(w) => ctl.setWarp(w)} />}
+          {status && !locked && <InstructorPanel ctl={ctl} />}
         </aside>
         <section class="col-center">
           <TimeControls ctl={ctl} view={view} tLatest={ctl.store.tLatest} tOldest={ctl.store.tOldest} />
-          <WaveformCanvas ctl={ctl} truth={view.truth} balloon={balloonOn} perf={perf} hits={hits} />
+          <WaveformCanvas ctl={ctl} truth={truthOn} balloon={pesOn} perf={perf} hits={hits} />
           <div class="drawer">
-            <LoopCanvas ctl={ctl} loops={view.truth ? [...BEDSIDE_LOOPS, ...TRUTH_LOOPS] : BEDSIDE_LOOPS} ecw={ctl.patient?.ecw ?? null} />
+            <LoopCanvas ctl={ctl} loops={truthOn ? [...BEDSIDE_LOOPS, ...TRUTH_LOOPS] : BEDSIDE_LOOPS} ecw={ctl.patient?.ecw ?? null} />
             <div class="drawer-pane" data-testid="drawer-pane">
               <div class="tabs" role="tablist">
-                {(['scenario', 'explain', 'quiz', 'export'] as DrawerTab[]).map((tab) => (
+                {tabs.map((tab) => (
                   <button type="button" key={tab} role="tab" aria-selected={view.drawerTab === tab} class={view.drawerTab === tab ? 'active' : ''} onClick={() => ctl.setDrawerTab(tab)} data-testid={`tab-${tab}`}>
                     {tab === 'scenario' ? 'Scenario' : tab === 'explain' ? 'Explain' : tab === 'quiz' ? 'Quiz' : 'Export'}
                   </button>
@@ -141,10 +165,13 @@ export function App() {
               </div>
               {view.drawerTab === 'scenario' && scenario && (
                 <div class="scenario-info" data-testid="scenario-info">
-                  <button type="button" class="link" onClick={() => setShowObjectives(!showObjectives)} aria-expanded={showObjectives}>
-                    {showObjectives ? '▾' : '▸'} {scenario.title}
-                  </button>
-                  {showObjectives && (
+                  {hideScenario && <p class="small muted">Case · scenario details are hidden for this quiz.</p>}
+                  {!hideScenario && (
+                    <button type="button" class="link" onClick={() => setShowObjectives(!showObjectives)} aria-expanded={showObjectives}>
+                      {showObjectives ? '▾' : '▸'} {scenario.title}
+                    </button>
+                  )}
+                  {!hideScenario && showObjectives && (
                     <div class="small">
                       <p>{scenario.summary}</p>
                       <ul>
@@ -177,9 +204,9 @@ export function App() {
                   )}
                 </div>
               )}
-              {view.drawerTab === 'explain' && <ExplainCard ctl={ctl} />}
+              {view.drawerTab === 'explain' && !hideExplain && <ExplainCard ctl={ctl} />}
               {view.drawerTab === 'quiz' && <QuizPanel ctl={ctl} />}
-              {view.drawerTab === 'export' && <ExportPanel ctl={ctl} />}
+              {view.drawerTab === 'export' && <ExportPanel ctl={ctl} hideTruth={locked} />}
             </div>
           </div>
         </section>
@@ -195,17 +222,18 @@ export function App() {
               busy={status?.phase === 'exp-hold' || status?.phase === 'occlusion'}
               ai={ctl.ai}
               spo2={ctl.latestSpo2}
+              hideBalloonTiles={hidePes || hideDerived}
             />
           )}
-          {settings && (
+          {settings && !hideDerived && (
             <LungStressDashboard
               m={ctl.latestBreath}
               truth={ctl.latestTruth}
               recruit={ctl.latestRecruit}
-              truthOn={view.truth}
+              truthOn={truthOn}
               maneuvers={ctl.maneuvers}
               settings={settings}
-              balloon={balloonOn}
+              balloon={pesOn}
               rrTotal={ctl.monitor.rrTotal}
             />
           )}

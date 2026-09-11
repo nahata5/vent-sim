@@ -17,13 +17,18 @@ interface Props {
   ai: AsynchronyIndex | null;
   /** Schematic SpO2 (Spec §4.6 stretch goal, display only). */
   spo2: Spo2Readout | null;
+  /** Bedside quiz (D-019): drop the tiles that need the balloon and the SpO2 shunt detail. */
+  hideBalloonTiles?: boolean;
 }
+
+/** Tiles that need the esophageal balloon. */
+const BALLOON_TILES = new Set(['ΔPes/ΔPaw']);
 
 function v(x: number | null | undefined, digits = 1): string {
   return x === null || x === undefined || !Number.isFinite(x) ? '—' : x.toFixed(digits);
 }
 
-export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2 }: Props) {
+export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false }: Props) {
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
@@ -51,15 +56,16 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
     ['P0.1', v(p01), 'cmH2O'],
     ['ΔPocc', v(pocc), 'cmH2O'],
     ['ΔPes/ΔPaw', occ ? v(occ.ratio, 2) : '—', 'occlusion test'],
-    ['SpO2', v(spo2?.spo2, 0), spo2 ? `% schematic · PaO2 ${v(spo2.paO2, 0)} · shunt ${v(100 * spo2.shunt, 0)} %` : '% schematic'],
+    ['SpO2', v(spo2?.spo2, 0), spo2 && !hideBalloonTiles ? `% schematic · PaO2 ${v(spo2.paO2, 0)} · shunt ${v(100 * spo2.shunt, 0)} %` : '% schematic'],
   ];
+  const shown = hideBalloonTiles ? tiles.filter(([label]) => !BALLOON_TILES.has(label)) : tiles;
   return (
     <section class="panel monitor" aria-label="Monitored values" data-testid="monitor-panel">
       <h2>
         Monitor <span class="muted small">{settings.mode}</span>
       </h2>
       <div class="tiles">
-        {tiles.map(([label, val, unit]) => (
+        {shown.map(([label, val, unit]) => (
           <div class="tile" key={label} data-testid={`mon-${label}`}>
             <div class="tile-label">{label}</div>
             <div class="tile-value">{val}</div>

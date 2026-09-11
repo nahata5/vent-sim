@@ -6,10 +6,12 @@ import type { BatchWorkerIn, BatchWorkerOut } from '../worker/batch.worker';
 
 interface Props {
   ctl: SessionController;
+  /** Locked bedside quiz (D-019): no truth exports. */
+  hideTruth?: boolean;
 }
 
 /** Export (Spec §10): session CSV/JSON of the retained window and a batch zip generated in a worker. */
-export function ExportPanel({ ctl }: Props) {
+export function ExportPanel({ ctl, hideTruth = false }: Props) {
   const [msg, setMsg] = useState('');
   const [seeds, setSeeds] = useState('1,2');
   const [duration, setDuration] = useState('30');
@@ -19,7 +21,7 @@ export function ExportPanel({ ctl }: Props) {
   useEffect(() => () => workerRef.current?.terminate(), []);
   const say = (o: string, what: string) => setMsg(o === 'downloaded' ? `${what} downloaded` : o === 'copied' ? `${what} copied to the clipboard (downloads blocked)` : `${what}: export failed`);
   const runBatch = () => {
-    const grid: BatchGrid = { scenarios: [ctl.scenario?.id ?? 'normal-passive'], seeds: seeds.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n)), duration: Math.max(3, Number(duration) || 30), truth };
+    const grid: BatchGrid = { scenarios: [ctl.scenario?.id ?? 'normal-passive'], seeds: seeds.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n)), duration: Math.max(3, Number(duration) || 30), truth: hideTruth ? false : truth };
     const w = new Worker(new URL('../worker/batch.worker.ts', import.meta.url), { type: 'module', name: 'ventsim-batch' });
     workerRef.current = w;
     setProgress({ done: 0, total: grid.scenarios.length * grid.seeds.length });
@@ -46,9 +48,11 @@ export function ExportPanel({ ctl }: Props) {
         <button type="button" onClick={() => void ctl.exportCsv(false).then((o) => say(o, 'CSV'))} data-testid="export-csv">
           CSV (measured)
         </button>
-        <button type="button" onClick={() => void ctl.exportCsv(true).then((o) => say(o, 'CSV with truth'))} data-testid="export-csv-truth">
-          CSV + truth
-        </button>
+        {!hideTruth && (
+          <button type="button" onClick={() => void ctl.exportCsv(true).then((o) => say(o, 'CSV with truth'))} data-testid="export-csv-truth">
+            CSV + truth
+          </button>
+        )}
         <button type="button" onClick={() => void ctl.exportJson().then((o) => say(o, 'JSON'))} data-testid="export-json">
           JSON (labels, evidence, maneuvers)
         </button>
@@ -61,9 +65,11 @@ export function ExportPanel({ ctl }: Props) {
         <label>
           s each <input type="number" value={duration} min={3} max={600} onInput={(e) => setDuration(e.currentTarget.value)} data-testid="batch-duration" />
         </label>
-        <label class="inline">
-          <input type="checkbox" checked={truth} onChange={(e) => setTruth(e.currentTarget.checked)} /> truth channels
-        </label>
+        {!hideTruth && (
+          <label class="inline">
+            <input type="checkbox" checked={truth} onChange={(e) => setTruth(e.currentTarget.checked)} /> truth channels
+          </label>
+        )}
         <button type="button" class="primary" onClick={runBatch} disabled={progress !== null} data-testid="batch-run">
           {progress ? `running ${progress.done}/${progress.total}…` : 'Generate zip (this scenario × seeds)'}
         </button>

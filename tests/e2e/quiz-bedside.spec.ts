@@ -1,0 +1,75 @@
+/**
+ * Quiz bedside view (design 2026-09-11, D-019): a locked quiz link hides the source material, the debrief
+ * on evaluate reveals it; a plain hash keeps the M8 behaviour; the instructor's checkboxes set the hide set.
+ */
+import { expect, test, type Page } from '@playwright/test';
+
+async function waitForSim(page: Page, seconds: number): Promise<void> {
+  await page.waitForFunction((s) => (window.__ventsim?.ctl.store.tLatest ?? 0) >= s, seconds, { timeout: 120_000 });
+}
+
+async function fast(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+  await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+}
+
+test('bedside quiz link: locked view hides the source material, the debrief reveals it', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/#ineffective-effort?quiz=bedside');
+  await fast(page);
+  // Locked and hidden before the quiz starts.
+  expect(await page.evaluate(() => window.__ventsim?.ctl.view.quizLocked)).toBe(true);
+  expect(await page.evaluate(() => window.__ventsim?.ctl.settingsChangeLog.length)).toBe(0);
+  await expect(page.getByTestId('truth-toggle')).toBeDisabled();
+  await expect(page.getByTestId('instructor-panel')).toHaveCount(0);
+  await expect(page.getByTestId('tab-explain')).toHaveCount(0);
+  await expect(page.getByTestId('dashboard')).toHaveCount(0);
+  await expect(page.getByTestId('validation-link')).toHaveCount(0);
+  await expect(page.getByTestId('scenario-select')).toBeDisabled();
+  await expect(page.getByTestId('quiz-panel')).toBeVisible();
+  await page.getByTestId('tab-scenario').click();
+  await expect(page.getByTestId('scenario-info')).toContainText('Case');
+  await expect(page.getByTestId('scenario-info')).not.toContainText('Ineffective');
+  await expect(page.getByTestId('apply-fix')).toHaveCount(0);
+  await page.getByTestId('tab-quiz').click();
+  // Start, identify, fix through the settings panel.
+  await waitForSim(page, 25);
+  await page.getByTestId('quiz-start').click();
+  await page.getByTestId('quiz-pick-ineffective-effort').check();
+  await page.getByTestId('quiz-submit').click();
+  // Truth hidden: badges stay off through the fix phase.
+  expect(await page.evaluate(() => window.__ventsim?.ctl.view.badges)).toBe(false);
+  await page.getByTestId('quiz-fix').click();
+  await page.getByTestId('setting-ps').fill('6');
+  await page.getByTestId('setting-ets').fill('70');
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => (window.__ventsim?.ctl.status?.settings.ps ?? 0) === 6, undefined, { timeout: 15_000 });
+  const t0 = await page.evaluate(() => window.__ventsim?.ctl.quiz.fixWindowStart ?? 0);
+  await waitForSim(page, t0 + 61);
+  await page.getByTestId('quiz-evaluate').click();
+  // Debrief: the change, the pattern name, the fix note; everything revealed again.
+  await expect(page.getByTestId('debrief-panel')).toBeVisible();
+  await expect(page.getByTestId('debrief-changes')).toContainText('PS 16 → 6 cmH2O');
+  await expect(page.getByTestId('debrief-changes')).toContainText('ETS 10 → 70 %');
+  await expect(page.getByTestId('debrief-happening')).toContainText('Ineffective effort');
+  await expect(page.getByTestId('debrief-fix-note')).toContainText('Tassaux');
+  await expect(page.getByTestId('debrief-key-ps')).toContainText('matched');
+  await expect(page.getByTestId('debrief-physiology')).toContainText('Why it happens');
+  await expect(page.getByTestId('truth-toggle')).toBeEnabled();
+  await expect(page.getByTestId('instructor-panel')).toBeVisible();
+  await expect(page.getByTestId('tab-explain')).toBeVisible();
+  expect(await page.evaluate(() => window.__ventsim?.ctl.view.badges)).toBe(true);
+  // The compact summary is stored with the attempt.
+  const stored = await page.evaluate(() => localStorage.getItem('ventsim.progress.v1') ?? '');
+  expect(stored).toContain('"debrief"');
+});
+
+test('plain scenario hash: nothing hidden, not locked (existing behaviour)', async ({ page }) => {
+  await page.goto('/#ineffective-effort');
+  await fast(page);
+  expect(await page.evaluate(() => window.__ventsim?.ctl.view.quizLocked)).toBe(false);
+  await expect(page.getByTestId('truth-toggle')).toBeEnabled();
+  await expect(page.getByTestId('instructor-panel')).toBeVisible();
+  await expect(page.getByTestId('tab-explain')).toBeVisible();
+  await expect(page.getByTestId('dashboard')).toBeVisible();
+});
