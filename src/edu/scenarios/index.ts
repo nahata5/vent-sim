@@ -10,6 +10,7 @@ import type { MechanicsParams } from '../../sim/patient/params';
 import type { RecruitableSpec } from '../../sim/patient/lung-recruitable';
 import { defaultDriveParams, type DriveParams } from '../../sim/patient/neural-drive';
 import { defaultBalloon, type BalloonParams } from '../../sim/patient/balloon';
+import type { QuizExtraDef } from '../quiz';
 import { defaultGasParams, type GasParams } from '../../sim/patient/gas-exchange';
 import { defaultSettings, type VentSettings } from '../../sim/vent/settings';
 import type { Mode } from '../../sim/types';
@@ -66,6 +67,8 @@ export interface ScenarioDef {
   targetPatterns: string[];
   fix?: ScenarioFix;
   criteria?: ScenarioCriteria;
+  /** Scenario-specific quiz fix checks on truth metrics (Spec §8), e.g. PL,ee ≥ 0 for the obese patient. */
+  quizExtras?: QuizExtraDef[];
 }
 
 // Explicit imports (not import.meta.glob) so the library also loads under plain Node (tsx scripts, tests).

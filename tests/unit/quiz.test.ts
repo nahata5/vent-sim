@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { runHeadless } from '@sim/headless';
 import { labelRun } from '@sim/truth/labeler';
 import { resolveScenario, scenarioById } from '@/edu/scenarios';
-import { gradeFix, gradeIdentification, quizScore, truthPatternsInWindow, type FixInput } from '@/edu/quiz';
+import { extrasFromTruth, gradeFix, gradeIdentification, quizScore, truthPatternsInWindow, type FixExtra, type FixInput } from '@/edu/quiz';
+import type { TruthBreathMetrics } from '@sim/truth/lung-stress';
 import { k } from '@/config/constants';
 
 function window(id: string, t0: number, t1: number) {
@@ -100,4 +101,45 @@ describe('quiz: fix grading and score', () => {
     expect(wrong).toBeLessThan(40);
     expect(wrong).toBeGreaterThan(0);
   });
+});
+
+describe('quiz: scenario-specific extras from the truth metrics (Spec §8 "e.g. PL,ee ≥ 0")', () => {
+  const m = (plEE: [number, number], plEI: [number, number], dPes = 5): TruthBreathMetrics =>
+    ({
+      plEE: { nd: plEE[0], d: plEE[1] },
+      plEI: { nd: plEI[0], d: plEI[1] },
+      dPL: 8,
+      dPLdyn: 9,
+      vt: 0.4,
+      eelv: 2,
+      strain: 0.2,
+      energy: 5,
+      lungEnergy: 3,
+      powerTruth: 10,
+      lungPower: 6,
+      pmusPeak: 4,
+      dPes,
+      pendelluft: false,
+    });
+
+  it('PL,ee reads the worst (dependent) compartment averaged over the window breaths, with a default label', () => {
+    const [x] = extrasFromTruth([{ metric: 'plEE', min: 0 }], [m([3, -2], [15, 10]), m([4, 0], [16, 11])]);
+    expect(x?.id).toBe('plEE');
+    expect(x?.value).toBeCloseTo(-1, 6);
+    expect(x?.min).toBe(0);
+    expect(x?.label).toContain('PL,ee');
+  });
+
+  it('PL,ei reads the worst (highest) compartment; an empty window gives null so the check is unverified', () => {
+    const [x] = extrasFromTruth([{ metric: 'plEI', max: 20 }], [m([1, 0], [18, 22])]);
+    expect(x?.value).toBeCloseTo(22, 6);
+    const [y] = extrasFromTruth([{ metric: 'dPes', max: 8, label: 'ΔPes ≤ 8' }], []);
+    expect(y?.value).toBeNull();
+    expect(y?.label).toBe('ΔPes ≤ 8');
+    expect(gradeFix(baseFixFor([y as FixExtra])).checks.find((c) => c.id === 'dPes')?.verified).toBe(false);
+  });
+
+  function baseFixFor(extras: FixExtra[]): FixInput {
+    return { ai: 4, breaths: [{ dp: 12, pplat: 24, vtPerKg: 6.2 }], newSevereAlarms: [], extras };
+  }
 });

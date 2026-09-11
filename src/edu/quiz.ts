@@ -14,6 +14,7 @@
 import { k } from '../config/constants';
 import type { AlarmId } from '../sim/vent/ventilator';
 import type { BreathLabel, EffortLabel, PatternId } from '../sim/truth/labeler';
+import type { TruthBreathMetrics } from '../sim/truth/lung-stress';
 
 /** Alarms that count as "new severe alarms" for the fix (Brief 1 §2.6: the ones that mean harm or no ventilation). */
 export const SEVERE_ALARMS: readonly AlarmId[] = ['high-ppeak', 'apnea', 'disconnect', 'low-ve', 'high-peepi'];
@@ -59,6 +60,42 @@ export interface FixExtra {
   value: number | null;
   min?: number;
   max?: number;
+}
+
+/** Truth metrics a scenario may add to the fix criteria (Spec §8: "scenario-specific extras, e.g. PL,ee ≥ 0"). */
+export const QUIZ_EXTRA_METRICS = ['plEE', 'plEI', 'dPL', 'dPes', 'pmusPeak'] as const;
+export type QuizExtraMetric = (typeof QUIZ_EXTRA_METRICS)[number];
+
+export interface QuizExtraDef {
+  metric: QuizExtraMetric;
+  min?: number;
+  max?: number;
+  /** Display label; a default names the metric and its limit. */
+  label?: string;
+}
+
+const EXTRA_META: Record<QuizExtraMetric, { name: string; unit: string; read: (m: TruthBreathMetrics) => number }> = {
+  plEE: { name: 'PL,ee (dependent lung)', unit: 'cmH2O', read: (m) => Math.min(m.plEE.nd, m.plEE.d) },
+  plEI: { name: 'PL,ei (worst region)', unit: 'cmH2O', read: (m) => Math.max(m.plEI.nd, m.plEI.d) },
+  dPL: { name: 'ΔPL', unit: 'cmH2O', read: (m) => m.dPL },
+  dPes: { name: 'ΔPes', unit: 'cmH2O', read: (m) => m.dPes },
+  pmusPeak: { name: 'Pmus peak', unit: 'cmH2O', read: (m) => m.pmusPeak },
+};
+
+/**
+ * Scenario extras as fix checks: each metric is the worst compartment per breath, averaged over the
+ * breaths of the fix window; no breath yet → null (unverified, does not fail the fix).
+ */
+export function extrasFromTruth(defs: QuizExtraDef[], window: TruthBreathMetrics[]): FixExtra[] {
+  return defs.map((d) => {
+    const meta = EXTRA_META[d.metric];
+    const value = window.length === 0 ? null : window.reduce((a, m) => a + meta.read(m), 0) / window.length;
+    const limit = d.min !== undefined ? `≥ ${d.min}` : `≤ ${d.max}`;
+    const out: FixExtra = { id: d.metric, label: d.label ?? `${meta.name} ${limit} ${meta.unit}`, value };
+    if (d.min !== undefined) out.min = d.min;
+    if (d.max !== undefined) out.max = d.max;
+    return out;
+  });
 }
 
 export interface FixInput {

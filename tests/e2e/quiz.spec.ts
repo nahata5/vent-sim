@@ -73,3 +73,22 @@ test('instructor: loading an edited scenario JSON restarts the simulation with t
   await expect(page.getByTestId('instr-msg')).toContainText('loaded');
   await page.waitForFunction(() => window.__ventsim?.ctl.scenario?.id === 'custom-1' && (window.__ventsim?.ctl.status?.settings.peep ?? 0) === 9, undefined, { timeout: 15_000 });
 });
+
+test('quiz: a scenario-specific extra (obesity PL,ee ≥ 0) is graded as one more fix check', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto('/#obesity');
+  await fast(page);
+  await waitForSim(page, 25);
+  await page.getByTestId('tab-quiz').click();
+  await page.getByTestId('quiz-start').click();
+  await page.getByTestId('quiz-submit').click(); // nothing to identify in this preset
+  await page.getByTestId('quiz-fix').click();
+  const t0 = await page.evaluate(() => window.__ventsim?.ctl.quiz.fixWindowStart ?? 0);
+  await waitForSim(page, t0 + 61);
+  await page.getByTestId('quiz-evaluate').click();
+  await expect(page.getByTestId('quiz-result')).toBeVisible();
+  await expect(page.getByTestId('quiz-result')).toContainText('PL,ee');
+  const extra = await page.evaluate(() => window.__ventsim?.ctl.quizFixInput().extras ?? []);
+  expect(extra.map((x) => x.id)).toEqual(['plEE', 'plEI']);
+  expect(typeof extra[0]?.value).toBe('number');
+});

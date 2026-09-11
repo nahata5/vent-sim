@@ -10,5 +10,6 @@
   "settings": { "mode": "PC-AC", "peep": 12, "pinsp": 14, "rr": 22, "ti": 0.9 },
   "seed": 3,
   "objectives": ["Compare airway ΔP with ΔPL when the chest wall takes a large share.", "Use Pes to estimate end-expiratory PL."],
-  "targetPatterns": []
+  "targetPatterns": [],
+  "quizExtras": [{ "metric": "plEE", "min": 0 }]
 }

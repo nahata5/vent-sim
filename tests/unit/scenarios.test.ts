@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SCENARIOS, resolveScenario, scenarioById } from '@/edu/scenarios';
+import { QUIZ_EXTRA_METRICS } from '@/edu/quiz';
 import { runHeadless } from '@sim/headless';
 import { PHENOTYPE_IDS } from '@sim/patient/presets';
 
@@ -47,5 +48,20 @@ describe('scenario library', () => {
     const delays = efforts.map((e) => e.tOnset - (starts.filter((m) => m <= e.tOnset).at(-1) ?? 0));
     const mean = delays.reduce((s, x) => s + x, 0) / delays.length;
     expect(Math.abs(mean - 0.4)).toBeLessThan(0.08);
+  });
+});
+
+describe('scenario quiz extras', () => {
+  it('the balloon teaching scenarios grade PL,ee ≥ 0 in the quiz fix, and every extra names a known metric with a limit', () => {
+    for (const id of ['obesity', 'abdominal-hypertension', 'ards-extrapulmonary']) {
+      const def = scenarioById(id);
+      expect(def.quizExtras?.some((x) => x.metric === 'plEE' && x.min === 0), id).toBe(true);
+    }
+    for (const def of SCENARIOS) {
+      for (const x of def.quizExtras ?? []) {
+        expect(QUIZ_EXTRA_METRICS.includes(x.metric), `${def.id} ${x.metric}`).toBe(true);
+        expect(x.min !== undefined || x.max !== undefined, `${def.id} ${x.metric}`).toBe(true);
+      }
+    }
   });
 });

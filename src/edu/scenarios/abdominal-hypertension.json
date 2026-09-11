@@ -10,5 +10,6 @@
   "settings": { "mode": "VC-AC", "peep": 8, "vt": 450, "rr": 16, "peakFlow": 50 },
   "seed": 5,
   "objectives": ["Partition Ers into EL and Ecw from Paw and Pes.", "Decide whether a higher PEEP is justified by PL,ee."],
-  "targetPatterns": []
+  "targetPatterns": [],
+  "quizExtras": [{ "metric": "plEE", "min": 0 }]
 }

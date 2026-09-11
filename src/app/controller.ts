@@ -22,7 +22,7 @@ import type { DriveParams } from '../sim/patient/neural-drive';
 import type { PatternId } from '../sim/truth/labeler';
 import { QuizSession } from '../edu/quiz-session';
 import { ProgressStore } from '../edu/progress';
-import { SEVERE_ALARMS, truthPatternsInWindow, type FixInput } from '../edu/quiz';
+import { SEVERE_ALARMS, extrasFromTruth, truthPatternsInWindow, type FixInput } from '../edu/quiz';
 import { effortEvidence, explainBreath, type BreathExplanation } from '../edu/cards';
 import { sessionCsv } from '../export/csv';
 import { sessionJson, type SessionJson } from '../export/json';
@@ -100,6 +100,8 @@ export class SessionController {
   maneuverLog: ManeuverResult[] = [];
   /** Per-breath monitor values since the scenario started (quiz fix window, export); capped. */
   monitorLog: BreathMetrics[] = [];
+  /** Per-breath truth metrics with the breath start (quiz extras over the fix window); capped. */
+  truthLog: Array<{ tStart: number; m: TruthBreathMetrics }> = [];
   /** Confirmed setting changes since the scenario started (quiz score). */
   settingChanges = 0;
   quiz = new QuizSession();
@@ -156,6 +158,7 @@ export class SessionController {
     this.co2Log = [];
     this.maneuverLog = [];
     this.monitorLog = [];
+    this.truthLog = [];
     this.settingChanges = 0;
     this.selectedBreath = null;
     this.quiz.reset();
@@ -190,6 +193,7 @@ export class SessionController {
     this.co2Log = [];
     this.maneuverLog = [];
     this.monitorLog = [];
+    this.truthLog = [];
     this.settingChanges = 0;
     this.selectedBreath = null;
     this.quiz.reset();
@@ -407,6 +411,8 @@ export class SessionController {
       { n: s.length, get: (ch, i) => s.read(ch, i) },
       { iStart, iInspEnd, iEnd, frc: this.patient.frc, rr, fs: s.fs },
     );
+    this.truthLog.push({ tStart: b.tStart, m: this.latestTruth });
+    if (this.truthLog.length > 600) this.truthLog.shift();
     this.latestRecruit = { recruitedVolume: b.frcAeratedEE - this.patient.frc, tidalRecruitUnits: b.tidalRecruitUnits, openFraction: b.openFractionEE };
   }
 
@@ -502,7 +508,8 @@ export class SessionController {
     const ai = asynchronyIndex({ breaths, efforts }, t0, t1).ai;
     const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
     const newSevereAlarms = this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm);
-    return { ai, breaths: mon, newSevereAlarms: [...new Set(newSevereAlarms)], extras: [] };
+    const extras = extrasFromTruth(this.scenario?.quizExtras ?? [], this.truthLog.filter((x) => x.tStart >= t0).map((x) => x.m));
+    return { ai, breaths: mon, newSevereAlarms: [...new Set(newSevereAlarms)], extras };
   }
 
   evaluateQuiz(): void {

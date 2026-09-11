@@ -458,3 +458,14 @@ beat, beat-mean removed); ΔPes is read on the 0.3 s cardiac-smoothed Pes like t
 (`truthBreathMetrics` takes `fs`). Tests first: `tests/unit/balloon.test.ts` (pulse shape, peak-to-peak,
 periodicity, unbiased mean), `lung-stress.test.ts` (ΔPes within 0.7 of truth under the artifact). MODEL.md
 §5 and the constants table, LIMITATIONS and DECISIONS updated; snapshot regenerated. Vitest 183/183.
+
+## Post-M9 · Scenario-specific quiz extras (2026-09-11)
+
+`ScenarioDef.quizExtras` (Spec §8 "scenario-specific extras, e.g. PL,ee ≥ 0"): a truth metric (`plEE`,
+`plEI`, `dPL`, `dPes`, `pmusPeak`) with `min`/`max` and an optional label. `extrasFromTruth` in
+`src/edu/quiz.ts` reads the worst compartment per breath and averages over the fix window; the controller
+keeps a per-breath `truthLog` and feeds `gradeFix`, so the extra appears as one more check in the quiz
+result. Obesity requires PL,ee ≥ 0 and PL,ei ≤ 20; abdominal hypertension and extrapulmonary ARDS require
+PL,ee ≥ 0. Tests first: `quiz.test.ts` (worst compartment, window mean, null → unverified), `scenarios.test.ts`
+(the three scenarios define it; every extra names a known metric with a limit), `quiz.spec.ts` (the obesity
+quiz result lists the PL,ee check). D-015 updated.

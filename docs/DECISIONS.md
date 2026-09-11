@@ -358,7 +358,10 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   starts the window, mean ΔP ≤ 15 and Pplat ≤ 30 over the breaths that have a plateau (a breath without a
   hold does not fail the check but is reported as unverified), mean Vt 4–8 mL/kg PBW, and no *new* severe
   alarm (`SEVERE_ALARMS`: high Ppeak, apnea, disconnect, low Ve, high PEEPi) since the window started.
-  Scenario-specific extras (e.g. PL,ee ≥ 0) are supported by `gradeFix` but no scenario defines one yet.
+  Scenario-specific extras (e.g. PL,ee ≥ 0) are `ScenarioDef.quizExtras` (post-M9): a truth metric
+  (`plEE`, `plEI`, `dPL`, `dPes`, `pmusPeak`) with a `min` or `max`, read as the worst compartment per
+  breath and averaged over the fix window (`extrasFromTruth`); the obesity, abdominal-hypertension and
+  extrapulmonary-ARDS scenarios require PL,ee ≥ 0 (obesity also PL,ei ≤ 20).
 - **Score = 50 % identification + 50 % fix** (fix = 50 % pass + 25 % time factor + 25 % changes factor; time
   is simulated seconds, free below 60 s and decaying linearly to a 0.5 floor over 30 min; changes are
   confirmed setting commits, free up to 3 then −5 % each to a 0.5 floor). A failed fix scores zero for its
