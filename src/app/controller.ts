@@ -318,6 +318,9 @@ export class SessionController {
         break;
       case 'status':
         this.status = m.status;
+        if (this.patient && (this.patient.el !== m.status.mechanics.el || this.patient.ecw !== m.status.mechanics.ecw)) {
+          this.patient = { ...this.patient, el: m.status.mechanics.el, ecw: m.status.mechanics.ecw };
+        }
         this.recordStatus(m.status);
         this.view.speed = m.speed;
         this.view.paused = m.paused;
@@ -451,6 +454,11 @@ export class SessionController {
 
   setPatientScale(scale: { rScale?: number; eScale?: number }): void {
     this.worker.setPatientScale(scale);
+  }
+
+  /** Instructor: live EL / Ecw on the running patient (rebuilt at the current volume). */
+  setMechanics(mechanics: { el?: number; ecw?: number }): void {
+    this.worker.setMechanics(mechanics);
   }
 
   setDrawerTab(tab: DrawerTab): void {

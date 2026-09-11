@@ -56,6 +56,9 @@ const N = 2;
 export class PatientModel {
   readonly comp: [CompartmentDerived, CompartmentDerived];
   private readonly recoil: [LungRecoil, LungRecoil];
+  /** Live EL / EL at construction (instructor); multiplies the recoil curves like the injector eScale. */
+  private elScale = 1;
+  private readonly elBase: number;
   /** State: [V_ND, V_D, Pve_ND, Pve_D]. */
   private readonly x = new Float64Array(2 * N);
   private lastOut: PatientOutputs;
@@ -66,25 +69,48 @@ export class PatientModel {
   constructor(readonly params: PatientParams) {
     const m = params.mechanics;
     this.comp = deriveCompartments(m);
+    this.recoil = this.buildRecoil();
+    this.elBase = m.el;
+    this.k1Base = (m.ett?.k1 ?? 0) + m.rCentral;
+    this.k2 = m.ett?.k2 ?? 0;
+    this.lastOut = this.outputs({ kind: 'occluded' }, this.x, PatientModel.passiveDrive());
+  }
+
+  /** Recoil elements for the current compartments (linear, Venegas or recruitable per the mechanics spec). */
+  private buildRecoil(): [LungRecoil, LungRecoil] {
+    const m = this.params.mechanics;
     // Recruitable units are spread over each compartment's half of the lung height; their local recoil-axis
     // pressure is offset by the pleural gradient relative to the compartment centre (top units see more PL).
-    const zOffsets = (ci: number): number[] => {
+    const zOffsets = (): number[] => {
       const n = m.recoil.kind === 'recruitable' ? m.recoil.n : 0;
       const out: number[] = [];
       for (let i = 0; i < n; i++) {
         const zRel = ((i + 0.5) / n - 0.5) * (m.height / 2); // cm from the compartment centre
         out.push(-m.gradient * zRel);
       }
-      void ci;
       return out;
     };
-    this.recoil = [
-      makeRecoil(m.recoil, this.comp[0].el, this.comp[0].fraction, { frcComp: this.comp[0].frc, zOffsets: zOffsets(0) }),
-      makeRecoil(m.recoil, this.comp[1].el, this.comp[1].fraction, { frcComp: this.comp[1].frc, zOffsets: zOffsets(1) }),
+    return [
+      makeRecoil(m.recoil, this.comp[0].el, this.comp[0].fraction, { frcComp: this.comp[0].frc, zOffsets: zOffsets() }),
+      makeRecoil(m.recoil, this.comp[1].el, this.comp[1].fraction, { frcComp: this.comp[1].frc, zOffsets: zOffsets() }),
     ];
-    this.k1Base = (m.ett?.k1 ?? 0) + m.rCentral;
-    this.k2 = m.ett?.k2 ?? 0;
-    this.lastOut = this.outputs({ kind: 'occluded' }, this.x, PatientModel.passiveDrive());
+  }
+
+  /**
+   * Instructor live mechanics: change EL and/or Ecw on the running patient at its current volume. Ecw acts
+   * immediately through Ppl = pplOffset + Ecw·V. EL scales the recoil curves by EL/EL0 (the same mechanism as
+   * the injector eScale, exact for a linear lung, a chord-elastance scaling for Venegas and recruitable
+   * recoil); the state vector is untouched, so volume is continuous and the recoil pressure jumps, as it
+   * would for a lung that suddenly stiffened.
+   */
+  setMechanics(partial: { el?: number; ecw?: number }): void {
+    const m = this.params.mechanics;
+    if (partial.ecw !== undefined) m.ecw = partial.ecw;
+    if (partial.el !== undefined) {
+      m.el = partial.el;
+      this.elScale = partial.el / this.elBase;
+    }
+    this.lastOut = this.outputs({ kind: 'occluded' }, this.x, this.lastDrive);
   }
 
   static passiveDrive(): PatientDrive {
@@ -118,8 +144,8 @@ export class PatientModel {
 
   /** Total lung recoil elastance at the current operating point (for monitoring/tests). */
   lungElastance(): number {
-    const c0 = 1 / this.recoil[0].elastance(this.x[0] ?? 0);
-    const c1 = 1 / this.recoil[1].elastance(this.x[1] ?? 0);
+    const c0 = 1 / (this.elScale * this.recoil[0].elastance(this.x[0] ?? 0));
+    const c1 = 1 / (this.elScale * this.recoil[1].elastance(this.x[1] ?? 0));
     return 1 / (c0 + c1);
   }
 
@@ -137,7 +163,7 @@ export class PatientModel {
       let sum = 0;
       for (let i = 0; i < N; i++) {
         // Recruitable units equilibrate at the static recoil pressure of their compartment.
-        this.recoil[i]?.settle?.(paw - m.ecw * vtot);
+        this.recoil[i]?.settle?.((paw - m.ecw * vtot) / this.elScale);
         sum += this.invertRecoil(i, paw - m.ecw * vtot);
       }
       if (Math.abs(sum - vtot) < 1e-10) {
@@ -155,7 +181,7 @@ export class PatientModel {
   }
 
   private invertRecoil(i: number, p: number): number {
-    return (this.recoil[i] as LungRecoil).volumeAt(p);
+    return (this.recoil[i] as LungRecoil).volumeAt(p / this.elScale);
   }
 
   /**
@@ -188,7 +214,7 @@ export class PatientModel {
       ppl[i] = pcwRec + c.g - c.alpha * pmus + drive.pcard + (drive.pplExtra[i] ?? 0);
       // Recoil is zero at V = 0 (D-003), so scaling it scales elastance around FRC and the static
       // equilibrium at PEEP shifts down, as it does for a stiffer lung.
-      pl[i] = c.pl0 + drive.eScale * (this.recoil[i] as LungRecoil).pressure(vs[i] ?? 0) + (pve[i] ?? 0);
+      pl[i] = c.pl0 + drive.eScale * this.elScale * (this.recoil[i] as LungRecoil).pressure(vs[i] ?? 0) + (pve[i] ?? 0);
       palv[i] = (ppl[i] ?? 0) + (pl[i] ?? 0);
     }
 

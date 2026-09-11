@@ -36,6 +36,8 @@ export function InstructorPanel({ ctl }: Props) {
   const [entrain, setEntrain] = useState(drive?.entrainment ? String(drive.entrainment.ratio) : '0');
   const [rScale, setRScale] = useState('1');
   const [eScale, setEScale] = useState('1');
+  const [el, setEl] = useState(String(ctl.patient?.el ?? 10));
+  const [ecw, setEcw] = useState(String(ctl.patient?.ecw ?? 5));
   const [gainPmax, setGainPmax] = useState('0.06');
   const [vco2, setVco2] = useState('200');
   const [json, setJson] = useState('');
@@ -96,6 +98,29 @@ export function InstructorPanel({ ctl }: Props) {
             <button type="button" onClick={() => ctl.setPatientScale({ rScale: num(rScale, 1), eScale: num(eScale, 1) })} data-testid="instr-apply-mech">
               apply
             </button>
+          </div>
+          <div class="row">
+            <b>Elastance</b>
+            <label>
+              EL cmH2O/L <input type="number" step="1" min={1} max={80} value={el} onInput={(e) => setEl(e.currentTarget.value)} data-testid="instr-el" />
+            </label>
+            <label>
+              Ecw cmH2O/L <input type="number" step="1" min={0} max={40} value={ecw} onInput={(e) => setEcw(e.currentTarget.value)} data-testid="instr-ecw" />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                ctl.setMechanics({ el: num(el, ctl.patient?.el ?? 10), ecw: num(ecw, ctl.patient?.ecw ?? 5) });
+                setMsg('elastance applied live (patient rebuilt at its current volume)');
+              }}
+              data-testid="instr-apply-el"
+              title="Live: the lung is rebuilt at its current volume; a recruitable lung keeps its open set"
+            >
+              apply
+            </button>
+            <span class="muted small">
+              now EL {ctl.patient?.el.toFixed(1) ?? '—'} · Ecw {ctl.patient?.ecw.toFixed(1) ?? '—'}
+            </span>
           </div>
           {co2 && (
             <div class="row">

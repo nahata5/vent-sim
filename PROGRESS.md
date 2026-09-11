@@ -489,3 +489,14 @@ per closed breath in the controller and shown as a Monitor tile that says "schem
 `spo2.test.ts` (room-air normal lung 95–99 %, monotone in FiO2/open fraction/Pmean, base shunt), `m7.spec.ts`
 (tile labelled schematic, ARDS lower than normal). LIMITATIONS and MODEL.md updated; constants table
 regenerated; snapshot regenerated (scenario files changed).
+
+## Post-M9 · Live EL / Ecw instructor control (2026-09-11)
+
+D-018: `PatientModel.setMechanics({ el, ecw })` on the running patient at its current volume (Ecw as a
+parameter, EL as a live multiplier on the recoil curves, composing with the injector eScale); engine,
+session, protocol (`setMechanics`, `SessionStatus.mechanics`), WorkerClient, controller (patient summary
+follows the change so the labeler's compliance rules do), instructor panel inputs. Tests first:
+`tests/physics/live-mechanics.test.ts` (Ecw ×2 doubles the pleural swing with a continuous volume; EL ×2
+rescales ΔPalv by (2EL + Ecw)/(EL + Ecw); a recruitable lung keeps breathing with its aerated fraction
+continuous), `session.test.ts` (summary and status follow), `quiz.spec.ts` (instructor apply updates the
+patient summary live).

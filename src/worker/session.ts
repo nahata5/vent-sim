@@ -150,6 +150,13 @@ export class SimSession {
     this.engine.setBaseDrive(d);
   }
 
+  setMechanics(mechanics: { el?: number; ecw?: number }): void {
+    const m: { el?: number; ecw?: number } = {};
+    if (mechanics.el !== undefined && Number.isFinite(mechanics.el)) m.el = Math.max(1, mechanics.el);
+    if (mechanics.ecw !== undefined && Number.isFinite(mechanics.ecw)) m.ecw = Math.max(0, mechanics.ecw);
+    this.engine.setMechanics(m);
+  }
+
   setBalloon(balloon: BalloonParams): void {
     this.engine.balloon = balloon.enabled ? balloon : null;
     this.engine.vent.applySettings({ esophagealBalloon: balloon.enabled });
@@ -175,6 +182,7 @@ export class SimSession {
       breathCount: vent.breathCount,
       peepManeuver: vent.peepManeuverActive,
       co2: this.engine.co2Now(),
+      mechanics: { el: this.engine.patient.params.mechanics.el, ecw: this.engine.patient.params.mechanics.ecw },
     };
   }
 

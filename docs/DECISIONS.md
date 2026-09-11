@@ -369,9 +369,9 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
 - **Progress is one JSON document** under `ventsim.progress.v1` with attempts, best score, pass flag and the
   last 10 attempts per scenario; every storage call is wrapped and a throwing storage degrades to memory.
 - **Instructor mechanics are live multipliers** (`setPatientScale`: base `rScale`/`eScale` on top of the
-  injectors), because the patient model is built once per session; EL/Ecw/FRC and the drive baseline are
-  changed through the scenario editor (edit the JSON, run it), which restarts the simulation. The drive,
-  entrainment and CO2 gains change live. Injectors already had their panel.
+  injectors), because the patient model is built once per session; FRC and the drive baseline are changed
+  through the scenario editor (edit the JSON, run it), which restarts the simulation. The drive, entrainment
+  and CO2 gains change live; EL and Ecw change live since D-018. Injectors already had their panel.
 - **Session exports cover what the main thread holds**: the signals of the last 120 s (`StreamStore`), and
   the labels, monitor values, maneuvers, alarms and CO2 samples since the scenario started. A full-length
   signal export is what the batch generator is for. The batch runs in its own worker (`batch.worker.ts`) and
@@ -417,3 +417,22 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   dynamics or a validated shunt model is out of scope and would invite reading the number as a prediction.
   Tests: `tests/unit/spo2.test.ts` (normal lung 95–99 % on room air with PaO2 80–110; monotone in FiO2,
   open fraction and Pmean; base shunt lowers it), `tests/e2e/m7.spec.ts` (tile labelled, ARDS < normal).
+
+## D-018 · Live EL / Ecw for the instructor (2026-09-11)
+
+- **Ecw is a parameter of the running model** (`Ppl = pplOffset + Ecw·V`), so `PatientModel.setMechanics`
+  writes it and it acts on the next step: the pleural pressure jumps at the current volume, as it would for
+  a chest wall that stiffened, and the volume state is continuous (`live-mechanics.test.ts`: doubling Ecw
+  doubles the passive pleural swing Ecw·Vt; the largest volume step around the switch is no larger than
+  ordinary breathing).
+- **EL is a live multiplier on the recoil curves**, `elScale = EL/EL0`, applied with the injector `eScale`
+  in `outputs`, in `lungElastance` and in the static inversion. This is exact for a linear lung
+  (`el·V → el'·V`), and a chord-elastance scaling for the Venegas and recruitable curves, whose shapes are
+  anchored to the phenotype rather than to `el` (so rebuilding the recoil elements from a new `el` would
+  have changed nothing for a Venegas lung and would have reset a recruitable lung's gas state). The
+  recruitable units already see the scaled pressure through `advance(dt, PL − PL0)`, so their opening and
+  closing follow the new stiffness without any reset.
+- **Plumbing**: `MainToWorker setMechanics`, `SimSession.setMechanics` (EL ≥ 1, Ecw ≥ 0),
+  `SessionStatus.mechanics` (the controller updates its `PatientSummary` from it so the main-thread truth
+  labeler's compliance rules follow the change), `InstructorPanel` inputs `instr-el`, `instr-ecw`,
+  button `instr-apply-el`. The `EL ×` multiplier stays as it was (it composes with the absolute value).

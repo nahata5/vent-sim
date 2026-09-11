@@ -59,6 +59,9 @@ export class WorkerClient {
   setPatientScale(scale: { rScale?: number; eScale?: number }): void {
     this.send({ type: 'setPatientScale', scale });
   }
+  setMechanics(mechanics: { el?: number; ecw?: number }): void {
+    this.send({ type: 'setMechanics', mechanics });
+  }
   setSpeed(speed: number): void {
     this.send({ type: 'setSpeed', speed });
   }

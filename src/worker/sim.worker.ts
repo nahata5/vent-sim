@@ -92,6 +92,10 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       session?.setPatientScale(msg.scale);
       postStatus();
       break;
+    case 'setMechanics':
+      session?.setMechanics(msg.mechanics);
+      postStatus();
+      break;
     case 'setSpeed':
       speed = Math.min(4, Math.max(0.25, msg.speed));
       postStatus();

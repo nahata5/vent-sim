@@ -142,3 +142,16 @@ describe('SimSession', () => {
     expect(s.neuralBreaths().length).toBeGreaterThan(3);
   });
 });
+
+describe('SimSession live mechanics', () => {
+  it('setMechanics changes EL and Ecw on the running patient and reports them in the summary and status', () => {
+    const s = makeSession();
+    s.advance(5);
+    s.setMechanics({ el: 20, ecw: 6 });
+    expect(s.patientSummary().el).toBe(20);
+    expect(s.patientSummary().ecw).toBe(6);
+    expect(s.status().mechanics).toEqual({ el: 20, ecw: 6 });
+    const out = s.advance(5);
+    expect(Number.isFinite(out.samples[0] ?? NaN)).toBe(true);
+  });
+});

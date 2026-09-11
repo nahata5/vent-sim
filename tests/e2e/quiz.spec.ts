@@ -92,3 +92,17 @@ test('quiz: a scenario-specific extra (obesity PL,ee ≥ 0) is graded as one mor
   expect(extra.map((x) => x.id)).toEqual(['plEE', 'plEI']);
   expect(typeof extra[0]?.value).toBe('number');
 });
+
+test('instructor: EL and Ecw apply live and the patient summary follows', async ({ page }) => {
+  await page.goto('/#normal-passive');
+  await fast(page);
+  await waitForSim(page, 3);
+  await page.getByTestId('instructor-toggle').click();
+  await page.getByTestId('instr-el').fill('25');
+  await page.getByTestId('instr-ecw').fill('8');
+  await page.getByTestId('instr-apply-el').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.patient?.el === 25 && window.__ventsim?.ctl.patient?.ecw === 8, undefined, { timeout: 15_000 });
+  await expect(page.getByTestId('instr-msg')).toContainText('elastance applied');
+  // The scenario did not restart: simulated time keeps counting from where it was.
+  expect(await page.evaluate(() => window.__ventsim?.ctl.store.tLatest ?? 0)).toBeGreaterThan(3);
+});

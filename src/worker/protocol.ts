@@ -52,6 +52,8 @@ export interface SessionStatus {
   peepManeuver: PeepManeuverKind | null;
   /** CO2 loop state, or null when the scenario has no loop. */
   co2: Co2Sample | null;
+  /** Current lung and chest-wall elastance (instructor live changes; the main-thread labeler follows them). */
+  mechanics: { el: number; ecw: number };
 }
 
 export interface PatientSummary {
@@ -75,6 +77,7 @@ export type MainToWorker =
   | { type: 'setGas'; partial: Partial<GasParams> }
   /** Instructor: live resistance / lung-elastance multipliers (applied on top of the injectors). */
   | { type: 'setPatientScale'; scale: { rScale?: number; eScale?: number } }
+  | { type: 'setMechanics'; mechanics: { el?: number; ecw?: number } }
   | { type: 'setSpeed'; speed: number }
   | { type: 'pause' }
   | { type: 'resume' };

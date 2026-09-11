@@ -122,6 +122,11 @@ export class SimEngine {
     this.gas?.setParams(partial);
   }
 
+  /** Instructor: change lung / chest-wall elastance on the running patient (rebuilt at the current volume). */
+  setMechanics(partial: { el?: number; ecw?: number }): void {
+    this.patient.setMechanics(partial);
+  }
+
   private co2Sample(t: number): Co2Sample {
     const g = this.gas as GasExchange;
     const d = g.drive();
