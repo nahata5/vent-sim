@@ -500,3 +500,13 @@ follows the change so the labeler's compliance rules do), instructor panel input
 rescales ΔPalv by (2EL + Ecw)/(EL + Ecw); a recruitable lung keeps breathing with its aerated fraction
 continuous), `session.test.ts` (summary and status follow), `quiz.spec.ts` (instructor apply updates the
 patient summary live).
+
+## Post-M9 · Status and environment notes (2026-09-11)
+
+All items of the previous handoff's "What is left" 4 are built and live (commits 41df53a, 27e4209, f3c5e27,
+936e9af, 56bce0d). Item 3 (alias `tomnahass.com/vent-sim/`) is still unverified: on 2026-09-11 the domain
+301s to `www.tomnahass.com` and `/vent-sim/` there returns the personal site's 404, so the redirect lines
+are not on the personal site yet (outside this repo). Vitest 195/195, lint clean, Playwright 28/28.
+The `≥ 50× real time` performance test fails inside the parallel full run on a loaded machine (28–49×;
+load average ≈ 17 with a browser busy) and passes alone (60 s in 0.8–1.3 s); it fails identically on the
+pre-change commit a292ac0 under the same load, so it is the environment, not a regression.
