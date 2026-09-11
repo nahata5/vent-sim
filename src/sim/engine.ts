@@ -230,6 +230,8 @@ export class SimEngine {
       pesTrue: this.pesTrue,
       qND: o.qComp[0],
       qD: o.qComp[1],
+      vND: o.v[0],
+      vD: o.v[1],
       pcwRec: o.pcwRec,
       phase: PHASE_CODE[phase],
     };

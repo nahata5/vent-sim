@@ -1,0 +1,13 @@
+{
+  "id": "copd",
+  "order": 60,
+  "category": "preset",
+  "title": "COPD on PSV, moderate assist",
+  "summary": "Long expiratory time constant with expiratory flow limitation. Expiratory flow rarely reaches zero; an expiratory hold reveals intrinsic PEEP.",
+  "phenotype": "copd",
+  "drive": { "rate": 16, "ti": 0.9, "pmax": 8 },
+  "settings": { "mode": "PSV", "peep": 5, "ps": 10, "ets": 0.35, "flowTrigger": 2 },
+  "seed": 6,
+  "objectives": ["Recognize non-zero end-expiratory flow and measure PEEPi with an expiratory hold.", "See how ETS changes the ventilator Ti relative to the neural Ti."],
+  "targetPatterns": []
+}

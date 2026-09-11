@@ -1,0 +1,14 @@
+{
+  "id": "abdominal-hypertension",
+  "order": 50,
+  "category": "preset",
+  "title": "Intra-abdominal hypertension",
+  "summary": "Chest-wall elastance 15 cmH2O/L from a tense abdomen. Airway pressures overstate lung stress; the pleural gradient and Pes tell the real story.",
+  "phenotype": "abdominal-hypertension",
+  "drive": null,
+  "balloon": { "enabled": true },
+  "settings": { "mode": "VC-AC", "peep": 8, "vt": 450, "rr": 16, "peakFlow": 50 },
+  "seed": 5,
+  "objectives": ["Partition Ers into EL and Ecw from Paw and Pes.", "Decide whether a higher PEEP is justified by PL,ee."],
+  "targetPatterns": []
+}

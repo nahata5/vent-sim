@@ -1,0 +1,56 @@
+/**
+ * Typed wrapper around the simulation worker. Owns the worker lifetime; routes messages to listeners.
+ */
+import type { ManeuverKind } from '../sim/types';
+import type { VentSettings } from '../sim/vent/settings';
+import type { BalloonParams } from '../sim/patient/balloon';
+import type { MainToWorker, ScenarioSpec, WorkerToMain } from '../worker/protocol';
+
+export type WorkerListener = (m: WorkerToMain) => void;
+
+export class WorkerClient {
+  private worker: Worker;
+  private listeners = new Set<WorkerListener>();
+
+  constructor() {
+    this.worker = new Worker(new URL('../worker/sim.worker.ts', import.meta.url), { type: 'module', name: 'ventsim' });
+    this.worker.onmessage = (ev: MessageEvent<WorkerToMain>) => {
+      for (const l of this.listeners) l(ev.data);
+    };
+    this.worker.onerror = (e) => console.error('sim worker error', e.message);
+  }
+
+  subscribe(l: WorkerListener): () => void {
+    this.listeners.add(l);
+    return () => this.listeners.delete(l);
+  }
+
+  private send(m: MainToWorker): void {
+    this.worker.postMessage(m);
+  }
+
+  init(scenario: ScenarioSpec): void {
+    this.send({ type: 'init', scenario });
+  }
+  applySettings(partial: Partial<VentSettings>): void {
+    this.send({ type: 'applySettings', partial });
+  }
+  setBalloon(balloon: BalloonParams): void {
+    this.send({ type: 'setBalloon', balloon });
+  }
+  maneuver(kind: ManeuverKind): void {
+    this.send({ type: 'maneuver', kind });
+  }
+  setSpeed(speed: number): void {
+    this.send({ type: 'setSpeed', speed });
+  }
+  pause(): void {
+    this.send({ type: 'pause' });
+  }
+  resume(): void {
+    this.send({ type: 'resume' });
+  }
+  terminate(): void {
+    this.worker.terminate();
+  }
+}

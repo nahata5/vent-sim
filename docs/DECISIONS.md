@@ -88,3 +88,49 @@ recruitment-specific behaviour.
 - **Pes height 0.7 of the vertical lung height** (Brief 2: mid-to-dependent), and the balloon occlusion
   test is validated on the normal preset; in injured lungs with α_D = 1.35 a well-placed balloon reads a
   ratio above 1 by design, which is a teaching point rather than a failure.
+
+## D-008 · Hosting on Netlify instead of GitHub Pages (2026-09-11)
+
+The goal prompt targets GitHub Pages. The account's user site (`nahata5.github.io`) still carries
+`tomnahass.com` as its Pages custom domain, so GitHub redirects every project site of the account to that
+domain, and the domain's DNS points at Netlify. Rather than touch the personal site's Pages configuration,
+VentSim deploys to Netlify from `netlify.toml` (`npm run build`, publish `dist`, Node 22) and the personal
+site proxies `/vent-sim/*` to it. GitHub Actions stays as the CI gate (lint, tests, Playwright, build) with
+the Pages steps removed. Vite's relative `base: './'` makes both URLs work without a rebuild. The spec's
+principle 6 allows Netlify explicitly.
+
+## D-009 · Expiratory hold in a breathing patient reads the pre-effort plateau and releases early (2026-09-11)
+
+Spec §5 describes an expiratory hold of 2–4 s reporting total PEEP. With a spontaneously breathing
+patient a fixed 3 s occlusion almost always contains an effort, and a device that reads Paw at the end of
+the hold would report the effort's negative deflection as "total PEEP" (the first session test read −0.9
+with PEEP 6). Real ventilators track the relaxed plateau and abort the maneuver when the patient pulls.
+The ventilator now tracks Paw during the hold on a 0.1 s moving average, reports the running maximum as
+total PEEP when an effort drops the smoothed Paw more than `POCC_MIN_DIP` (1 cmH2O) below it, ends the
+hold at that moment with `values.interrupted = 1`, and triggers the held breath as patient-triggered. In a
+passive patient nothing changes: Paw rises monotonically toward alveolar pressure, so the end-of-hold value
+is the plateau. Tested in `tests/unit/ventilator.test.ts` ("expiratory hold in a breathing patient").
+
+## D-010 · Sweep display, ranges and M5 scope choices (2026-09-11)
+
+- **Worker timing.** The worker ticks every 20 ms, advances the engine by wall-clock × speed capped at
+  0.25 s per tick (a backgrounded tab does not spiral on wake), and sends one transferable channel-major
+  Float32Array per tick. Determinism is a property of `SimSession` (`tests/unit/session.test.ts`): same
+  seed and same commands at the same simulated times give byte-identical batches for any chunking.
+- **Scroll back = freeze + sweep re-rendered at an earlier cursor time.** The display keeps the sweep
+  semantics (cursor overwriting the previous sweep) at any `tView` inside the 120 s ring buffer, so the
+  learner sees exactly what the screen showed at that moment; the cursor readout maps the mouse column to
+  time through the same function.
+- **Auto-ranging per row** expands immediately and shrinks after ~2 s of slack, with a minimum span per
+  channel (Paw 20, flow 60 L/min, volume 500 mL) so a flat trace never zooms into sensor noise.
+- **Breath badges show trigger · cycle cause** (e.g. `P·flow`, `T·vol`) until the M6 labeler and detector
+  replace them with pattern labels.
+- **Dashboard rows for PMI, stress index and R/I are present but empty** until M7 supplies the maneuvers.
+  Truth-only rows show "truth layer off" when the toggle is off so the bedside ↔ truth distinction stays
+  visible in the numbers, not only in the traces.
+- **Scenarios are JSON now** (`src/edu/scenarios/*.json`, resolved by `resolveScenario`) so M8's library,
+  instructor export and import build on the same shape. The three M5 dyssynchrony scenarios reuse the
+  M4 emergence-test parameters and are re-checked as scenarios in `tests/unit/scenarios.test.ts`.
+- **Mechanical power surrogate.** VC uses Gattinoni simplified when a plateau exists, Giosa 2019 when it
+  does not; PC/PSV use Becher simplified (Brief 2 §3). The truth value ∫Paw·dV and the lung power ∫PL·dV
+  are shown next to it when the truth layer is on.

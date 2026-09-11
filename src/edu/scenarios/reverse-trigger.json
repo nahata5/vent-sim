@@ -1,0 +1,13 @@
+{
+  "id": "reverse-trigger",
+  "order": 120,
+  "category": "dyssynchrony",
+  "title": "ARDS, deep sedation: reverse triggering",
+  "summary": "Machine breaths entrain the respiratory centre 1:1 with a 0.4 s delay. Each mandatory breath is followed by an effort visible as a mid-inspiratory Paw dip in VC, and sometimes a stacked breath.",
+  "phenotype": "ards-pulmonary",
+  "drive": { "rate": 10, "ti": 0.9, "pmax": 6, "entrainment": { "ratio": 1, "delay": 0.4, "jitter": 0.03 } },
+  "settings": { "mode": "VC-AC", "peep": 10, "vt": 420, "rr": 18, "peakFlow": 45 },
+  "seed": 9,
+  "objectives": ["Distinguish reverse triggering (effort after the machine breath, fixed delay) from a patient-triggered breath.", "Use the truth layer to see the entrained Pmus and Pes swing."],
+  "targetPatterns": ["reverse-trigger", "breath-stacking"]
+}

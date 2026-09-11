@@ -1,0 +1,13 @@
+{
+  "id": "ards-pulmonary",
+  "order": 20,
+  "category": "preset",
+  "title": "Pulmonary ARDS, 6 mL/kg VC, deep sedation",
+  "summary": "Consolidated lungs (EL 20, Ecw 5) on lung-protective volume control. High driving pressure for a normal tidal volume; the truth layer shows almost all of ΔP reaching the lung.",
+  "phenotype": "ards-pulmonary",
+  "drive": null,
+  "settings": { "mode": "VC-AC", "peep": 12, "vt": 420, "rr": 24, "peakFlow": 60 },
+  "seed": 2,
+  "objectives": ["Measure ΔP with an inspiratory hold and compare with ΔPL in the truth layer.", "Relate specific elastance (stress/strain) to the small baby lung."],
+  "targetPatterns": []
+}

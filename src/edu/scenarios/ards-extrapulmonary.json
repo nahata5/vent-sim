@@ -1,0 +1,14 @@
+{
+  "id": "ards-extrapulmonary",
+  "order": 30,
+  "category": "preset",
+  "title": "Extrapulmonary ARDS, stiff chest wall, PC",
+  "summary": "Recruitable lungs with a stiff chest wall (Ecw 12). Pressure control with the same plateau delivers a safer transpulmonary pressure than the airway numbers suggest.",
+  "phenotype": "ards-extrapulmonary",
+  "drive": null,
+  "balloon": { "enabled": true },
+  "settings": { "mode": "PC-AC", "peep": 12, "pinsp": 14, "rr": 22, "ti": 0.9 },
+  "seed": 3,
+  "objectives": ["Compare airway ΔP with ΔPL when the chest wall takes a large share.", "Use Pes to estimate end-expiratory PL."],
+  "targetPatterns": []
+}

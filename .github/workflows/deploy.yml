@@ -1,4 +1,8 @@
-name: CI and deploy
+name: CI
+
+# Hosting moved to Netlify (see netlify.toml and README "Hosting"): Netlify builds and deploys on
+# every push to main from its own GitHub integration. This workflow is the quality gate: lint,
+# unit/physics tests, Playwright smoke tests and a production build.
 
 on:
   push:
@@ -9,12 +13,10 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -41,20 +43,3 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-      - uses: actions/configure-pages@v5
-        if: github.event_name != 'pull_request'
-      - uses: actions/upload-pages-artifact@v3
-        if: github.event_name != 'pull_request'
-        with:
-          path: dist
-
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4

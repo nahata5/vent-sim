@@ -24,6 +24,8 @@ export const TRUTH_CHANNELS = [
   'pesTrue', // esophageal pressure before sensor chain
   'qND',
   'qD',
+  'vND', // compartment volumes above their share of FRC (for PL–V loops per compartment)
+  'vD',
   'pcwRec',
   'phase', // 0 exp, 1 insp, 2 pause, 3 exp-hold, 4 occlusion
 ] as const;

@@ -1,0 +1,13 @@
+{
+  "id": "ineffective-effort",
+  "order": 110,
+  "category": "dyssynchrony",
+  "title": "COPD over-assisted on PSV: ineffective efforts",
+  "summary": "PS 16 with ETS 10% prolongs insufflation and traps gas. Weak efforts (Pmax 4) cannot overcome intrinsic PEEP; the flow trace shows a notch and Paw a dip with no breath delivered.",
+  "phenotype": "copd",
+  "drive": { "rate": 26, "ti": 0.8, "pmax": 4, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.15 },
+  "settings": { "mode": "PSV", "peep": 0, "ps": 16, "ets": 0.1, "tiMax": 2.5, "flowTrigger": 3, "apneaTime": 30 },
+  "seed": 11,
+  "objectives": ["Find the missed efforts: an expiratory flow notch toward zero with a small Paw dip and no trigger.", "Fix it by lowering PS, raising ETS to shorten Ti, and adding external PEEP to offset PEEPi."],
+  "targetPatterns": ["ineffective-effort", "delayed-cycling", "auto-peep"]
+}

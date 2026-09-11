@@ -1,0 +1,13 @@
+{
+  "id": "double-trigger",
+  "order": 100,
+  "category": "dyssynchrony",
+  "title": "ARDS, high drive on short-Ti VC: double trigger",
+  "summary": "Neural Ti 1.3 s against a 0.4 s machine breath. The effort persists past cycle-off, re-triggers the ventilator, and stacks two tidal volumes; Paw is scooped by flow starvation.",
+  "phenotype": "ards-pulmonary",
+  "drive": { "rate": 22, "ti": 1.3, "pmax": 14, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.1 },
+  "settings": { "mode": "VC-AC", "peep": 10, "vt": 380, "rr": 16, "peakFlow": 60 },
+  "seed": 5,
+  "objectives": ["Spot the stacked breath: a second trigger before exhalation is complete and a doubled volume.", "Fix it by matching machine Ti to neural Ti (Ti or flow pattern), raising flow, or in PSV/PC lengthening the breath; sedation is the last resort."],
+  "targetPatterns": ["double-trigger", "flow-starvation"]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "asthma",
+  "order": 70,
+  "category": "preset",
+  "title": "Status asthmaticus, low rate, high flow",
+  "summary": "Very high resistance (40 cmH2O/L/s) with flow limitation. Peak pressure is high while plateau stays acceptable; auto-PEEP builds quickly if the rate is raised.",
+  "phenotype": "asthma",
+  "drive": null,
+  "settings": { "mode": "VC-AC", "peep": 0, "vt": 400, "rr": 12, "peakFlow": 80, "alarms": { "highPpeak": 55, "lowVte": 250, "highVe": 20, "lowVe": 3, "highRR": 35, "lowPeep": 3, "highLeak": 20, "highPeepi": 5 } },
+  "seed": 7,
+  "objectives": ["Separate resistive from elastic pressure using an inspiratory hold.", "Raise the rate and watch dynamic hyperinflation appear in the volume and flow traces."],
+  "targetPatterns": []
+}

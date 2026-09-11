@@ -9,3 +9,6 @@ test-results/
 .env*
 !.env.example
 scripts/dev/
+.playwright-mcp/
+*.png
+!docs/screenshots/*.png

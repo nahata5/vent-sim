@@ -1,0 +1,14 @@
+{
+  "id": "obesity",
+  "order": 40,
+  "category": "preset",
+  "title": "Morbid obesity: high Pplat, safe PL",
+  "summary": "High pleural pressure at FRC (Ppl0 +7) with an esophageal balloon in place. Plateau pressure looks alarming while the lung itself sees a modest, even negative end-expiratory PL.",
+  "phenotype": "obesity",
+  "drive": null,
+  "balloon": { "enabled": true },
+  "settings": { "mode": "VC-AC", "peep": 10, "vt": 420, "rr": 18, "peakFlow": 50 },
+  "seed": 4,
+  "objectives": ["Show that Pplat > 30 can coexist with PL,ei < 20.", "Titrate PEEP toward PL,ee ≥ 0 using Pes."],
+  "targetPatterns": []
+}

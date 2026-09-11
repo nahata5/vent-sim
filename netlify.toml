@@ -1,0 +1,22 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Relative base: the site works at the root of the Netlify domain and behind a
+  # /vent-sim/* proxy on a personal site alike.
+  BASE_PATH = "./"
+
+# The module worker and source maps must be served with the right types; Netlify does this
+# by default, but we pin caching for hashed assets.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

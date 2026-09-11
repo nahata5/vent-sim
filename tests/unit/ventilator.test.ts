@@ -283,3 +283,27 @@ describe('alarms', () => {
     expect(alarms(res.events).some((x) => x.alarm === 'high-rr' && x.active)).toBe(true);
   });
 });
+
+describe('expiratory hold in a breathing patient', () => {
+  it('reports the pre-effort plateau as total PEEP and ends the hold when the effort begins', () => {
+    // Normal lungs on PSV with a strong effort 1 s after the hold would start. A hold that read Paw at
+    // the end of 3 s would report the effort's negative dip; the device must instead report the plateau
+    // reached before the effort and release the occlusion once the patient pulls (Brief 2 §5).
+    const res = runHeadless({
+      patient: presetPatient('normal'),
+      settings: { ...defaultSettings('PSV'), peep: 6, ps: 8 },
+      seed: 1,
+      duration: 20,
+      drive: effortsAt([2, 6, 10.5, 15], 0.9, 10),
+      schedule: [{ t: 8.5, action: (e) => e.vent.requestHold('exp') }],
+    });
+    const m = res.maneuvers.find((x) => x.kind === 'exp');
+    expect(m).toBeDefined();
+    expect(m?.peepTotal ?? -99).toBeGreaterThan(5.5);
+    expect(m?.peepTotal ?? 99).toBeLessThan(7.5);
+    // Released early: the hold does not run its full 3 s once the patient pulls at 10.5 s.
+    expect((m?.tEnd ?? 0) - (m?.tStart ?? 0)).toBeLessThan(2.9);
+    expect(m?.tEnd ?? 0).toBeGreaterThan(10.5);
+    expect(m?.values?.interrupted).toBe(1);
+  });
+});

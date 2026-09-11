@@ -17,7 +17,7 @@ Tests: `tests/unit` (pure functions), `tests/physics` (analytic + partition + ca
 | M2 | Two-compartment partitioned lung, chest wall, Ppl/Palv/PL, viscoelastic, Venegas, presets, holds, truth channels | `src/sim/patient/{lung-venegas,lung-recoil,compartments,viscoelastic,pleural}.ts`, `src/sim/patient/presets.ts` (Brief 2 Table 1), `src/sim/truth/{channels,recorder}.ts`, `src/sim/vent/maneuvers.ts` (insp/exp hold), `tests/physics/partition.test.ts` (§9.2) |
 | M3 | Full ventilator FSM, triggers, refractory, PSV/CPAP, servo lag, rise, ETS, alarms, apnea backup, sensor chain, monitor values | `src/sim/vent/{trigger,cycle,servo,alarms,apnea}.ts`, `src/monitor/{breath-metrics,monitor}.ts`, `tests/unit/{trigger,cycle,servo,alarms}.test.ts`, `tests/physics/monitor.test.ts` |
 | M4 | Neural drive + Pmus (iso + F–V), jitter, entrainment, expiratory muscles; P0.1, ΔPocc, PMI; balloon + occlusion test | `src/sim/patient/{neural-drive,pmus,entrainment,balloon}.ts`, `src/sim/vent/maneuvers.ts` (P0.1, ΔPocc, occlusion test), `src/sim/math/ar1.ts`, `tests/physics/effort-calibration.test.ts` (§9.3), `tests/physics/balloon.test.ts` |
-| M5 | Live UI v1: worker streaming, sweep waveforms, loops, settings confirm, monitor, lung-stress dashboard, truth toggle, time controls | `src/worker/{sim.worker.ts,protocol.ts}`, `src/app/{StreamStore,WorkerClient}.ts`, `src/ui/{WaveformCanvas,LoopCanvas,SettingsPanel,MonitorPanel,LungStressDashboard,TruthToggle,TimeControls,AlarmBar,Disclaimer}.tsx`, `src/ui/theme.css`, `tests/e2e/{load,settings}.spec.ts` |
+| M5 | Live UI v1: worker streaming, sweep waveforms, loops, settings confirm, monitor, lung-stress dashboard, truth toggle, time controls | `src/worker/{sim.worker,session,protocol}.ts`, `src/app/{StreamStore,WorkerClient,controller}.ts`, `src/ui/{WaveformCanvas,LoopCanvas,SettingsPanel,MonitorPanel,LungStressDashboard,TruthToggle,TimeControls,AlarmBar,ScenarioPicker}.tsx`, `src/ui/waveform-draw.ts`, `src/sim/truth/lung-stress.ts`, `src/monitor/bands.ts`, `src/edu/scenarios/*.json`, `tests/unit/{session,stream-store,lung-stress,scenarios,channels}.test.ts`, `tests/e2e/{load,settings}.spec.ts` |
 | M6 | Ground-truth labeler, injectors, detector, AI, scorer, Validation page | `src/sim/truth/labeler.ts`, `src/sim/injectors/{leak,cardiac,secretions,water,cough,pneumothorax,mainstem,bronchospasm}.ts`, `src/detector/{features,rules,detector,asynchrony-index}.ts`, `src/detector/scorer.ts`, `src/ui/ValidationPage.tsx`, `src/edu/scenarios/*.json` (first set), `tests/scenarios/emergence.test.ts` (§9.4), `tests/detector/heldout.test.ts` (§9.5) |
 | M7 | Recruitable-population lung, PEEP trial, stress index, R/I, mechanical power; CO2 loop + time warp | `src/sim/patient/{lung-recruitable,gas-exchange}.ts`, `src/sim/vent/maneuvers.ts` (R/I, PEEP trial), `src/monitor/{stress-index,power}.ts`, `tests/physics/{recruitment,stress-index,ri,co2}.test.ts` |
 | M8 | Education: ≥18 scenarios, explain cards, quiz, instructor mode, progress; session + batch export | `src/edu/scenarios/*.json`, `src/edu/cards/*.ts`, `src/edu/{quiz,progress,instructor}.ts`, `src/ui/{ExplainCard,QuizPanel,InstructorPanel,ScenarioPicker}.tsx`, `src/export/{csv,json,batch}.ts`, `tests/e2e/{quiz,export}.spec.ts` |
@@ -137,3 +137,54 @@ ineffective efforts in COPD on over-assisted PSV (> 20% of efforts), double trig
 
 **Known issues:** hosting issue above still open. Hyperinflation-related muscle weakness is not modelled
 (D-007). In injured lungs the balloon occlusion test reads > 1 by design (regional transmission).
+
+### Hosting — moved to Netlify (2026-09-11)
+
+`netlify.toml` (build `npm run build`, publish `dist`, Node 22, `BASE_PATH=./`); the GitHub Actions
+workflow keeps lint, tests, Playwright and build and no longer deploys to Pages (D-008). Live URL:
+https://vent-sim.netlify.app/ with `tomnahass.com/vent-sim/` as a proxy alias from the personal site
+(`/vent-sim/* https://vent-sim.netlify.app/:splat 200`). The Netlify CLI was not installed or logged in on
+the build machine, so the site was set up by importing `nahata5/vent-sim` in the Netlify UI; the URL is
+recorded here and in `README.md` and must be re-checked after the first Netlify build.
+
+### M5 — Live UI v1: worker streaming, sweeps, loops, settings, monitor, dashboard, truth layer (2026-09-11)
+
+**Built:** `src/worker/session.ts` (`SimSession`: one engine advanced by simulated seconds with a step
+accumulator; channel-major Float32Array batches of the 5 measured + 20 truth channels; events, breaths,
+neural breaths; commands applied between physics steps), `src/worker/sim.worker.ts` (20 ms tick, wall ×
+speed capped at 0.25 s, transferable buffers, status every 200 ms), `src/worker/protocol.ts`,
+`src/app/WorkerClient.ts`, `src/app/StreamStore.ts` (ring buffers, 120 s, breath/event/neural tables
+trimmed to the window), `src/app/controller.ts` (feeds the Monitor measured samples and events in time
+order, computes per-breath truth metrics, keeps maneuver readouts, alarm log, view state). UI (Preact +
+Canvas2D): `WaveformCanvas` (sweep with erase gap, per-row auto-range, trigger/cycle/alarm markers, hold
+shading, breath badges `P·flow`, neural-Ti bands and pendelluft highlight on truth rows, hover cursor
+readout of every channel), `LoopCanvas` (P–V, F–V; PL–V per compartment and Campbell Pes–V with the Ecw
+line when truth is on), `SettingsPanel` (mode-dependent fields, pending → Confirm/Cancel, "next breath"
+chip while the ventilator holds a committed-but-not-yet-active change, alarm limits), `MonitorPanel` (22
+measured tiles + maneuver buttons: insp/exp hold, P0.1, ΔPocc, occlusion test), `LungStressDashboard`
+(Brief 2 §6 bands from `src/monitor/bands.ts`, citations in tooltips, truth-only rows marked T, power
+truth vs bedside surrogate), `TruthToggle`, `TimeControls` (pause, freeze, scroll back 120 s, speed
+0.25–4×, sweep 6/12/24 s), `AlarmBar`, `ScenarioPicker`. Truth metrics in `src/sim/truth/lung-stress.ts`
+(PL,ei/PL,ee per compartment, ΔPL static and dynamic, strain, ∫Paw·dV and ∫PL·dV power, Pmus peak, ΔPes,
+pendelluft). Two new truth channels `vND`/`vD`. Scenario library `src/edu/scenarios/*.json` (8 phenotype
+presets + double trigger, ineffective effort, reverse trigger) with `resolveScenario`. Ventilator fix
+found by the session tests: an expiratory hold in a breathing patient now reports the pre-effort plateau
+and releases when the effort begins (D-009).
+
+**Tests:** Vitest 79/79 (new: `session.test.ts` 7 incl. byte-identical batches under random chunking,
+`stream-store.test.ts` 4, `lung-stress.test.ts` 4 incl. ∫Paw·dV = PEEP·Vt + R·Q·Vt + ½E·Vt² within 5%
+and every §6 band, `scenarios.test.ts` 5 incl. the three patterns re-verified as scenarios,
+`channels.test.ts` 1, exp-hold test 1). Playwright 8/8: load + moving canvas + monitor populated; scenario
+switch restarts and shows patient triggers; truth toggle adds 2 loops and fills truth rows; pause stops
+simulated time, freeze holds the view, 4× runs ≥ 2.5 s sim per wall second; PEEP change stays pending
+until Confirm then measured PEEP rises to 12; Vt change shows the next-breath chip then Vte > 560; an
+inspiratory hold yields Pplat, ΔP and a band. Render budget: 7 rows + 4 loops draw in 1.4 ms/frame at
+60 fps headless (`load.spec.ts` asserts < 8 ms). Lint clean.
+
+**Screenshots:** `docs/screenshots/m5-normal-passive.png`, `docs/screenshots/m5-ineffective-effort-truth.png`
+(COPD over-assisted on PSV with the truth layer: five shaded efforts, one delivered breath, Vt 13 mL/kg in
+the red band, Ti max alarm).
+
+**Known issues:** PMI, stress index and R/I rows are placeholders until M7. The displayed volume can dip
+below zero late in a long expiration (integrated measured flow, as on a real device). `setPatient` (instructor
+controls) is not in the protocol yet (M8). The Netlify URL needs its first-build check by the owner.

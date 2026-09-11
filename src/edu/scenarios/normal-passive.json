@@ -1,0 +1,13 @@
+{
+  "id": "normal-passive",
+  "order": 10,
+  "category": "preset",
+  "title": "Healthy post-op, passive VC",
+  "summary": "Anesthetized normal lungs on volume control. Baseline waveforms: square flow, linear Paw ramp, passive exhalation with a short time constant.",
+  "phenotype": "normal",
+  "drive": null,
+  "settings": { "mode": "VC-AC", "peep": 5, "vt": 450, "rr": 14, "peakFlow": 50, "flowPattern": "square" },
+  "seed": 1,
+  "objectives": ["Identify Ppeak, Pplat (use an inspiratory hold) and their resistive and elastic components.", "Read the expiratory time constant from the flow decay."],
+  "targetPatterns": []
+}

@@ -63,6 +63,9 @@ interface ActiveHold {
   tStart: number;
   tEnd: number;
   p1: number | null;
+  /** Expiratory hold: short history of Paw and the running plateau (max of the smoothed signal). */
+  pawHist: number[];
+  plateau: number;
 }
 
 interface BreathHistory {
@@ -146,6 +149,11 @@ export class Ventilator {
 
   activeAlarms(): AlarmId[] {
     return [...this.alarmState.entries()].filter(([, v]) => v).map(([id]) => id);
+  }
+
+  /** Settings accepted but not yet in effect (they commit at the next breath start). */
+  pendingKeys(): Array<keyof VentSettings> {
+    return this.pending ? (Object.keys(this.pending) as Array<keyof VentSettings>) : [];
   }
 
   /** Rate, volume and pressure changes take effect from the next breath (Spec §5 settings UX). */
@@ -510,17 +518,29 @@ export class Ventilator {
       this.phase = 'exp';
       return;
     }
-    if (t >= this.hold.tEnd) {
-      const result: ManeuverResult = { kind: 'exp', tStart: this.hold.tStart, tEnd: t, peepTotal: m.paw };
+    // Track the plateau on a short moving average; a patient effort pulls Paw below it and ends the hold
+    // early (Brief 2 §5: total PEEP is read on the relaxed plateau, an active patient invalidates the rest).
+    const h = this.hold;
+    const win = Math.max(1, Math.round(k('OCCLUSION_BASELINE_WINDOW') * this.settings.deviceRate));
+    h.pawHist.push(m.paw);
+    if (h.pawHist.length > win) h.pawHist.shift();
+    const pawS = h.pawHist.reduce((x, y) => x + y, 0) / h.pawHist.length;
+    if (pawS > h.plateau) h.plateau = pawS;
+    const interrupted = t - h.tStart > 0.2 && h.plateau - pawS > k('POCC_MIN_DIP');
+    if (t >= h.tEnd || interrupted) {
+      const peepTotal = interrupted ? h.plateau : pawS;
+      const result: ManeuverResult = { kind: 'exp', tStart: h.tStart, tEnd: t, peepTotal };
+      if (interrupted) result.values = { interrupted: 1 };
       events.push({ type: 'hold-end', t, kind: 'exp' });
       events.push({ type: 'maneuver', t, result });
-      this.lastPeepTotal = m.paw;
-      this.setAlarm('high-peepi', m.paw - this.settings.peep > this.settings.alarms.highPeepi, t, events);
+      this.lastPeepTotal = peepTotal;
+      this.setAlarm('high-peepi', peepTotal - this.settings.peep > this.settings.alarms.highPeepi, t, events);
       this.hold = null;
       this.phase = 'exp';
       this.tPhaseStart = t;
-      // The held breath is delivered now in AC modes.
-      if (this.isAC) this.scheduleInsp(t, 'time', events);
+      // The held breath is delivered now in AC modes; an interrupting effort triggers it in any mode.
+      if (interrupted) this.scheduleInsp(t, 'patient', events);
+      else if (this.isAC) this.scheduleInsp(t, 'time', events);
     }
   }
 
@@ -655,7 +675,7 @@ export class Ventilator {
     const req = this.holdRequest;
     this.holdRequest = null;
     const duration = req?.duration ?? 1;
-    this.hold = { kind, tStart: t, tEnd: t + duration, p1: null };
+    this.hold = { kind, tStart: t, tEnd: t + duration, p1: null, pawHist: [], plateau: -Infinity };
     this.phase = kind === 'insp' ? 'pause' : 'exp-hold';
     this.tPhaseStart = t;
     events.push({ type: 'hold-start', t, kind });

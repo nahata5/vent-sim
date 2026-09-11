@@ -1,0 +1,13 @@
+{
+  "id": "fibrosis",
+  "order": 80,
+  "category": "preset",
+  "title": "Pulmonary fibrosis on PC",
+  "summary": "Very stiff lung (EL 29) with a short time constant: flow decays to zero early in inspiration, so the plateau is reached without a hold.",
+  "phenotype": "fibrosis",
+  "drive": { "rate": 22, "ti": 0.7, "pmax": 5 },
+  "settings": { "mode": "PC-AC", "peep": 8, "pinsp": 16, "rr": 22, "ti": 0.8 },
+  "seed": 8,
+  "objectives": ["Recognize the decelerating flow reaching zero before cycle-off.", "Compare Vt per kg PBW with the driving pressure."],
+  "targetPatterns": []
+}
