@@ -1,0 +1,23 @@
+{
+  "id": "co2-over-assist",
+  "order": 320,
+  "category": "dyssynchrony",
+  "title": "Over-assist with the CO2 loop: PS 18 → hypocapnia → central apnea",
+  "summary": "COPD on PSV 18 with the CO2 → drive loop on (time warp ×10: one simulated second is 10 s of CO2 dynamics). The large support blows off CO2, the delayed PaCO2 falls below the apneic threshold, the efforts fade and stop, the apnea backup takes over, PaCO2 climbs back and the cycle repeats. Watch the CO2 panel and the drive scale.",
+  "phenotype": "copd",
+  "drive": { "rate": 16, "ti": 0.9, "pmax": 8, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.15 },
+  "gas": { "warp": 10 },
+  "settings": { "mode": "PSV", "peep": 5, "ps": 18, "ets": 0.25, "flowTrigger": 2, "apneaTime": 20, "backupRR": 12, "backupPinsp": 12 },
+  "seed": 15,
+  "objectives": [
+    "Follow PaCO2, the delayed chemoreceptor signal and the drive scale on the CO2 panel while the support is excessive.",
+    "Recognise the sequence: weakening efforts, apnea alarm, backup breaths, PaCO2 recovery, efforts returning (periodic breathing).",
+    "Reduce the pressure support so the patient keeps a stable drive; use the warp slider to see the minutes-scale response."
+  ],
+  "targetPatterns": [],
+  "fix": {
+    "at": 60,
+    "note": "PS 18 → 12: enough support to keep PaCO2 near the set point without blowing it below the apneic threshold.",
+    "settings": { "ps": 12 }
+  }
+}

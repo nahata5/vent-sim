@@ -33,3 +33,22 @@ ineffective (the patient did not trigger) and as a synchrony failure in the asyn
 Q-1, Q-2 and Q-3: **keep the defaults** (owner decision). The truth rules, the detector, the scoring domain
 and the test floors stay as documented in D-011, D-012 and LIMITATIONS.md; do not reopen these without a
 new clinical reason.
+
+## Q-4 · Should the "recruiter" read R/I ≥ 0.5 even if that means leaving Gattinoni's extrapulmonary numbers? (2026-09-11, D-014)
+
+With the extrapulmonary preset anchored to Gattinoni 1998 (Ecw 12.1, Ppl0 12, 0.22–0.3 L recruited from PEEP 0
+to 15) the single-breath R/I reads 0.15–0.3, and the recruiter scenario (recruitable fraction 0.4, Ecw 8, Ppl0 8)
+reads 0.35–0.4. The model's reasons are physical (the recruited gas deflates the chest wall on release, and the
+low-PEEP tidal breath re-recruits part of it), and Chen's cohort median was 0.5 with a wide range. **Default:**
+keep the anchors; the dashboard labels ≥ 0.5 "recruiter" (Chen's cutoff) and the scenario text explains why the
+number is smaller than the recruited volume the truth layer shows. Alternative: give the recruiter scenario a
+larger recruitable population (0.5–0.6, i.e. > 0.7 L of collapsed lung) or a normal chest wall (Ecw 5) so the
+bedside number crosses 0.5.
+
+## Q-5 · How strong should the CO2 → drive response be at the bedside? (2026-09-11, D-014)
+
+The brief gives a normal ventilatory response of 1–3 L/min/mmHg. The loop uses ≈ 0.5 (Pmax +6 %/mmHg, rate
++3 %/mmHg) because the warp multiplies the breath-by-breath lag of the response and larger gains make the
+warped loop oscillate between apnea and hyperpnoea in the under-assist scenario. **Default:** the low gain
+with warp ×10 in the two CO2 scenarios. Alternative: a gain in the brief's range with the warp capped at ×5, or
+a gain that the instructor sets per scenario (the `gas` block already accepts `gainPmax`/`gainRate`).

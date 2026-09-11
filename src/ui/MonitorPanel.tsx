@@ -24,6 +24,7 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
+  const peepBusy = ctl.status?.peepManeuver ?? null;
   const tiles: Array<[string, string, string]> = [
     ['Ppeak', v(m?.ppeak), 'cmH2O'],
     ['Pplat', v(m?.pplat), m?.pplatFromThisBreath ? 'cmH2O' : 'cmH2O (hold)'],
@@ -92,6 +93,24 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
         </button>
         <button type="button" disabled={busy || !settings.esophagealBalloon} onClick={() => ctl.maneuver('occlusion-test')} title="Baydur occlusion test (needs the balloon)">
           Occl. test
+        </button>
+        <button
+          type="button"
+          disabled={busy || peepBusy !== null}
+          onClick={() => ctl.maneuver('ri')}
+          title={`R/I (Chen 2020): one-breath PEEP release from the set PEEP (set 15 first) to ${k('RI_PEEP_LOW')}, then ${k('RI_LOW_BREATHS')} breaths at low PEEP and a hold for Crs,low`}
+          data-testid="maneuver-ri"
+        >
+          {peepBusy === 'ri' ? 'R/I…' : 'R/I'}
+        </button>
+        <button
+          type="button"
+          disabled={busy || peepBusy !== null}
+          onClick={() => ctl.maneuver('peep-trial')}
+          title={`Decremental PEEP trial: from ${k('PEEP_TRIAL_START')} down by ${k('PEEP_TRIAL_STEP')} every ${k('PEEP_TRIAL_BREATHS')} breaths to ${k('PEEP_TRIAL_END')}, a hold per step; PEEP restored at the end`}
+          data-testid="maneuver-peep-trial"
+        >
+          {peepBusy === 'peep-trial' ? 'PEEP trial…' : 'PEEP trial'}
         </button>
       </div>
     </section>

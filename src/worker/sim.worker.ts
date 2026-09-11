@@ -80,6 +80,10 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
     case 'setPatient':
       session?.setDriveParams(msg.drive);
       break;
+    case 'setWarp':
+      session?.setTimeWarp(msg.warp);
+      postStatus();
+      break;
     case 'setSpeed':
       speed = Math.min(4, Math.max(0.25, msg.speed));
       postStatus();

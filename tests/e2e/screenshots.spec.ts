@@ -29,6 +29,43 @@ test('m6: ineffective effort with detector badges, truth row and AI tile', async
   await page.screenshot({ path: 'docs/screenshots/m6-ineffective-effort-badges.png' });
 });
 
+test('m7: recruiter after the R/I release with the truth layer (recruited volume, R/I row)', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto('/#peep-trial-recruiter');
+  await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+  await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+  await waitForSim(page, 10);
+  await page.evaluate(() => window.__ventsim?.ctl.setTruth(true));
+  await page.getByTestId('maneuver-ri').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.maneuvers.ri !== null, undefined, { timeout: 90_000 });
+  await page.evaluate(() => {
+    const ctl = window.__ventsim?.ctl;
+    if (!ctl) return;
+    ctl.setSweep(24);
+    ctl.freeze(true);
+    ctl.scrollTo((ctl.maneuvers.ri?.tStart ?? ctl.store.tLatest) + 10);
+  });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'docs/screenshots/m7-ri-recruiter.png' });
+});
+
+test('m7: CO2 over-assist panel during the apnea cycle', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto('/#co2-over-assist');
+  await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+  await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+  await waitForSim(page, 45);
+  await page.evaluate(() => {
+    const ctl = window.__ventsim?.ctl;
+    if (!ctl) return;
+    ctl.setSweep(24);
+    ctl.freeze(true);
+  });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: 'docs/screenshots/m7-co2-over-assist.png' });
+});
+
 test('m6: validation page', async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 1200 });
   await page.goto('/#validation');

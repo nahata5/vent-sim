@@ -90,6 +90,7 @@ export const PATTERN_CODES: Record<string, { code: string; color: string; name: 
   cough: { code: 'CG', color: '#e57373', name: 'cough' },
   pendelluft: { code: 'PL', color: '#26a69a', name: 'pendelluft' },
   overdistension: { code: 'OD', color: '#ffca28', name: 'overdistension' },
+  'tidal-recruitment': { code: 'TR', color: '#4db6ac', name: 'tidal recruitment' },
   'high-effort': { code: 'HE', color: '#ce93d8', name: 'high effort' },
   'low-effort': { code: 'LE', color: '#b0bec5', name: 'low effort' },
 };

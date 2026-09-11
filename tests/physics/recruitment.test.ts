@@ -37,17 +37,23 @@ describe('recruitable-population lung (§4.3)', () => {
     r.settle(-5);
     expect(r.openFraction()).toBeCloseTo(0.5, 6);
     expect(r.pressure(0.2)).toBeCloseTo(8, 3); // Table 1 elastance with the zero-PEEP open set
+    expect(r.frcUnit).toBeCloseTo(0.05, 9); // FRC_comp/(N·f0) = 0.5/(20·0.5)
     r.settle(30);
     expect(r.openFraction()).toBe(1);
-    expect(r.pressure(0.2)).toBeCloseTo(4, 3); // fully recruited: E_all·V
+    // A recruited unit holds its aerated FRC as real gas (D-014): with 10 more units open the compartment
+    // volume above the anchor is 10·0.05 = 0.5 L larger at the same recoil pressure, and the fully
+    // recruited elastance is E_all = E_comp·f0 = 20 on the inflation above that.
+    expect(r.pressure(0.2 + 0.5)).toBeCloseTo(4, 3);
+    expect(r.volumeAt(4)).toBeCloseTo(0.7, 3);
     // Partial recruitment from the collapsed state → in between (baby lung stiffer than the recruited lung).
     r.settle(-20);
     r.settle(9); // ≈ 37% of the recruitable N(10, 3) population has TOP < 9
     const nOpen = Math.round(r.openFraction() * 20);
     expect(nOpen).toBeGreaterThan(11);
     expect(nOpen).toBeLessThan(16);
-    expect(r.pressure(0.2)).toBeGreaterThan(4 * 1.25);
-    expect(r.pressure(0.2)).toBeLessThan(8);
+    const vRec = (nOpen - 10) * 0.05;
+    expect(r.pressure(0.2 + vRec)).toBeGreaterThan(4 * 1.25);
+    expect(r.pressure(0.2 + vRec)).toBeLessThan(8);
     // Hysteresis: units stay open until the pressure falls below TOP − closeDelta (max TCP ≈ 9.9).
     r.settle(30);
     for (let i = 0; i < 20; i++) r.advance(0.1, 11);

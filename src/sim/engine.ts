@@ -8,6 +8,7 @@ import { PatientModel, type PatientDrive } from './patient/patient';
 import type { PatientParams } from './patient/params';
 import { NeuralDrive, type DriveParams, type NeuralBreath } from './patient/neural-drive';
 import { balloonZ, pesFromPleural, type BalloonParams } from './patient/balloon';
+import { GasExchange, type Co2Sample } from './patient/gas-exchange';
 import { Ventilator } from './vent/ventilator';
 import { SensorChain } from './vent/sensor-chain';
 import { clampSettings, type VentSettings } from './vent/settings';
@@ -39,6 +40,11 @@ export class SimEngine {
   readonly neural: NeuralDrive | null;
   /** Fault injectors (leak, cardiac, secretions, water, cough, pneumothorax, mainstem, bronchospasm). */
   readonly injectors: Injectors;
+  /** CO2 → drive loop with time warp (Spec §4.4), or null. */
+  readonly gas: GasExchange | null;
+  /** One CO2 sample per simulated second (teaching panel, tests, exports). */
+  readonly co2Log: Co2Sample[] = [];
+  private nextCo2Log = 0;
   balloon: BalloonParams | null;
   heartRate: number;
   t = 0;
@@ -77,6 +83,7 @@ export class SimEngine {
     if (this.neural) {
       this.baseDrive = { ...this.baseDrive, kFv: opts.patient.drive?.kFv ?? k('PMUS_KFV'), qRef: opts.patient.drive?.qRef ?? k('PMUS_QREF') };
     }
+    this.gas = opts.patient.gas ? new GasExchange(opts.patient.gas, opts.patient.mechanics.pbw) : null;
     this.balloon = opts.patient.balloon?.enabled ? opts.patient.balloon : null;
     this.heartRate = opts.patient.heartRate ?? k('HEART_RATE_DEFAULT');
     this.injectors = new Injectors(this.rng.fork('injectors'), this.dt, this.heartRate);
@@ -103,6 +110,22 @@ export class SimEngine {
   /** Live neural-drive change (sedation, instructor controls). No-op for a passive patient. */
   setDriveParams(partial: Partial<DriveParams>): void {
     this.neural?.setParams(partial);
+  }
+
+  /** Time warp on the CO2 dynamics only (×1–×60). No-op without the loop. */
+  setTimeWarp(warp: number): void {
+    this.gas?.setWarp(warp);
+  }
+
+  private co2Sample(t: number): Co2Sample {
+    const g = this.gas as GasExchange;
+    const d = g.drive();
+    return { t, paCO2: g.paCO2, paCO2Delayed: g.paCO2Delayed, pmaxScale: d.pmaxScale, rateScale: d.rateScale, apnea: d.apnea, va: g.alveolarVentilation, warp: g.warp };
+  }
+
+  /** Current CO2 state (null without the loop). */
+  co2Now(): Co2Sample | null {
+    return this.gas ? this.co2Sample(this.t) : null;
   }
 
   private currentDrive(t: number): PatientDrive {
@@ -173,6 +196,7 @@ export class SimEngine {
     b.tidalRecruitUnits = rec.tidalRecruitUnits;
     b.vteMeasured = this.sensors.vte;
     if (Number.isNaN(b.tPauseEnd)) b.tPauseEnd = b.tInspEnd;
+    this.gas?.onBreath(b.vtiTrue, t);
     this.onBreath?.(b);
   }
 
@@ -185,6 +209,17 @@ export class SimEngine {
     const t = this.t;
     const phase = this.vent.phase;
     const inInsp = SimEngine.isInsp(phase);
+    if (this.gas) {
+      this.gas.advance(this.dt);
+      if (this.neural) {
+        const d = this.gas.drive();
+        this.neural.setScale(d.pmaxScale, d.rateScale);
+      }
+      if (t >= this.nextCo2Log) {
+        this.co2Log.push(this.co2Sample(t));
+        this.nextCo2Log += 1;
+      }
+    }
     this.neural?.advance(t, this.dt);
     const drive = this.currentDrive(t);
     const bc = this.vent.actuate(t, this.dt, this.patient.out.paw);

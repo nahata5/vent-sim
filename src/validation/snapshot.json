@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-11T12:14:11.054Z",
- "commit": "2cf9cb8",
+ "generatedAt": "2026-09-11T16:20:50.659Z",
+ "commit": "01f79ba",
  "emergence": [
   {
    "id": "double-trigger",
@@ -204,6 +204,21 @@
    ],
    "aiBefore": 0,
    "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "co2-under-assist",
+   "targets": [
+    {
+     "pattern": "high-effort",
+     "fraction": 0.9,
+     "required": 0.2
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 7.142857142857143,
    "aiLimit": 10,
    "extra": [],
    "pass": true

@@ -279,3 +279,66 @@ count toward the cycling delay is Q-2 in `docs/QUESTIONS.md`.
 - **The Venegas anchor stays the default recoil**; the recruitable recoil is selected per scenario
   (`presetPatient(id, { recoil: recruitableRecoil(id, overrides) })`), so M0–M6 physics and the detector grids
   are unchanged.
+
+## D-014 · R/I, PEEP trial, recruited gas, and the warped CO2 loop (2026-09-11, M7)
+
+**Recruited units hold their aerated FRC as real gas.** In D-013 a unit that opened only lowered the elastance
+of the open set; its "aerated FRC" was bookkeeping, so a unit that closed on a PEEP release expelled only its
+inflation above the anchor and the one-breath R/I release (Chen 2020) read 0.06 in the recruiter. The
+compartment volume above the anchor is now `V = recruited·frcUnit + V_infl` (`lung-recruitable.ts`): opening a
+unit lowers the recoil at the current volume and the airway ODE fills it, closing expels the unit's whole
+content. Consequences: the truth EELV and strain include the recruited gas, unit strain is the honest
+`V_infl/(n·frcUnit)` (so the strain caps were re-set: 0.85 → 0.72, pulmonary 1.25 → 1.38), and the recoil-axis
+pressure falls as recruitment inflates the chest wall (`Ppl = Ppl0 + Ecw·V`), which makes recruitment
+self-limiting in extrapulmonary ARDS.
+
+**Why the measured R/I stays below Chen's 0.5 even in the recruiter.** Chen's `Vrec = ΔVrelease − Crs,low·ΔPEEP`
+assumes the compliance-predicted part is unaffected by the recruited gas. With a stiff chest wall the gas that
+leaves the collapsing units also deflates the chest wall, so the passive part shrinks by `Ecw/Ers` of it and the
+measured Vrec is only `EL/Ers ≈ 0.5–0.65` of the true collapsing volume; and the low-PEEP tidal breath re-opens
+some of the units that closed, which inflates Crs,low. Both are real limitations of the single-breath method.
+The model's ceiling for Gattinoni 1998's average extrapulmonary patient (Ecw 12.1, Ppl0 12, 0.22–0.3 L recruited
+0 → 15) is R/I ≈ 0.15–0.3; the **recruiter scenario** therefore uses a larger recruitable population (0.4) with a
+less stiff chest wall (Ecw 8, Ppl0 8) and reads R/I ≈ 0.35–0.4 (Chen's cohort median 0.5, range 0–2); the
+consolidated lung reads ≈ 0. Tests assert this ordering (`tests/physics/ri.test.ts`): recruiter ≥ 0.3,
+extrapulmonary preset intermediate (> 0.1 and > pulmonary + 0.1), pulmonary < 0.1, normal |R/I| < 0.25. The
+0.5 cutoff stays in the registry (`RI_THRESHOLD`) as the cited teaching threshold. Q-4 asks whether the
+recruiter phenotype should be re-anchored so the measured R/I reads ≥ 0.5.
+
+**Opening band and hysteresis re-set for the release window.** Units opened by a PEEP-15 plateau (recoil ≈ 10–12
+in this phenotype) and closed at PEEP 5 (recoil ≈ 2) need `TOP < p_plateau` and `TOP − closeDelta > p_5`, a
+window whose width shrinks by the hysteresis. `RECRUIT_CLOSE_DELTA` 6 → 4 (Brief 2 §2.2 gives 5–10 [M] on the
+airway axis; 4 on the recoil axis is ≈ 6–8 through the chest wall), extrapulmonary TOP N(8, 4) → N(9.5, 1.5)
+(centred on the window), pulmonary TOP N(30, 4) → N(34, 3) so that no consolidated unit cycles at a protective
+plateau (the earlier Gattinoni pulmonary rise 25 → 31 was partly tidal recruitment at Pplat 30; now it comes from
+the strain cap alone: 26 → 35). Gattinoni extrapulmonary: Ers 25.1 → 22.7 with 0.22 L recruited; decremental
+steady steps (Vt 500, 60 s each) Crs 40.5 / 46.6 / 45.3 / 44.3 / 42.9 / 39.7 at PEEP 20…0, best 16.
+
+**Maneuvers on measured signals (`src/sim/vent/peep-maneuvers.ts`).** R/I: at the next cycle-off PEEP drops from the
+set value to `RI_PEEP_LOW` 5, `ΔVrelease = Vte(release) − mean Vte(previous 3)`, four breaths at low PEEP, an
+inspiratory hold gives `Pplat,low`, `Crs,low = Vt/(Pplat,low − 5)`, PEEP restored; airway opening pressure is not
+modelled (LIMITATIONS), so `Vpred = Crs,low·(PEEP_high − 5)`. Decremental trial: PEEP set to max(set, 20)
+immediately, −2 every 6 breaths down to 4, a 1 s inspiratory hold closes each step (Pplat, ΔP against the set
+PEEP, Crs, PL,ei = Pplat − Pes when the balloon is on, Gattinoni-simplified power), best PEEP = argmax Crs,
+original PEEP restored. Both are driven by the ventilator's own breath-start, cycle and hold events.
+
+**Settings-log aliasing bug (M3–M6, fixed).** `Ventilator.applySettings` mutated the live settings object for
+immediate keys (PEEP, trigger, alarms) and that object was referenced by the earlier `settingsLog` entries, so a
+later PEEP change rewrote the labeler's context for breaths before the change. The object is now copied before
+mutation. Emergence matrix, held-out detector scores and the snapshot were re-run unchanged in outcome.
+
+**CO2 loop (`src/sim/patient/gas-exchange.ts`).** The store is a CO2 mass balance
+`dPaCO2/dt = (VCO2 − VA·PaCO2/0.863)/K` with `K = τ·VA_ref/0.863` (τ 3 min at the eupneic ventilation), which
+gives the brief's first-order approach at the set point, a slower approach at low VA, and a bounded rise in
+apnea (VCO2/K ≈ 13 mmHg/min) instead of chasing `0.863·VCO2/VA → ∞`. VA is the last breath's `(Vt_true − VD)·60`
+over `max(period, time since that breath)` so it lags one breath and decays during an apnea. Drive:
+`Pmax scale = clamp(1 + 0.06·(PaCO2_d − 40), 0, 3)`, `rate scale = clamp(1 + 0.03·(…), 0.5, 2)`, apnea below
+36. **Gains are at the low end of the brief's 1–3 L/min/mmHg** (≈ 0.5 here) because the warp multiplies every
+real-time lag in the loop (the breath-by-breath ventilatory response cannot be warped): with 0.15/mmHg or a 20 s
+VA window the warped loop oscillated between apnea and hyperpnoea in the under-assist scenario. The over-assist
+scenario still cycles apnea → backup → recovery, which is the phenomenon it teaches. Scenarios use warp ×10;
+above ≈ ×20 the loop shows lag-driven periodic breathing (LIMITATIONS). Determinism holds per warp value; the
+warp changes only the CO2 clock (test: byte-identical streams at warp 1 and 60 with the gains at zero).
+
+**PMI** is Foti 1997's `Pplat(hold) − (PEEP + PS)` in pressure support (PEEP + Pinsp in PC), from the last
+inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is not how PMI is defined.

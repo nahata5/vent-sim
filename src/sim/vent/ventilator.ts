@@ -12,6 +12,7 @@ import { k } from '../../config/constants';
 import type { AirwayBC, CycleCause, ManeuverKind, ManeuverResult, Phase, TriggerCause, VentEvent } from '../types';
 import { clamp } from '../math/filters';
 import { clampSettings, vcTiming, type VentSettings } from './settings';
+import { makePeepManeuver, type PeepManeuver, type PeepManeuverKind } from './peep-maneuvers';
 
 export interface VentMeasured {
   t: number;
@@ -112,7 +113,10 @@ export class Ventilator {
   private tInspPending: number | null = null;
   private pendingCause: TriggerCause = 'time';
   private peakFlowThisBreath = 0;
+  private peakPawThisBreath = 0;
   private tEtsMet: number | null = null;
+  /** Active R/I or decremental PEEP trial (Spec §5), driven by breath-start, cycle and hold events. */
+  private peepManeuver: PeepManeuver | null = null;
   private lastPaw = 0;
   private tNow = 0;
   private holdRequest: HoldRequest | null = null;
@@ -164,7 +168,8 @@ export class Ventilator {
     this.pending = { ...(this.pending ?? {}), ...partial };
     // Some settings act immediately (PEEP, trigger, alarms). PEEP is applied through the servo target.
     const immediate: Array<keyof VentSettings> = ['peep', 'triggerType', 'flowTrigger', 'pressureTrigger', 'alarms', 'biasFlow', 'leakCompensation'];
-    const target = this.settings as unknown as Record<string, unknown>;
+    // Copy before mutating: the previous settings object is referenced by the settings log (labeler context).
+    const target = { ...this.settings } as unknown as Record<string, unknown>;
     const pend = this.pending as Record<string, unknown>;
     for (const key of immediate) {
       if (key in partial) {
@@ -172,7 +177,7 @@ export class Ventilator {
         delete pend[key];
       }
     }
-    this.settings = clampSettings(this.settings);
+    this.settings = clampSettings(target as unknown as VentSettings);
     this.plan.peep = this.settings.peep;
     if (this.pending && Object.keys(this.pending).length === 0) this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
@@ -194,6 +199,27 @@ export class Ventilator {
   requestHold(kind: 'insp' | 'exp', duration?: number): void {
     const d = duration ?? (kind === 'insp' ? 1.0 : k('EXP_HOLD_DEFAULT'));
     this.holdRequest = { kind, duration: clamp(d, k('INSP_HOLD_MIN'), 4) };
+  }
+
+  /** Start an R/I release or a decremental PEEP trial (ignored while one is running). */
+  requestPeepManeuver(kind: PeepManeuverKind): void {
+    if (this.peepManeuver) return;
+    const vent = this; // eslint-disable-line @typescript-eslint/no-this-alias
+    const host = {
+      get peep() {
+        return vent.settings.peep;
+      },
+      setPeep: (p: number) => this.applySettings({ peep: p }),
+      requestInspHold: () => this.requestHold('insp'),
+      cancelInspHold: () => {
+        if (this.holdRequest?.kind === 'insp') this.holdRequest = null;
+      },
+    };
+    this.peepManeuver = makePeepManeuver(kind, host, this.tNow);
+  }
+
+  get peepManeuverActive(): PeepManeuverKind | null {
+    return this.peepManeuver?.kind ?? null;
   }
 
   private makePlan(s: VentSettings, backup = false): BreathPlan {
@@ -319,6 +345,17 @@ export class Ventilator {
         break;
     }
     if (this.phase !== 'occlusion') this.checkDisconnect(m, events);
+    // A PEEP maneuver whose hold could not be taken (alarm-cycled breaths) advances on an invalid readout.
+    const pm = this.peepManeuver;
+    if (pm?.pendingInvalid) {
+      const read = pm.pendingInvalid;
+      pm.pendingInvalid = null;
+      const done = pm.onHold(read);
+      if (done) {
+        events.push({ type: 'maneuver', t: m.t, result: done });
+        this.peepManeuver = null;
+      }
+    }
     return events;
   }
 
@@ -429,11 +466,13 @@ export class Ventilator {
     this.tPhaseStart = t;
     this.tLastBreathStart = t;
     this.peakFlowThisBreath = 0;
+    this.peakPawThisBreath = 0;
     this.tEtsMet = null;
     // Per-breath latching alarms clear at the start of the next breath.
     this.setAlarm('high-ppeak', false, t, events);
     this.setAlarm('ti-max', false, t, events);
     this.onInspStart?.(t, cause);
+    this.peepManeuver?.onBreathStart(t, this.breathIndex, this.history[this.history.length - 1]?.vte ?? NaN);
   }
 
   /** Hook for the engine (volume reset, breath bookkeeping). */
@@ -444,6 +483,7 @@ export class Ventilator {
     const tIn = t - this.tPhaseStart;
     const p = this.plan;
     this.peakFlowThisBreath = Math.max(this.peakFlowThisBreath, m.flow);
+    this.peakPawThisBreath = Math.max(this.peakPawThisBreath, m.paw);
     let cycle: CycleCause | null = null;
     if (p.spontaneous) {
       const minTi = k('PSV_CYCLE_MIN_TI');
@@ -484,6 +524,11 @@ export class Ventilator {
       events.push({ type: 'cycle', t, cause: cycle });
       this.tLastCycle = t;
       if (cycle === 'ti-max') this.setAlarm('ti-max', true, t, events);
+      this.peepManeuver?.onCycle(
+        t,
+        this.breathIndex,
+        this.history.map((h) => h.vte),
+      );
       if (cycle !== 'alarm' && this.holdRequest?.kind === 'insp') {
         this.beginHold('insp', t, events);
       } else if (p.pause > 0 && cycle !== 'alarm') {
@@ -511,6 +556,13 @@ export class Ventilator {
         events.push({ type: 'maneuver', t, result });
         this.hold = null;
         this.enterExp(t, events, 'pause');
+        if (this.peepManeuver) {
+          const done = this.peepManeuver.onHold({ t, pplat: m.paw, vti: m.vti, pes: m.pes, ppeak: this.peakPawThisBreath, rr: this.settings.rr });
+          if (done) {
+            events.push({ type: 'maneuver', t, result: done });
+            this.peepManeuver = null;
+          }
+        }
       }
       return;
     }

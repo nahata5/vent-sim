@@ -13,6 +13,7 @@ import { TruthToggle } from '../ui/TruthToggle';
 import { ScenarioPicker } from '../ui/ScenarioPicker';
 import { InjectorPanel } from '../ui/InjectorPanel';
 import { ValidationPage } from '../ui/ValidationPage';
+import { Co2Panel } from '../ui/Co2Panel';
 import { defaultBalloon } from '../sim/patient/balloon';
 import type { BadgeHit } from '../ui/waveform-draw';
 
@@ -117,6 +118,7 @@ export function App() {
         <aside class="col-left">
           {settings && <SettingsPanel ctl={ctl} settings={settings} pendingOnVent={status?.pending ?? []} />}
           {status && <InjectorPanel ctl={ctl} active={status.injectors} />}
+          {status?.co2 && <Co2Panel co2={status.co2} onWarp={(w) => ctl.setWarp(w)} />}
         </aside>
         <section class="col-center">
           <TimeControls ctl={ctl} view={view} tLatest={ctl.store.tLatest} tOldest={ctl.store.tOldest} />
@@ -180,6 +182,7 @@ export function App() {
             <LungStressDashboard
               m={ctl.latestBreath}
               truth={ctl.latestTruth}
+              recruit={ctl.latestRecruit}
               truthOn={view.truth}
               maneuvers={ctl.maneuvers}
               settings={settings}

@@ -5,10 +5,10 @@
 import { describe, expect, it } from 'vitest';
 import { runHeadless, type HeadlessResult } from '@sim/headless';
 import { defaultSettings } from '@sim/vent/settings';
-import { presetPatient } from '@sim/patient/presets';
+import { presetPatient, recruitableRecoil } from '@sim/patient/presets';
 import { defaultDriveParams } from '@sim/patient/neural-drive';
 import { resolveScenario, scenarioById } from '@/edu/scenarios';
-import { asynchronyIndex, labelRun, type PatternId } from '@sim/truth/labeler';
+import { asynchronyIndex, labelRun, PATTERN_IDS, type PatternId } from '@sim/truth/labeler';
 import type { SimEngine } from '@sim/engine';
 
 function run(id: string, duration: number): HeadlessResult {
@@ -142,6 +142,20 @@ describe('truth labeler', () => {
     expect(fraction(spasm, 'high-resistance')).toBeGreaterThan(0.8);
     const ptx = runHeadless({ ...base, schedule: [{ t: 0, action: (e: SimEngine) => e.injectors.set('pneumothorax', {}) }] });
     expect(fraction(ptx, 'low-compliance')).toBeGreaterThan(0.8);
+  });
+
+  it('truth-only finding: tidal recruitment when units open and close within a breath (recruitable lung)', () => {
+    // Consolidated ARDS driven to a plateau ≈ 50 (the stress-index test setting): units cycle every breath.
+    const patient = presetPatient('ards-pulmonary', { recoil: recruitableRecoil('ards-pulmonary') });
+    const res = runHeadless({ patient, settings: { ...defaultSettings('VC-AC'), peep: 16, vt: 840, rr: 12, peakFlow: 40, alarms: { ...defaultSettings().alarms, highPpeak: 70 } }, seed: 1, duration: 30 });
+    const labels = labelRun(res).breaths.filter((b) => b.tStart > 10);
+    const hits = labels.filter((b) => b.patterns.includes('tidal-recruitment'));
+    expect(hits.length / Math.max(1, labels.length)).toBeGreaterThan(0.5);
+    expect(hits[0]?.evidence.tidalRecruitUnits ?? 0).toBeGreaterThanOrEqual(2);
+    // The same lung at PEEP 16 with 6 mL/kg keeps its units where they are: no finding.
+    const quiet = runHeadless({ patient, settings: { ...defaultSettings('VC-AC'), peep: 16, vt: 420, rr: 15, peakFlow: 40 }, seed: 1, duration: 30 });
+    expect(labelRun(quiet).breaths.filter((b) => b.tStart > 10).every((b) => !b.patterns.includes('tidal-recruitment'))).toBe(true);
+    expect(PATTERN_IDS).toContain('tidal-recruitment');
   });
 
   it('truth-only findings: overdistension and high effort', () => {

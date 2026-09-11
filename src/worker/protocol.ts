@@ -11,6 +11,8 @@ import type { NeuralBreath } from '../sim/patient/neural-drive';
 import type { AlarmId } from '../sim/vent/ventilator';
 import type { DriveParams } from '../sim/patient/neural-drive';
 import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
+import type { Co2Sample } from '../sim/patient/gas-exchange';
+import type { PeepManeuverKind } from '../sim/vent/peep-maneuvers';
 
 export type TruthKey = `truth.${TruthChannel}`;
 export type ChannelKey = MeasuredChannel | TruthKey;
@@ -46,6 +48,10 @@ export interface SessionStatus {
   settings: VentSettings;
   pending: Array<keyof VentSettings>;
   breathCount: number;
+  /** R/I or decremental PEEP trial in progress (buttons disabled meanwhile). */
+  peepManeuver: PeepManeuverKind | null;
+  /** CO2 loop state, or null when the scenario has no loop. */
+  co2: Co2Sample | null;
 }
 
 export interface PatientSummary {
@@ -65,6 +71,7 @@ export type MainToWorker =
   | { type: 'maneuver'; kind: ManeuverKind }
   | { type: 'inject'; kind: InjectorKind; params: Partial<InjectorParamMap[InjectorKind]> | null }
   | { type: 'setPatient'; drive: Partial<DriveParams> }
+  | { type: 'setWarp'; warp: number }
   | { type: 'setSpeed'; speed: number }
   | { type: 'pause' }
   | { type: 'resume' };

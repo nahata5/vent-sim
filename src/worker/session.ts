@@ -120,7 +120,7 @@ export class SimSession {
         break;
       case 'ri':
       case 'peep-trial':
-        // M7
+        this.engine.vent.requestPeepManeuver(kind);
         break;
     }
   }
@@ -131,6 +131,10 @@ export class SimSession {
 
   setDriveParams(partial: Partial<DriveParams>): void {
     this.engine.setDriveParams(partial);
+  }
+
+  setTimeWarp(warp: number): void {
+    this.engine.setTimeWarp(warp);
   }
 
   setBalloon(balloon: BalloonParams): void {
@@ -156,6 +160,8 @@ export class SimSession {
       settings: vent.current,
       pending: vent.pendingKeys(),
       breathCount: vent.breathCount,
+      peepManeuver: vent.peepManeuverActive,
+      co2: this.engine.co2Now(),
     };
   }
 

@@ -1,0 +1,25 @@
+{
+  "id": "co2-under-assist",
+  "order": 330,
+  "category": "dyssynchrony",
+  "title": "Under-assist with the CO2 loop: PS 3 → hypercapnia → rising drive",
+  "summary": "Consolidated ARDS on PSV 3 with the CO2 → drive loop on (time warp ×10). The small tidal volumes barely clear the dead space, PaCO2 rises, and the chemoreceptors drive Pmax and the neural rate up until the effort itself becomes injurious (high effort, large ΔPes and dynamic ΔPL on the truth layer).",
+  "phenotype": "ards-pulmonary",
+  "drive": { "rate": 16, "ti": 0.8, "pmax": 8, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.15 },
+  "balloon": { "enabled": true },
+  "gas": { "warp": 10 },
+  "settings": { "mode": "PSV", "peep": 8, "ps": 3, "ets": 0.25, "flowTrigger": 2, "apneaTime": 30 },
+  "seed": 16,
+  "objectives": [
+    "Watch PaCO2 and the drive scale climb on the CO2 panel, then Pmus, ΔPes and P0.1 on the dashboard.",
+    "Relate the rising drive to the high-effort finding and to the risk of patient self-inflicted lung injury.",
+    "Raise the pressure support until PaCO2 and the drive return toward baseline."
+  ],
+  "targetPatterns": ["high-effort"],
+  "fix": {
+    "at": 60,
+    "note": "PS 3 → 12: tidal volume rises, PaCO2 falls with the CO2 time constant and the drive settles.",
+    "settings": { "ps": 12 }
+  },
+  "criteria": { "minFraction": 0.2, "aiAfter": 10 }
+}

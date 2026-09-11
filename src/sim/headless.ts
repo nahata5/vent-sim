@@ -9,6 +9,7 @@ import type { PatientDrive } from './patient/patient';
 import type { NeuralBreath } from './patient/neural-drive';
 import type { VentSettings } from './vent/settings';
 import type { InjectorLogEntry } from './injectors';
+import type { Co2Sample } from './patient/gas-exchange';
 import { totalResistance } from './truth/labeler';
 
 export interface HeadlessOptions extends EngineOptions {
@@ -33,6 +34,8 @@ export interface HeadlessResult {
   neuralBreaths: NeuralBreath[];
   settingsLog: Array<{ t: number; settings: VentSettings }>;
   injectorLog: InjectorLogEntry[];
+  /** CO2 loop samples, one per simulated second (empty without the loop). */
+  co2: Co2Sample[];
   pbw: number;
   frc: number;
   hasDrive: boolean;
@@ -87,6 +90,7 @@ export function runHeadless(opts: HeadlessOptions): HeadlessResult {
     neuralBreaths: engine.neuralBreaths,
     settingsLog: engine.vent.settingsLog,
     injectorLog: engine.injectors.log,
+    co2: engine.co2Log,
     pbw: opts.patient.mechanics.pbw,
     frc: opts.patient.mechanics.frc,
     hasDrive: engine.neural !== null,

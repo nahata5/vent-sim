@@ -66,8 +66,10 @@ export interface ManeuverResult {
   p2?: number;
   /** Expiratory hold: total PEEP at the end of the hold. */
   peepTotal?: number;
-  /** Any extra key/value payload (P0.1, ΔPocc, ratios). */
+  /** Any extra key/value payload (P0.1, ΔPocc, ratios, R/I pieces, best PEEP). */
   values?: Record<string, number>;
+  /** Per-step rows for multi-step maneuvers (decremental PEEP trial). */
+  table?: Array<Record<string, number>>;
 }
 
 export interface MeasuredSample {

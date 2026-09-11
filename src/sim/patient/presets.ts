@@ -279,8 +279,8 @@ function recruitableRecoilBase(id: PhenotypeId): RecruitableSpec {
     strainCap: k('RECRUIT_STRAIN_CAP'),
     odGain: k('RECRUIT_OD_GAIN'),
   };
-  if (id === 'ards-extrapulmonary') return { ...base, recruitableFraction: k('RECRUIT_EXTRAPULMONARY_FRACTION'), topMean: k('RECRUIT_EXTRAPULMONARY_TOP') };
-  if (id === 'ards-pulmonary') return { ...base, recruitableFraction: k('RECRUIT_PULMONARY_FRACTION'), topMean: k('RECRUIT_PULMONARY_TOP'), strainCap: k('RECRUIT_PULMONARY_STRAIN_CAP') };
+  if (id === 'ards-extrapulmonary') return { ...base, recruitableFraction: k('RECRUIT_EXTRAPULMONARY_FRACTION'), topMean: k('RECRUIT_EXTRAPULMONARY_TOP'), topSd: k('RECRUIT_EXTRAPULMONARY_TOP_SD') };
+  if (id === 'ards-pulmonary') return { ...base, recruitableFraction: k('RECRUIT_PULMONARY_FRACTION'), topMean: k('RECRUIT_PULMONARY_TOP'), topSd: k('RECRUIT_PULMONARY_TOP_SD'), strainCap: k('RECRUIT_PULMONARY_STRAIN_CAP') };
   return { ...base, recruitableFraction: k('RECRUIT_DEFAULT_FRACTION'), topMean: k('RECRUIT_DEFAULT_TOP') };
 }
 

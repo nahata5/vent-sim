@@ -1,0 +1,19 @@
+{
+  "id": "peep-trial-non-recruiter",
+  "order": 310,
+  "category": "dyssynchrony",
+  "title": "PEEP trial: pulmonary ARDS, non-recruiter (R/I, decremental trial)",
+  "summary": "Consolidated units that do not open at protective pressures. The R/I release recovers only the compliance-predicted volume (R/I ≈ 0) and the decremental trial finds its best compliance at a low PEEP: higher PEEP only overdistends the baby lung.",
+  "phenotype": "ards-pulmonary",
+  "mechanics": { "recoil": "recruitable" },
+  "drive": null,
+  "balloon": { "enabled": true },
+  "settings": { "mode": "VC-AC", "peep": 15, "vt": 420, "rr": 18, "peakFlow": 40, "pause": 0.3, "alarms": { "highPpeak": 50 } },
+  "seed": 14,
+  "objectives": [
+    "Measure R/I: the release volume equals Crs,low × ΔPEEP, so Vrec ≈ 0.",
+    "Run the decremental trial: compliance improves as PEEP falls (overdistension side only).",
+    "Compare the end-inspiratory PL from the balloon at each PEEP step."
+  ],
+  "targetPatterns": []
+}

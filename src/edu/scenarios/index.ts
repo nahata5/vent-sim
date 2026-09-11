@@ -5,10 +5,12 @@
  * turns one into a runnable ScenarioSpec; `scenarioSchedule` builds the injector/fix schedule.
  */
 import type { PhenotypeId } from '../../sim/patient/presets';
-import { presetPatient } from '../../sim/patient/presets';
+import { presetPatient, recruitableRecoil } from '../../sim/patient/presets';
 import type { MechanicsParams } from '../../sim/patient/params';
+import type { RecruitableSpec } from '../../sim/patient/lung-recruitable';
 import { defaultDriveParams, type DriveParams } from '../../sim/patient/neural-drive';
 import { defaultBalloon, type BalloonParams } from '../../sim/patient/balloon';
+import { defaultGasParams, type GasParams } from '../../sim/patient/gas-exchange';
 import { defaultSettings, type VentSettings } from '../../sim/vent/settings';
 import type { Mode } from '../../sim/types';
 import type { ScenarioSpec } from '../../worker/protocol';
@@ -37,6 +39,14 @@ export interface ScenarioCriteria {
   extra?: Array<{ metric: 'peepiTrue'; max: number }>;
 }
 
+/**
+ * Mechanics overrides in JSON: any MechanicsParams field, plus `recoil` as the string `'recruitable'` (the
+ * phenotype's recruitable-population lung, Spec §4.3) or `{ kind: 'recruitable', ...overrides }`.
+ */
+export type ScenarioMechanics = Partial<Omit<MechanicsParams, 'recoil'>> & {
+  recoil?: 'recruitable' | ({ kind: 'recruitable' } & Partial<Omit<RecruitableSpec, 'kind'>>);
+};
+
 export interface ScenarioDef {
   id: string;
   order: number;
@@ -44,9 +54,11 @@ export interface ScenarioDef {
   title: string;
   summary: string;
   phenotype: PhenotypeId;
-  mechanics?: Partial<MechanicsParams>;
+  mechanics?: ScenarioMechanics;
   drive: Partial<DriveParams> | null;
   balloon?: Partial<BalloonParams>;
+  /** CO2 → drive loop (Spec §4.4) with its time warp; omitted = fixed drive. */
+  gas?: Partial<GasParams>;
   injectors?: ScenarioInjectors;
   settings: Partial<VentSettings> & { mode: Mode };
   seed: number | string;
@@ -77,8 +89,16 @@ import secretions from './secretions.json';
 import bronchospasm from './bronchospasm.json';
 import pneumothorax from './pneumothorax.json';
 import mainstem from './mainstem.json';
+import peepTrialRecruiter from './peep-trial-recruiter.json';
+import peepTrialNonRecruiter from './peep-trial-non-recruiter.json';
+import co2OverAssist from './co2-over-assist.json';
+import co2UnderAssist from './co2-under-assist.json';
 
 const RAW: unknown[] = [
+  peepTrialRecruiter,
+  peepTrialNonRecruiter,
+  co2OverAssist,
+  co2UnderAssist,
   normalPassive,
   ardsPulmonary,
   ardsExtrapulmonary,
@@ -109,11 +129,27 @@ export function scenarioById(id: string): ScenarioDef {
   return s;
 }
 
+/** Turn the JSON mechanics block into MechanicsParams overrides (resolving the recruitable recoil). */
+export function resolveMechanics(phenotype: PhenotypeId, m: ScenarioMechanics | undefined): Partial<MechanicsParams> {
+  if (!m) return {};
+  const { recoil, ...rest } = m;
+  const out: Partial<MechanicsParams> = { ...rest };
+  if (recoil === 'recruitable') out.recoil = recruitableRecoil(phenotype);
+  else if (recoil && typeof recoil === 'object') {
+    const { kind: _kind, ...ov } = recoil;
+    void _kind;
+    out.recoil = recruitableRecoil(phenotype, ov);
+  }
+  return out;
+}
+
 export function resolveScenario(def: ScenarioDef): ScenarioSpec {
-  const patient = presetPatient(def.phenotype, def.mechanics ?? {});
+  const patient = presetPatient(def.phenotype, resolveMechanics(def.phenotype, def.mechanics));
   if (def.drive) patient.drive = { ...defaultDriveParams(), ...def.drive };
   if (def.balloon) patient.balloon = { ...defaultBalloon(), ...def.balloon };
-  const settings: VentSettings = { ...defaultSettings(def.settings.mode), ...def.settings };
+  if (def.gas) patient.gas = { ...defaultGasParams(), ...def.gas };
+  const base = defaultSettings(def.settings.mode);
+  const settings: VentSettings = { ...base, ...def.settings, alarms: { ...base.alarms, ...(def.settings.alarms ?? {}) } };
   if (patient.balloon?.enabled) settings.esophagealBalloon = true;
   return { patient, settings, seed: def.seed };
 }

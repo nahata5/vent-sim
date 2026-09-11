@@ -560,3 +560,24 @@ tr.band-danger .metric-value {
 .confusion-table td.fn {
   color: var(--warn);
 }
+
+/* ── M7: CO2 loop panel, PEEP trial table ── */
+.co2 .tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.peep-trial {
+  margin-top: 8px;
+}
+.peep-trial table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.peep-trial th,
+.peep-trial td {
+  text-align: right;
+  padding: 1px 4px;
+}
+.peep-trial tr.best td {
+  color: var(--accent, #4fc3f7);
+  font-weight: 600;
+}

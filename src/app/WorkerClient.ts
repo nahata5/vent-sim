@@ -49,6 +49,9 @@ export class WorkerClient {
   setPatient(drive: Partial<DriveParams>): void {
     this.send({ type: 'setPatient', drive });
   }
+  setWarp(warp: number): void {
+    this.send({ type: 'setWarp', warp });
+  }
   setSpeed(speed: number): void {
     this.send({ type: 'setSpeed', speed });
   }

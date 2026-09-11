@@ -31,6 +31,7 @@ export type PatternId =
   | 'cough'
   | 'pendelluft'
   | 'overdistension'
+  | 'tidal-recruitment'
   | 'high-effort'
   | 'low-effort';
 
@@ -53,6 +54,7 @@ export const PATTERN_IDS: readonly PatternId[] = [
   'cough',
   'pendelluft',
   'overdistension',
+  'tidal-recruitment',
   'high-effort',
   'low-effort',
 ];
@@ -372,6 +374,11 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     if (b.vtiTrue > 0.05) {
       ev.leakFraction = b.leakTrue / (b.vtiTrue + b.leakTrue);
       if (b.leakTrue / b.vtiTrue > k('LABEL_LEAK_FRACTION')) patterns.push('leak');
+    }
+    // Tidal recruitment (truth only, Spec §7): units that opened during the breath and closed again.
+    if (b.tidalRecruitUnits >= k('LABEL_TIDAL_RECRUIT_UNITS')) {
+      patterns.push('tidal-recruitment');
+      ev.tidalRecruitUnits = b.tidalRecruitUnits;
     }
     if (ctx.injectors.includes('secretions')) patterns.push('secretions');
     if (ctx.injectors.includes('water')) patterns.push('water');

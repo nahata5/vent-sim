@@ -274,7 +274,7 @@ on: detector badges DC/IE over the breaths, truth row beneath, AI tile), `docs/s
 
 **Deployed:** https://vent-sim.netlify.app/ (site created 2026-09-11, verified live; redeploys on every push).
 
-### M7 — Recruitable lung and stress index (2026-09-11, in progress)
+### M7 — Recruitable lung, stress index, R/I, PEEP trial, power, CO2 loop (2026-09-11, complete)
 
 **Built (TDD, tests first):** `src/sim/patient/lung-recruitable.ts` — `RecruitableRecoil` behind the
 `LungRecoil` interface (N units per compartment, deterministic normal quantiles of opening pressure on the
@@ -294,8 +294,66 @@ Crs 33.8 / 40.7 / 41.6 / 41.1 / 40.5 / 40.0 mL/cmH2O at PEEP 20…0, best at 12)
 b ∈ 0.9–1.1; consolidated ARDS driven to a 50 cmH2O plateau: b < 0.9 with ≥ 2 units cycling; normal lung at
 PEEP 15 / 13 mL/kg: b > 1.1; no index on PC or patient-triggered breaths). Vitest 130/130, lint clean.
 
-**Not done in M7 yet:** R/I maneuver (one-breath PEEP release 15 → 5, Crs,low, `ManeuverKind 'ri'` stub in
-`SimSession.requestManeuver`), decremental PEEP trial maneuver (`'peep-trial'`), Gattinoni full-formula
-mechanical power surrogate, CO2 → drive loop with time warp (`gas-exchange.ts`, `tests/physics/co2.test.ts`),
-recruitment readouts in the truth layer (recruited / tidally recruited volume, `tidal-recruitment` truth-only
-finding), scenario JSON `mechanics.recoil` selection, Playwright coverage, screenshots.
+**Second session (M7 complete, TDD throughout; D-014).**
+
+- **Recruited gas is real gas.** `lung-recruitable.ts` now keeps each recruited unit's aerated FRC as compartment
+  volume (`V = recruited·frcUnit + V_infl`), so opening draws gas in through the airway and closing expels the
+  unit's whole content; EELV/strain include it and the unit strain is honest. Constants re-set with a sweep
+  (`scripts/dev/ri-sweep.ts`, `ri-units.ts`): closeDelta 6 → 4, extrapulmonary TOP N(8, 4) → N(9.5, 1.5),
+  pulmonary TOP N(30, 4) → N(34, 3), strain caps 0.85 → 0.72 and 1.25 → 1.38. Gattinoni 1998 direction kept:
+  extrapulmonary Ers 25.1 → 22.7 with 0.22 L recruited (0.293 in the paper), pulmonary 26.4 → 34.9 with none;
+  steady decremental steps at Vt 500 (60 s each) Crs 40.5 / 46.6 / 45.3 / 44.3 / 42.9 / 39.7 mL/cmH2O at
+  PEEP 20…0, best 16.
+- **R/I maneuver** (`src/sim/vent/peep-maneuvers.ts`, `Ventilator.requestPeepManeuver('ri')`): one-breath PEEP
+  release from the set PEEP to 5 at the next cycle-off, ΔVrelease against the previous three Vte, four breaths
+  at low PEEP, an inspiratory hold for Crs,low, PEEP restored, result `{dVrelease, vteRef, pplatLow, crsLow,
+  vpred, vrec, ri, valid}`. Measured values: recruiter scenario ≈ 0.35–0.4 (ΔVrelease ≈ 720 mL, Crs,low ≈ 53,
+  Vrec ≈ 200 mL), extrapulmonary preset 0.15–0.25, consolidated 0.01, normal Venegas lung ≈ 0. Why the
+  recruiter stays under Chen's 0.5 (chest-wall deflation and low-PEEP tidal re-recruitment, both real
+  limitations of the single-breath method) is in D-014 and Q-4.
+- **Decremental PEEP trial** (`'peep-trial'`): PEEP to max(set, 20) at once, −2 every 6 breaths to 4, a 1 s
+  inspiratory hold per step (Pplat, ΔP, Crs, PL,ei from Pes when the balloon is on, Gattinoni-simplified power),
+  `ManeuverResult.table` + `values.bestPeep`, original PEEP restored. An alarm-cycled breath cannot take its
+  hold; after 3 breaths without one the step is recorded invalid and the trial moves on (found by the first
+  Playwright run: the pulmonary lung tripped the 40 cmH2O Ppeak alarm at PEEP 20 and the trial stalled).
+- **Mechanical power**: Gattinoni 2016 full VC formula (`gattinoniFullPower`), used by `powerSurrogate` when
+  Ers, Raw and I:E are measured; equals the truth ∫Paw·dV of a linear lung under square flow within 8 %.
+- **CO2 → drive loop** (`src/sim/patient/gas-exchange.ts`, `PatientParams.gas`, `engine.gas`, `co2Log`,
+  `SessionStatus.co2`, `setWarp`): CO2 mass balance with K = τ·VA_ref/0.863 (τ 3 min at eupnea, bounded ≈ 13
+  mmHg/min rise in apnea), 10 s chemoreceptor delay line on the warped clock, per-breath VA whose period
+  stretches during apnea, drive = clamp(1 + 0.06·(PaCO2_d − 40), 0, 3) on Pmax and 1 + 0.03·(…) on rate, apnea
+  below 36 → Pmus 0 → ventilator backup. Warp ×1–×60 scales only the CO2 clock (byte-identical streams at
+  warp 1 and 60 with the gains at zero). Gains sit at the low end of the brief's range because the warp
+  multiplies the breath-by-breath lag of the ventilatory response (Q-5).
+- **Truth layer**: `tidal-recruitment` PatternId (rule `tidalRecruitUnits ≥ 1`, badge `TR`), dashboard rows for
+  recruited volume (with % of units open and the tidal count), PMI (Foti 1997, from the last inspiratory hold
+  in PSV/PC) and R/I with its pieces, the PEEP-trial table under the dashboard, a CO2 panel (PaCO2, delayed
+  signal, VA, drive, warp select), monitor buttons R/I and PEEP trial (disabled while one runs,
+  `SessionStatus.peepManeuver`).
+- **Scenarios** (24 now): `peep-trial-recruiter` (extrapulmonary, Ecw 8, Ppl0 8, recruitable fraction 0.4,
+  balloon), `peep-trial-non-recruiter` (pulmonary, recruitable), `co2-over-assist` (COPD PSV 18, warp ×10:
+  apnea → backup → recovery cycle; fix PS 12), `co2-under-assist` (pulmonary ARDS PSV 3, warp ×10: PaCO2 54,
+  drive ×1.9, high effort; fix PS 12 → drive ×1.0). JSON gained `mechanics.recoil: 'recruitable' | {kind,
+  …overrides}` and `gas: {…}`; scenario `alarms` merge into the defaults.
+- **Bug fixed (M3–M6)**: `Ventilator.applySettings` mutated the settings object shared with the settings log,
+  so a PEEP change rewrote the labeler's context for earlier breaths (D-014). Emergence and held-out scores
+  unchanged in outcome.
+
+**Tests:** `tests/physics/ri.test.ts` 7/7 (recruiter R/I ≥ 0.3 with pieces and PEEP restored; phenotype
+ordering; PC-AC; recruiter trial best PEEP 8–18 with both ends worse; preset trial at Vt 500 best 8–16 and
+PEEP 20 < 92 %; alarm-stall recovery; non-recruiter best ≤ 10 and no PL,ei without the balloon).
+`tests/physics/co2.test.ts` 9/9 (τ at the reference VA, delay line, warp; drive mapping and apnea; bounded
+apneic rise and VA decay; passive steady state within 5 % of 0.863·VCO2/VA; warp-only-CO2 byte identity;
+over-assist apnea + backup + recovery; under-assist drive ×1.3+ and Pmax ×1.5+; both CO2 scenarios with
+their fixes). `tests/unit/power.test.ts` 3/3. Labeler +1 (tidal recruitment on the consolidated lung at
+Pplat ≈ 50, none at 6 mL/kg). Recruitment test updated for the gas semantics. Vitest 151/151 (23 files), held-out
+detector suite unchanged; lint clean; `npm run build` clean (sim worker 81 kB). Playwright 17/17 + 4 screenshot
+tests: `tests/e2e/m7.spec.ts` (R/I from the button → dashboard ratio, pieces, PEEP restored; PEEP trial fills
+9 rows and names the best PEEP; CO2 panel moves and warp ×1 slows it; recruited-volume row with the truth
+layer). Render budget unchanged (`load.spec.ts` < 8 ms/frame).
+
+**Screenshots:** `docs/screenshots/m7-ri-recruiter.png` (recruiter after the R/I release, truth layer on),
+`docs/screenshots/m7-co2-over-assist.png` (CO2 panel during the apnea cycle).
+
+**Known issues:** R/I under-reads through a stiff chest wall (D-014, Q-4); the warped CO2 loop shows lag-driven
+periodic breathing above ≈ ×20 (Q-5); airway opening pressure and SpO2 are not modelled (LIMITATIONS).

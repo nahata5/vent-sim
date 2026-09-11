@@ -37,6 +37,18 @@ export interface ManeuverReadouts {
   occlusionTest: ManeuverResult | null;
   inspHold: ManeuverResult | null;
   expHold: ManeuverResult | null;
+  ri: ManeuverResult | null;
+  peepTrial: ManeuverResult | null;
+}
+
+const NO_MANEUVERS: ManeuverReadouts = { p01: null, pocc: null, occlusionTest: null, inspHold: null, expHold: null, ri: null, peepTrial: null };
+
+/** Recruitment truth readouts of the last closed breath (recruitable lung only; zeros otherwise). */
+export interface RecruitReadout {
+  /** Aerated FRC of the recruited units above the phenotype's zero-PEEP FRC, L. */
+  recruitedVolume: number;
+  tidalRecruitUnits: number;
+  openFraction: number;
 }
 
 export interface ViewState {
@@ -61,7 +73,8 @@ export class SessionController {
   balloon: BalloonParams = defaultBalloon();
   latestBreath: BreathMetrics | null = null;
   latestTruth: TruthBreathMetrics | null = null;
-  maneuvers: ManeuverReadouts = { p01: null, pocc: null, occlusionTest: null, inspHold: null, expHold: null };
+  latestRecruit: RecruitReadout | null = null;
+  maneuvers: ManeuverReadouts = { ...NO_MANEUVERS };
   alarmLog: Array<Extract<VentEvent, { type: 'alarm' }>> = [];
   view: ViewState = { truth: false, frozen: false, tView: NaN, sweep: 12, speed: 1, paused: false };
   ready = false;
@@ -108,7 +121,8 @@ export class SessionController {
     this.balloon = spec.patient.balloon ?? defaultBalloon();
     this.latestBreath = null;
     this.latestTruth = null;
-    this.maneuvers = { p01: null, pocc: null, occlusionTest: null, inspHold: null, expHold: null };
+    this.latestRecruit = null;
+    this.maneuvers = { ...NO_MANEUVERS };
     this.alarmLog = [];
     this.labels = new Map();
     this.ieEvents = [];
@@ -290,7 +304,10 @@ export class SessionController {
           this.maneuvers.expHold = r;
           break;
         case 'ri':
+          this.maneuvers.ri = r;
+          break;
         case 'peep-trial':
+          this.maneuvers.peepTrial = r;
           break;
       }
     }
@@ -309,6 +326,7 @@ export class SessionController {
       { n: s.length, get: (ch, i) => s.read(ch, i) },
       { iStart, iInspEnd, iEnd, frc: this.patient.frc, rr },
     );
+    this.latestRecruit = { recruitedVolume: b.frcAeratedEE - this.patient.frc, tidalRecruitUnits: b.tidalRecruitUnits, openFraction: b.openFractionEE };
   }
 
   // ─────────── commands ───────────
@@ -342,6 +360,11 @@ export class SessionController {
 
   maneuver(kind: ManeuverKind): void {
     this.worker.maneuver(kind);
+  }
+
+  /** Time warp on the CO2 loop (×1–×60). */
+  setWarp(warp: number): void {
+    this.worker.setWarp(warp);
   }
 
   setSpeed(speed: number): void {

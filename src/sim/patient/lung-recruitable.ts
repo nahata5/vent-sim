@@ -8,13 +8,19 @@
  * enough for a Bates–Irvin trajectory variable x_i to reach 1, and closes when x_i falls back to 0 below TCP.
  * The remaining units are always open (the aerated lung at zero PEEP).
  *
- * Open units share the compartment volume equally, so with n of N units open the recoil is
- *   P(V) = E_all·(N/n)·V·(1 + odGain·max(0, strain_u − strainCap)),  strain_u = V/(n·frcUnit),
+ * Open units share the inflation volume equally and every open unit holds its aerated FRC as real gas
+ * (D-014). With n of N units open and V the compartment volume above its FRC anchor (the anchor is the
+ * zero-PEEP open set of N·f0 units), the inflation above the open units' own FRC is
+ *   V_infl = V − (n − N·f0)·frcUnit,
+ * and the recoil is
+ *   P(V) = E_all·(N/n)·V_infl·(1 + odGain·max(0, strain_u − strainCap)),  strain_u = V_infl/(n·frcUnit),
  * where E_all = E_comp·f0 is the elastance of the fully recruited compartment (E_comp is Table 1's value,
  * measured with the fraction f0 open at zero PEEP) and frcUnit = FRC_comp/(N·f0) is one unit's aerated
  * volume at FRC. Fewer open units → a stiffer "baby lung"; over-inflated units stiffen (overdistension).
- * Opening and closing change P(V) discontinuously, so recruitment draws gas in and derecruitment pushes it
- * out through the airway ODE rather than by fiat.
+ * Opening and closing change P(V) discontinuously: a unit that opens lowers the recoil at the current
+ * volume and the airway ODE fills it (recruitment draws gas in, ≈ frcUnit per unit), a unit that closes
+ * raises it and its gas is pushed out (derecruitment expels the unit's whole content, which is what the
+ * one-breath release of the R/I maneuver measures, Chen 2020).
  */
 import type { LungRecoil } from './recoil';
 
@@ -129,27 +135,39 @@ export class RecruitableRecoil implements LungRecoil {
     return nOpen === 0 ? this.eAll * this.n * 50 : (this.eAll * this.n) / nOpen;
   }
 
+  /** Gas held at FRC by the recruited (not always-open) units that are open now, L. */
+  recruitedVolume(): number {
+    const nAlways = Math.round(this.f0 * this.n);
+    return Math.max(0, this.nOpen() - nAlways) * this.frcUnit;
+  }
+
+  /** Inflation above the open units' own FRC for a compartment volume v above the anchor. */
+  private inflation(v: number): number {
+    return v - this.recruitedVolume();
+  }
+
   pressure(v: number): number {
     const nOpen = Math.max(1, this.nOpen());
     const e = this.eEff();
+    const vi = this.inflation(v);
     const vc = nOpen * this.frcUnit;
-    const s = v / vc;
+    const s = vi / vc;
     const od = s > this.spec.strainCap ? 1 + this.spec.odGain * (s - this.spec.strainCap) : 1;
-    return e * v * od;
+    return e * vi * od;
   }
 
   elastance(v: number): number {
     const nOpen = Math.max(1, this.nOpen());
     const e = this.eEff();
     const vc = nOpen * this.frcUnit;
-    const s = v / vc;
+    const s = this.inflation(v) / vc;
     if (s <= this.spec.strainCap) return e;
     return e * (1 + this.spec.odGain * (2 * s - this.spec.strainCap));
   }
 
   volumeAt(p: number): number {
     // Monotone in v: bisection.
-    let lo = -0.95 * this.nOpen() * this.frcUnit - 0.05;
+    let lo = this.recruitedVolume() - 0.95 * this.nOpen() * this.frcUnit - 0.05;
     let hi = 10;
     if (this.pressure(lo) > p) return lo;
     for (let i = 0; i < 80; i++) {

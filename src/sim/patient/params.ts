@@ -8,6 +8,7 @@
 
 import type { DriveParams } from './neural-drive';
 import type { BalloonParams } from './balloon';
+import type { GasParams } from './gas-exchange';
 
 export interface RohrerParams {
   k1: number; // cmH2O/(L/s)
@@ -79,6 +80,8 @@ export interface PatientParams {
   balloon?: BalloonParams;
   /** Heart rate for cardiac artifacts, /min. */
   heartRate?: number;
+  /** CO2 → drive loop (Spec §4.4); omit for a fixed drive. */
+  gas?: GasParams;
 }
 
 /** Derived per-compartment constants used by the solver. */

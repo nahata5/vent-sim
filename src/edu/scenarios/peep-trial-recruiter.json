@@ -1,0 +1,19 @@
+{
+  "id": "peep-trial-recruiter",
+  "order": 300,
+  "category": "dyssynchrony",
+  "title": "PEEP trial: extrapulmonary ARDS, recruiter (R/I, decremental trial)",
+  "summary": "A large recruitable population with a moderately stiff chest wall (Ecw 8). Run the R/I release (set PEEP 15 → 5) and the decremental PEEP trial from the monitor: the release expels far more than compliance predicts, the trial's compliance peaks well above the lowest PEEP, and the truth layer shows the recruited and tidally recruited volume.",
+  "phenotype": "ards-extrapulmonary",
+  "mechanics": { "ecw": 8, "pplOffset": 8, "recoil": { "kind": "recruitable", "recruitableFraction": 0.4 } },
+  "drive": null,
+  "balloon": { "enabled": true },
+  "settings": { "mode": "VC-AC", "peep": 15, "vt": 420, "rr": 18, "peakFlow": 40, "pause": 0.3, "alarms": { "highPpeak": 50 } },
+  "seed": 13,
+  "objectives": [
+    "Measure R/I with the one-breath PEEP release and read the pieces: ΔVrelease, Crs,low, Vrec.",
+    "Run the decremental PEEP trial and find the best-compliance PEEP; compare with the non-recruiter scenario.",
+    "With the truth layer on, watch the recruited volume and the tidal-recruitment count change with PEEP."
+  ],
+  "targetPatterns": []
+}

@@ -11,8 +11,22 @@ entry names the decision or milestone that introduced it. Newest additions last 
   (regional transmission α_D = 1.35, D-007); this is a teaching point, not a calibration error.
 - **Cardiac oscillation is a single sinusoid at a fixed heart rate** (M6 injector); there is no heart-rate
   variability and no respiratory sinus arrhythmia.
-- **SpO2 and CO2 are schematic** until M7 (CO2 loop) and remain a single-compartment gas exchange model
-  afterwards; there is no shunt/dead-space heterogeneity by region.
+- **CO2 is a single lumped store** (M7, D-014): one mass balance with a 3 min time constant, one chemoreceptor
+  delay, no separate lung/tissue/brain compartments, no O2 or peripheral chemoreceptor term, fixed VCO2 and
+  dead space. SpO2 is not modelled.
+- **The time warp scales the CO2 clock only; breathing cannot be warped** (D-014). Every real-time lag in the
+  loop (one breath for the VA estimate, the neural response) is multiplied by the warp, so above ≈ ×20 the loop
+  shows lag-driven periodic breathing that a real patient would not. The drive gains are set at the low end of
+  the brief's range to keep ×10 stable; the over-assist apnea → backup → recovery cycle is genuine.
+- **Airway opening pressure is not modelled** (D-014), so the R/I release uses `Vpred = Crs,low·(PEEP_high −
+  PEEP_low)` without the `max(PEEP_low, AOP)` correction, and a scenario cannot show complete airway closure.
+- **The single-breath R/I under-reads recruitment through a stiff chest wall** (D-014): the measured Vrec is
+  about `EL/Ers` of the true collapsing volume and the low-PEEP tidal breath re-recruits part of it, so the
+  Gattinoni-average extrapulmonary preset reads R/I ≈ 0.15–0.3 and the recruiter scenario ≈ 0.35–0.4 against
+  Chen's 0.5 cutoff (Q-4). The truth layer shows the recruited volume directly.
+- **Recruitable units are identical in size and open along a narrow band** (D-013/D-014): the extrapulmonary
+  opening pressures span ≈ ±3 cmH2O on the recoil axis (≈ ±4–6 on the airway axis with the pleural gradient),
+  narrower than Crotti 2001's distributions, so the P–V curve has a sharper lower inflection than a real one.
 
 ## Ventilator model
 
@@ -21,6 +35,11 @@ entry names the decision or milestone that introduced it. Newest additions last 
   are absent.
 - **Expiratory holds abort on the first effort** (D-009) and report the pre-effort plateau, so a patient with
   a very high rate may never yield a total-PEEP reading.
+- **R/I and the decremental PEEP trial assume a passive patient** (M7): the release volume and the per-step
+  holds are read as on a real ventilator, so an effort during the release or the hold corrupts ΔVrelease or
+  Pplat; the maneuvers do not abort on effort the way the expiratory hold does.
+- **The decremental trial's ΔP uses the set PEEP**, not total PEEP; in a patient with intrinsic PEEP the
+  per-step Crs is under-estimated (an expiratory hold per step is not part of the maneuver).
 
 ## Detector (what the bedside signals cannot show)
 
