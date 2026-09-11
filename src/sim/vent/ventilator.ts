@@ -9,7 +9,7 @@
  * ventilator never reads patient truth.
  */
 import { k } from '../../config/constants';
-import type { AirwayBC, CycleCause, ManeuverResult, Phase, TriggerCause, VentEvent } from '../types';
+import type { AirwayBC, CycleCause, ManeuverKind, ManeuverResult, Phase, TriggerCause, VentEvent } from '../types';
 import { clamp } from '../math/filters';
 import { clampSettings, vcTiming, type VentSettings } from './settings';
 
@@ -70,6 +70,26 @@ interface BreathHistory {
   vte: number;
 }
 
+type OcclusionKind = Extract<ManeuverKind, 'p01' | 'pocc' | 'occlusion-test'>;
+
+interface ActiveOcclusion {
+  kind: OcclusionKind;
+  tStart: number;
+  baselinePaw: number;
+  baselinePes: number | null;
+  minPaw: number;
+  minPes: number | null;
+  tOnset: number | null;
+  prevPaw: number;
+  prevT: number;
+  /** 0 = classic (occlusion before the effort), 1 = at-trigger fallback. */
+  method: number;
+  /** Short history for moving averages that suppress the cardiac artifact (whole-breath maneuvers). */
+  pawHist: number[];
+  pesHist: number[];
+  nBaseline: number;
+}
+
 export class Ventilator {
   private settings: VentSettings;
   private pending: Partial<VentSettings> | null = null;
@@ -94,6 +114,8 @@ export class Ventilator {
   private tNow = 0;
   private holdRequest: HoldRequest | null = null;
   private hold: ActiveHold | null = null;
+  private occlusionRequest: OcclusionKind | null = null;
+  private occlusion: ActiveOcclusion | null = null;
   private backupActive = false;
   private readonly alarmState = new Map<AlarmId, boolean>();
   private tDisconnectStart: number | null = null;
@@ -148,6 +170,11 @@ export class Ventilator {
     if (!this.pending) return;
     this.settings = clampSettings({ ...this.settings, ...this.pending });
     this.pending = null;
+  }
+
+  /** Request an end-expiratory occlusion maneuver (P0.1, ΔPocc, or the balloon occlusion test). */
+  requestOcclusion(kind: OcclusionKind): void {
+    this.occlusionRequest = kind;
   }
 
   /** Request an inspiratory or expiratory hold at the next eligible phase. */
@@ -275,10 +302,10 @@ export class Ventilator {
         this.controlExpHold(m, events);
         break;
       case 'occlusion':
-        // Occlusion maneuvers (P0.1, ΔPocc, occlusion test) — M4.
+        this.controlOcclusion(m, events);
         break;
     }
-    this.checkDisconnect(m, events);
+    if (this.phase !== 'occlusion') this.checkDisconnect(m, events);
     return events;
   }
 
@@ -305,12 +332,34 @@ export class Ventilator {
     const backupDue = this.backupActive && t - this.tApneaRef >= 60 / s.backupRR - 1e-9;
     // Expiratory hold: taken at the end of expiration (the moment a time trigger would fire in AC, or once
     // expiratory flow has settled in spontaneous modes), blocking the next breath.
+    // "Settled" expiration in spontaneous modes: past the fast part of exhalation, no inspiratory flow
+    // yet (an effort in progress must not be occluded mid-way), Paw back at PEEP.
+    const settled =
+      !this.isAC &&
+      t - this.tLastCycle > 0.6 &&
+      m.flow <= 0.005 &&
+      m.flow >= -k('OCCLUSION_SETTLED_FLOW') &&
+      m.paw >= s.peep - 0.3;
     if (this.holdRequest?.kind === 'exp') {
-      const settled = !this.isAC && (Math.abs(m.flow) < 0.05 || t - this.tLastCycle > 1.5);
       if (timeDue || settled) {
         this.beginHold('exp', t, events);
         return;
       }
+    }
+    if (this.occlusionRequest && (timeDue || settled || (this.isAC && t - this.tLastCycle > 1.0))) {
+      this.beginOcclusion(m, events);
+      return;
+    }
+    // P0.1 fallback when the effort arrives before expiration settles (vendor method): occlude for
+    // 100 ms from the trigger detection. Reads a little low because the deflection has already begun.
+    if (this.occlusionRequest === 'p01' && this.patientTrigger(m)) {
+      this.beginOcclusion(m, events);
+      const o = this.occlusion;
+      if (o) {
+        o.tOnset = t;
+        o.method = 1;
+      }
+      return;
     }
     if (timeDue) {
       this.scheduleInsp(t, 'time', events);
@@ -473,6 +522,133 @@ export class Ventilator {
       // The held breath is delivered now in AC modes.
       if (this.isAC) this.scheduleInsp(t, 'time', events);
     }
+  }
+
+  private beginOcclusion(m: VentMeasured, events: VentEvent[]): void {
+    const kind = this.occlusionRequest ?? 'pocc';
+    this.occlusionRequest = null;
+    this.occlusion = {
+      kind,
+      tStart: m.t,
+      baselinePaw: m.paw,
+      baselinePes: m.pes,
+      minPaw: m.paw,
+      minPes: m.pes,
+      tOnset: null,
+      prevPaw: m.paw,
+      prevT: m.t,
+      method: 0,
+      pawHist: [],
+      pesHist: [],
+      nBaseline: 0,
+    };
+    this.phase = 'occlusion';
+    this.tPhaseStart = m.t;
+    events.push({ type: 'hold-start', t: m.t, kind: 'occlusion' });
+  }
+
+  private endOcclusion(t: number, values: Record<string, number>, events: VentEvent[], triggerBreath: boolean): void {
+    const o = this.occlusion;
+    if (!o) return;
+    const result: ManeuverResult = { kind: o.kind, tStart: o.tStart, tEnd: t, values };
+    events.push({ type: 'hold-end', t, kind: 'occlusion' });
+    events.push({ type: 'maneuver', t, result });
+    this.occlusion = null;
+    this.phase = 'exp';
+    this.tPhaseStart = t;
+    if (triggerBreath) this.scheduleInsp(t, 'patient', events);
+  }
+
+  /**
+   * Occlusion maneuvers on measured Paw (and Pes for the occlusion test), Brief 2 §4–5. After the valves
+   * close, Paw first rises toward the alveolar pressure (total PEEP), so the reference for every
+   * deflection is the pre-effort plateau (running maximum), not the Paw at the instant of occlusion.
+   *  - P0.1: Paw drop over the first 100 ms after the onset of the deflection, then release the breath.
+   *  - ΔPocc: whole-effort occlusion, min Paw − plateau.
+   *  - Occlusion test: ΔPes/ΔPaw over the same effort (Baydur 1982), on cardiac-smoothed signals.
+   */
+  private controlOcclusion(m: VentMeasured, events: VentEvent[]): void {
+    const o = this.occlusion;
+    if (!o) {
+      this.phase = 'exp';
+      return;
+    }
+    const t = m.t;
+    if (o.kind === 'p01') {
+      if (t - o.tStart > k('OCCLUSION_TIMEOUT')) {
+        this.endOcclusion(t, { p01: NaN, method: o.method }, events, false);
+        return;
+      }
+      if (o.tOnset === null) {
+        // Track the pre-effort plateau on a short average; the plateau and the dip are read on the smoothed
+        // signal so sensor noise cannot fake an onset, and the onset itself is the last raw sample still
+        // inside the noise band of the plateau.
+        const win = Math.max(1, Math.round(k('OCCLUSION_BASELINE_WINDOW') * this.settings.deviceRate));
+        o.pawHist.push(m.paw);
+        if (o.pawHist.length > win) o.pawHist.shift();
+        const pawS = o.pawHist.reduce((x, y) => x + y, 0) / o.pawHist.length;
+        if (pawS > o.baselinePaw) o.baselinePaw = pawS;
+        if (m.paw >= o.baselinePaw - k('P01_NOISE_BAND')) {
+          o.prevT = t;
+          o.prevPaw = pawS; // plateau level at the onset (smoothed, unbiased by the running-max noise)
+        }
+        const dip = o.baselinePaw - pawS;
+        if (dip >= k('P01_ONSET_THRESHOLD') && o.pawHist.length >= win) {
+          o.tOnset = o.prevT;
+          o.baselinePaw = o.prevPaw;
+          o.pesHist = []; // reused as the readout buffer for the last few raw samples
+        }
+        return;
+      }
+      // Readout: average of the last 2 raw samples ending at onset + 100 ms (noise σ/√2, ~5 ms lag).
+      o.pesHist.push(m.paw);
+      if (o.pesHist.length > 2) o.pesHist.shift();
+      if (t >= o.tOnset + k('P01_WINDOW') - 1e-9) {
+        const read = o.pesHist.reduce((x, y) => x + y, 0) / o.pesHist.length;
+        this.endOcclusion(t, { p01: o.baselinePaw - read, method: o.method, tOnset: o.tOnset }, events, true);
+      }
+      return;
+    } else {
+      // Whole-effort maneuvers: read the swings on signals averaged over OCCLUSION_SMOOTHING so the
+      // cardiac artifact on Pes (and any on Paw) does not inflate the deflection.
+      const win = Math.max(1, Math.round(k('OCCLUSION_SMOOTHING') * this.settings.deviceRate));
+      o.pawHist.push(m.paw);
+      if (o.pawHist.length > win) o.pawHist.shift();
+      if (m.pes !== null) {
+        o.pesHist.push(m.pes);
+        if (o.pesHist.length > win) o.pesHist.shift();
+      }
+      const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+      const pawS = mean(o.pawHist);
+      const pesS = o.pesHist.length > 0 ? mean(o.pesHist) : null;
+      const dipSoFar = o.baselinePaw - o.minPaw;
+      if (dipSoFar < k('POCC_MIN_DIP') && pawS >= o.baselinePaw) {
+        // Still on the pre-effort plateau: track its running maximum as the reference.
+        o.baselinePaw = pawS;
+        o.baselinePes = pesS;
+        o.minPaw = pawS;
+        o.minPes = pesS;
+      } else {
+        o.minPaw = Math.min(o.minPaw, pawS);
+        if (pesS !== null) o.minPes = o.minPes === null ? pesS : Math.min(o.minPes, pesS);
+      }
+      const maxDip = o.baselinePaw - o.minPaw;
+      const recovered = maxDip >= k('POCC_MIN_DIP') && o.baselinePaw - pawS <= 0.3 * maxDip && t - o.tStart > 0.5;
+      if (recovered || t - o.tStart > k('OCCLUSION_TIMEOUT')) {
+        const dPocc = maxDip >= k('POCC_MIN_DIP') ? -maxDip : NaN;
+        const values: Record<string, number> = { dPocc };
+        if (o.kind === 'occlusion-test') {
+          const dPes = o.baselinePes !== null && o.minPes !== null ? o.minPes - o.baselinePes : NaN;
+          values.dPaw = dPocc;
+          values.dPes = dPes;
+          values.ratio = dPes / dPocc;
+        }
+        this.endOcclusion(t, values, events, false);
+        return;
+      }
+    }
+    o.prevPaw = m.paw;
+    o.prevT = t;
   }
 
   private beginHold(kind: 'insp' | 'exp', t: number, events: VentEvent[]): void {

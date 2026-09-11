@@ -48,6 +48,43 @@ export const CONSTANTS = {
   ALPHA_ND_INJURED: c(0.65, 'fraction', 'Brief 2 §4: αND ≈ 0.7, αD ≈ 1.4 in injured lungs (Yoshida 2013), weighted mean = 1', 'M'),
   ALPHA_D_INJURED: c(1.35, 'fraction', 'Brief 2 §4: αD ≈ 1.4 in injured lungs (Yoshida 2013), weighted mean = 1', 'M'),
 
+  // ───────────────────────── Neural drive / Pmus ─────────────────────────
+  PMUS_KFV: c(0.3, 'fraction', 'Spec §4.4: k_fv ≈ 0.25–0.3 [M], calibrated so the *measured* ΔPocc → Pmus ratio on the PSV grid gives Bertoni 2019 k1 = −0.74 (the measured ΔPocc slightly under-reads Pmus_iso because Paw is still equilibrating after the occlusion)', 'M'),
+  PMUS_QREF: c(0.15, 'L/s', 'Flow above which the force–velocity penalty is fully applied [M]; low so that any flowing breath is penalized and an occluded (isometric) one is not, reproducing Bertoni k1 across the Pmax range', 'M'),
+  PMUS_RELAX_TAU: c(0.2, 's', 'Brief 1 §1.3: relaxation exponential τ ≈ 0.1–0.3 s [uncertain]', 'M'),
+  PMUS_HOLD_FRAC: c(0.05, 'fraction of Ti', 'Brief 1 §1.3 ASL 5000 Hold % 0–5% [uncertain]', 'M'),
+  DRIVE_CV_DEFAULT: c(0.12, 'fraction', 'Brief 1 §4: AR(1) CV ≈ 10–25% on Pmax, Ti, rate [uncertain]', 'M'),
+  DRIVE_AR1_PHI: c(0.7, 'dimensionless', 'AR(1) autocorrelation of breath-to-breath variability [M]', 'M'),
+  DRIVE_CLUSTER_PHI: c(0.97, 'dimensionless', 'Slow AR(1) for clusters of low-drive breaths (Vaporidi 2017 IE clusters) [M]', 'M'),
+  DRIVE_CLUSTER_CV: c(0.35, 'fraction', 'Amplitude of slow drive modulation producing IE clusters [M]', 'M'),
+  SIGH_FACTOR: c(2, 'multiple of Pmax', 'Brief 1 §4: sighs ≈ 2× effort every 5–10 min [uncertain]', 'M'),
+  ENTRAIN_DELAY_DEFAULT: c(0.4, 's', 'Brief 1 §3.5: reverse-trigger phase delay ≈ 0.39 s (phase angle ~60°) [uncertain generalizability]', 'L'),
+  ENTRAIN_JITTER_DEFAULT: c(0.03, 'fraction', 'Brief 1 §3.5 Akoumianaki 2013: CV of reverse-triggered breath frequency < 5%', 'V'),
+
+  // ───────────────────────── Esophageal balloon ─────────────────────────
+  PES_OFFSET_SUPINE: c(3, 'cmH2O', 'Brief 2 §1.3: supine mediastinal offset +2 to +5 (Washko 2006), default +3', 'V'),
+  PES_Z_DEFAULT: c(0.7, 'fraction of lung height', 'Brief 2 §1.3: balloon samples mid-to-dependent lung (Yoshida 2018); 0.7 of the vertical height [M within that range]', 'V'),
+  PES_Z_HIGH: c(0.3, 'fraction of lung height', 'Balloon positioned too high (upper esophagus) [M]', 'M'),
+  BALLOON_BEST_FILL: c(3.5, 'mL', 'Brief 2 §1.3 Mojoli 2016: best filling volume 3.5 ± 1.9 mL', 'V'),
+  BALLOON_HIGH_POSITION_FACTOR: c(0.6, 'fraction', 'Swing attenuation of a high-positioned balloon [M]', 'M'),
+  ESO_WALL_ELASTANCE: c(1.1, 'cmH2O/mL', 'Brief 2 §1.3 Mojoli 2016: esophageal wall elastance 1.1 ± 0.5', 'V'),
+  ESO_WALL_FREE_VOLUME: c(1.6, 'mL', 'Fill below which no wall pressure develops; gives Pew ≈ 2.0 at 3.5 mL and 2.6 at 4 mL (Mojoli: 2.0, 3.0)', 'M'),
+  PES_CARDIAC_AMP: c(1.5, 'cmH2O', 'Brief 2 §1.3: cardiac artifact on Pes ≈ 1–3 cmH2O [M]', 'M'),
+  HEART_RATE_DEFAULT: c(80, '/min', 'Typical ICU heart rate; cardiac artifact band 0.8–4 Hz (Brief 2 §1.3)', 'L'),
+  IAP_DEFAULT: c(8, 'cmH2O', 'Brief 2 Table 1: normal IAP 8.5 ± 3 (Gattinoni 1998)', 'V'),
+  PGA_BETA: c(0.4, 'fraction', 'Brief 2 §1.2: Pga = IAP + β·Pmus, β ≈ 0.3–0.5 [M]', 'M'),
+  PGA_GAMMA: c(0.3, 'fraction', 'Brief 2 §1.2: γ·Ecw·V term, γ ≈ 0.3 [M]', 'M'),
+
+  // ───────────────────────── Occlusion maneuvers ─────────────────────────
+  P01_ONSET_THRESHOLD: c(0.5, 'cmH2O', 'Detection of the Paw deflection onset during an occlusion, above sensor noise (0.15 RMS, 0.1 quantum) [M]; onset back-extrapolated from the slope', 'M'),
+  P01_NOISE_BAND: c(0.25, 'cmH2O', 'Raw-sample band around the occlusion plateau treated as "not yet deflected" (≈ 1.7 × sensor noise RMS) [M]', 'M'),
+  P01_WINDOW: c(0.1, 's', 'Brief 2 §4/§5: P0.1 = Paw drop over the first 100 ms of the occluded effort', 'V'),
+  OCCLUSION_TIMEOUT: c(4, 's', 'Maximum single-breath occlusion before release [M]', 'M'),
+  POCC_MIN_DIP: c(1.0, 'cmH2O', 'Minimum deflection to count an occluded effort [M]', 'M'),
+  OCCLUSION_SMOOTHING: c(0.3, 's', 'Moving average applied to Paw/Pes when reading whole-effort occlusion swings; spans ~1/3 of a cardiac cycle band (0.8–4 Hz) as a clinician does by eye [M]', 'M'),
+  OCCLUSION_SETTLED_FLOW: c(0.04, 'L/s', 'Expiratory flow below which an end-expiratory occlusion may start (≈3.6 L/min): late enough that the post-occlusion Paw rise toward Palv is small, early enough to precede the next effort in compliant lungs [M]', 'M'),
+  OCCLUSION_BASELINE_WINDOW: c(0.1, 's', 'Quiet interval at the start of an occlusion averaged for the baseline [M]', 'M'),
+
   // ───────────────────────── Sensor chain ─────────────────────────
   SENSOR_LPF_TAU: c(0.015, 's', 'Brief 1 §4: first-order low-pass τ ≈ 10–30 ms [uncertain]', 'M'),
   SENSOR_DELAY: c(0.02, 's', 'Brief 1 §4: 10–30 ms transport delay [uncertain]', 'M'),

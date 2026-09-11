@@ -85,6 +85,23 @@ export class PatientModel {
     return this.lastOut;
   }
 
+  /**
+   * True pleural pressure at a height fraction z (0 = non-dependent top, 1 = dependent bottom), from the
+   * last evaluated state: linear vertical gradient and α interpolated between the compartment centres.
+   */
+  pplAt(z: number): number {
+    const m = this.params.mechanics;
+    const o = this.lastOut;
+    const [nd, d] = this.comp;
+    const u = Math.min(1, Math.max(0, (z - 0.25) / 0.5));
+    const alpha = nd.alpha + (d.alpha - nd.alpha) * u;
+    const g = m.gradient * m.height * (z - 0.5);
+    const extra = (this.lastDrive.pplExtra[0] ?? 0) * (1 - u) + (this.lastDrive.pplExtra[1] ?? 0) * u;
+    return o.pcwRec + g - alpha * o.pmusEff + this.lastDrive.pcard + extra;
+  }
+
+  private lastDrive: PatientDrive = PatientModel.passiveDrive();
+
   /** Total lung recoil elastance at the current operating point (for monitoring/tests). */
   lungElastance(): number {
     const c0 = 1 / this.recoil[0].elastance(this.x[0] ?? 0);
@@ -123,11 +140,16 @@ export class PatientModel {
     return (this.recoil[i] as LungRecoil).volumeAt(p);
   }
 
-  /** Effective Pmus after the force–velocity penalty (uses last step's inspiratory airway flow). */
+  /**
+   * Effective Pmus after the force–velocity penalty (Spec §4.4, Brief 2 §0):
+   * Pmus_eff = Pmus_iso·(1 − kFv·sat(|Q|/qRef)). The muscle develops less pressure while the lung is
+   * moving (airflow in either direction); an occluded effort (Q = 0) is isometric. kFv is calibrated so the
+   * measured ΔPocc → Pmus ratio reproduces Bertoni's k1 ≈ −0.74 (docs/DECISIONS.md D-007).
+   */
   private pmusEff(drive: PatientDrive): number {
     if (drive.pmusIso <= 0 || drive.kFv <= 0) return drive.pmusIso;
-    const ratio = Math.min(Math.max(this.lastQ / drive.qRef, 0), 1);
-    return drive.pmusIso * (1 - drive.kFv * ratio);
+    const byFlow = Math.min(Math.abs(this.lastQ) / drive.qRef, 1);
+    return drive.pmusIso * (1 - drive.kFv * byFlow);
   }
 
   /** Evaluate all pressures and flows for a state vector (pure, no state mutation). */
@@ -259,6 +281,7 @@ export class PatientModel {
     const o = this.outputs(bc, x0, drive);
     this.lastQ = o.q;
     this.lastOut = o;
+    this.lastDrive = drive;
     return o;
   }
 }

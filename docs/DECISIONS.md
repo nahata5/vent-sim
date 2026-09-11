@@ -62,3 +62,29 @@ recruitment-specific behaviour.
 - **Ventilator vti/vte** are integrated from the measured flow at the physics rate by phase (device
   internal rate); the Monitor integrates positive and negative flow over the cycle so the sensor delay
   does not clip the last milliseconds of inspiration.
+
+## D-007 · Effort model and occlusion measurements (2026-09-10)
+
+- **Force–velocity penalty on |Q|.** `Pmus_eff = Pmus_iso·(1 − kFv·sat(|Q|/qRef))` with qRef = 0.15 L/s,
+  so any flowing breath is penalized and only a true occlusion (Q = 0) is isometric. A first version
+  penalized inspiratory flow only; after flow cycling the effort then became isometric while still near
+  its peak and k1 came out at −0.85. A length–tension variant fixed that but made P0.1 depend on how much
+  gas was trapped when the valve closed, so it was dropped. Hyperinflation-related weakness is therefore
+  not modelled (listed in the limitations).
+- **kFv calibrated to the measured ratio.** Spec §4.4 says to calibrate k_fv so simulated ΔPocc gives
+  Bertoni's k1. The *measured* ΔPocc slightly under-reads Pmus_iso because Paw is still equilibrating
+  toward alveolar pressure after the valve closes (viscoelastic recovery, residual flow), exactly as at the
+  bedside, so kFv = 0.30 (spec range 0.25–0.3) gives k1 = −0.74 on the PSV grid (normal, both ARDS
+  presets, obesity, Pmax 6–25) and k2 = 0.62–0.64.
+- **Calibration grid excludes COPD.** With intrinsic PEEP the post-occlusion Paw rise is long and the
+  occlusion catches efforts mid-way; ΔPocc under-reads there, a documented pitfall, so obstructive lungs
+  are not used to set kFv.
+- **Occlusion references are the pre-effort plateau,** read on a 0.3 s moving average for whole-effort
+  maneuvers (ΔPocc, occlusion test) so the cardiac artifact on Pes does not inflate the swing, and on a
+  0.1 s average for P0.1 with a 0.5 cmH2O onset threshold above sensor noise, back-extrapolated along the
+  slope. Whole-effort occlusions start only once expiratory flow has settled below 0.04 L/s; P0.1 falls
+  back to the vendor method (occlude for 100 ms from trigger detection, reads a little low) when an
+  effort arrives first.
+- **Pes height 0.7 of the vertical lung height** (Brief 2: mid-to-dependent), and the balloon occlusion
+  test is validated on the normal preset; in injured lungs with α_D = 1.35 a well-placed balloon reads a
+  ratio above 1 by design, which is a teaching point rather than a failure.

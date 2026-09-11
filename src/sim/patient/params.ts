@@ -6,6 +6,9 @@
  * peripheral resistance scales inversely with that fraction so the parallel total is Rperiph.
  */
 
+import type { DriveParams } from './neural-drive';
+import type { BalloonParams } from './balloon';
+
 export interface RohrerParams {
   k1: number; // cmH2O/(L/s)
   k2: number; // cmH2O/(L/s)²
@@ -67,6 +70,12 @@ export interface MechanicsParams {
 
 export interface PatientParams {
   mechanics: MechanicsParams;
+  /** Neural drive; omit for a passive (paralyzed / deeply sedated, apneic) patient. */
+  drive?: DriveParams;
+  /** Esophageal balloon; omit or disable for no Pes channel. */
+  balloon?: BalloonParams;
+  /** Heart rate for cardiac artifacts, /min. */
+  heartRate?: number;
 }
 
 /** Derived per-compartment constants used by the solver. */

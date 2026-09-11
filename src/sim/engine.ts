@@ -6,6 +6,8 @@ import { k } from '../config/constants';
 import { createRng, type Rng } from './math/prng';
 import { PatientModel, type PatientDrive } from './patient/patient';
 import type { PatientParams } from './patient/params';
+import { NeuralDrive, type NeuralBreath } from './patient/neural-drive';
+import { balloonZ, pesFromPleural, type BalloonParams } from './patient/balloon';
 import { Ventilator } from './vent/ventilator';
 import { SensorChain } from './vent/sensor-chain';
 import { clampSettings, type VentSettings } from './vent/settings';
@@ -33,6 +35,9 @@ export class SimEngine {
   readonly patient: PatientModel;
   readonly vent: Ventilator;
   readonly sensors: SensorChain;
+  readonly neural: NeuralDrive | null;
+  balloon: BalloonParams | null;
+  heartRate: number;
   t = 0;
   private stepIndex = 0;
   private readonly stepsPerSample: number;
@@ -40,9 +45,13 @@ export class SimEngine {
   readonly events: VentEvent[] = [];
   readonly maneuvers: ManeuverResult[] = [];
   private lastMeasured = { paw: 0, flow: 0, vol: 0, pes: 0 };
-  private drive: PatientDrive = PatientModel.passiveDrive();
+  /** Base drive terms (injectors, cardiac, leak); Pmus comes from the neural drive unless overridden. */
+  private baseDrive: PatientDrive = PatientModel.passiveDrive();
+  /** Explicit overrides (scripted tests, instructor controls). */
+  private driveOverride: Partial<PatientDrive> = {};
   private vtiTrueAcc = 0;
   private vteTrueAcc = 0;
+  private pesTrue = 0;
   /** Listeners for device-rate samples and breath completion. */
   onSample: ((s: DeviceSample) => void) | null = null;
   onBreath: ((b: BreathRecord) => void) | null = null;
@@ -60,14 +69,47 @@ export class SimEngine {
       ideal: settings.ideal,
       rng: this.rng.fork('sensors'),
     });
-    this.sensors.prime(settings.peep, 0);
+    this.neural = opts.patient.drive ? new NeuralDrive(opts.patient.drive, this.rng.fork('neural')) : null;
+    if (this.neural) {
+      this.baseDrive = { ...this.baseDrive, kFv: opts.patient.drive?.kFv ?? k('PMUS_KFV'), qRef: opts.patient.drive?.qRef ?? k('PMUS_QREF') };
+    }
+    this.balloon = opts.patient.balloon?.enabled ? opts.patient.balloon : null;
+    this.heartRate = opts.patient.heartRate ?? k('HEART_RATE_DEFAULT');
+    this.pesTrue = this.computePes(0);
+    this.sensors.prime(settings.peep, this.pesTrue);
     this.stepsPerSample = Math.round(1 / settings.deviceRate / this.dt);
     this.vent.onInspStart = (t, cause) => this.startBreath(t, cause);
   }
 
-  /** Replace the drive inputs (Pmus, cardiac, leak, injector terms) for subsequent steps. */
+  /** Override drive inputs (Pmus, cardiac, leak, injector terms) for subsequent steps. */
   setDrive(drive: Partial<PatientDrive>): void {
-    this.drive = { ...this.drive, ...drive };
+    this.driveOverride = { ...this.driveOverride, ...drive };
+  }
+
+  /** Set base injector terms (cardiac amplitude, leak, resistance scale, pleural offsets). */
+  setBaseDrive(drive: Partial<PatientDrive>): void {
+    this.baseDrive = { ...this.baseDrive, ...drive };
+  }
+
+  get neuralBreaths(): NeuralBreath[] {
+    return this.neural?.breaths ?? [];
+  }
+
+  private currentDrive(): PatientDrive {
+    const pmusIso = this.neural ? this.neural.pmusIso : 0;
+    return { ...this.baseDrive, pmusIso, ...this.driveOverride };
+  }
+
+  private computePes(t: number): number {
+    if (!this.balloon) return this.patient.pplAt(k('PES_Z_DEFAULT'));
+    const o = this.patient.out;
+    return pesFromPleural(this.balloon, {
+      pplAtBalloon: this.patient.pplAt(balloonZ(this.balloon)),
+      pmusEff: o.pmusEff,
+      ecwV: this.patient.params.mechanics.ecw * o.vtot,
+      t,
+      heartRate: this.heartRate,
+    });
   }
 
   private startBreath(t: number, cause: TriggerCause): void {
@@ -76,6 +118,7 @@ export class SimEngine {
     this.sensors.resetVolume();
     this.vtiTrueAcc = 0;
     this.vteTrueAcc = 0;
+    this.neural?.onVentBreath(t);
     this.breaths.push({
       index: this.breaths.length,
       tStart: t,
@@ -110,10 +153,12 @@ export class SimEngine {
     const t = this.t;
     const phase = this.vent.phase;
     const inInsp = SimEngine.isInsp(phase);
+    this.neural?.advance(t, this.dt);
+    const drive = this.currentDrive();
     const bc = this.vent.actuate(t, this.dt, this.patient.out.paw);
-    const out = this.patient.step(this.dt, bc, this.drive);
-    const pesTrue = out.ppl[1]; // placeholder until the balloon model (M4): dependent-region Ppl
-    this.sensors.push(out.paw, out.qv, pesTrue, inInsp);
+    const out = this.patient.step(this.dt, bc, drive);
+    this.pesTrue = this.computePes(t);
+    this.sensors.push(out.paw, out.qv, this.pesTrue, inInsp);
 
     // True volume accounting by ventilator phase
     if (inInsp) this.vtiTrueAcc += Math.max(0, out.q) * this.dt;
@@ -127,7 +172,7 @@ export class SimEngine {
       this.lastMeasured = m;
       const tDev = this.t;
       // Emit the sample for the phase the physics just ran in, before the controller acts on it.
-      if (this.onSample) this.onSample(this.makeSample(tDev, m, pesTrue, phase));
+      if (this.onSample) this.onSample(this.makeSample(tDev, m, phase, drive));
       const events = this.vent.control({
         t: tDev,
         paw: m.paw,
@@ -135,7 +180,7 @@ export class SimEngine {
         vol: m.vol,
         vti: this.sensors.vti,
         vte: this.sensors.vte,
-        pes: null,
+        pes: this.balloon ? m.pes : null,
       });
       for (const e of events) {
         this.events.push(e);
@@ -162,8 +207,8 @@ export class SimEngine {
   private makeSample(
     tDev: number,
     m: { paw: number; flow: number; vol: number; pes: number },
-    pesTrue: number,
     phase: Phase,
+    drive: PatientDrive,
   ): DeviceSample {
     const o = this.patient.out;
     const frc = this.patient.params.mechanics.frc;
@@ -174,7 +219,7 @@ export class SimEngine {
       qv: o.qv,
       vlung: o.vtot,
       pmus: o.pmusEff,
-      pmusIso: this.drive.pmusIso,
+      pmusIso: drive.pmusIso,
       palv: w0 * o.palv[0] + (1 - w0) * o.palv[1],
       palvND: o.palv[0],
       palvD: o.palv[1],
@@ -182,7 +227,7 @@ export class SimEngine {
       pplD: o.ppl[1],
       plND: o.pl[0],
       plD: o.pl[1],
-      pesTrue,
+      pesTrue: this.pesTrue,
       qND: o.qComp[0],
       qD: o.qComp[1],
       pcwRec: o.pcwRec,

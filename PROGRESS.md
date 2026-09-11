@@ -114,3 +114,26 @@ monotone solve).
 
 **Known issues:** hosting issue above still open. Emergent double triggers already appear in the CPAP and
 pressure-trigger tests (effort persisting past flow cycling), which is expected physics.
+
+### M4 — Neural drive, Pmus, entrainment, balloon, occlusion maneuvers (2026-09-10)
+
+**Built:** `src/sim/patient/neural-drive.ts`: free-running neural clock with AR(1) jitter on rate, Ti and
+Pmax, parabolic-rise Pmus with hold fraction and exponential relaxation, sighs, low-drive clusters,
+expiratory muscle bump, entrainment (1:1/1:2/1:3, delay + jitter) hooked to ventilator breath starts, and a
+neural breath list for the labeler. Force–velocity penalty on |Q| in the patient model (`Pmus_eff`, D-007).
+`src/sim/patient/balloon.ts`: Pes as k(fill)·Ppl(z) + supine offset + wall pressure + cardiac artifact, with
+under-filled, high and gastric placements. `PatientModel.pplAt(z)` for pleural pressure at any height.
+Ventilator occlusion maneuvers (`requestOcclusion`): P0.1 (classic with plateau reference and noise-safe
+onset; at-trigger fallback), ΔPocc and the Baydur occlusion test on cardiac-smoothed signals. Engine wires
+the drive, balloon (measured Pes to the ventilator when enabled) and exposes `neuralBreaths`.
+
+**Tests (§9.3 and M4 exit):** `tests/unit/neural-drive.test.ts` 6/6 (waveform, jitter statistics,
+determinism, periodicity, entrainment ratio/delay/CV < 5%, expiratory activity).
+`tests/physics/effort-calibration.test.ts` 4/4: Bertoni k1 = −0.736, k2 = 0.62 on a 20-point PSV grid;
+P0.1 within 0.3 + 5% of the analytic Pmus at 100 ms for Pmax 6/12/20; well-placed balloon 0.8–1.2 while
+0.5 mL fill and gastric placement fail; PMI rises with effort. `tests/physics/emergence-first.test.ts` 4/4:
+ineffective efforts in COPD on over-assisted PSV (> 20% of efforts), double triggers in ARDS on short-Ti VC
+(> 20%), scooped Paw in low-flow VC, reverse triggering with a stable 0.4 s delay. Total 57/57; lint clean.
+
+**Known issues:** hosting issue above still open. Hyperinflation-related muscle weakness is not modelled
+(D-007). In injured lungs the balloon occlusion test reads > 1 by design (regional transmission).
