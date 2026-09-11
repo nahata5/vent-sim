@@ -142,7 +142,20 @@ All spec milestones and the optional extensions listed in the previous handoff a
    but the session is not locked; an instructor review page for the stored `QuizAttempt.debrief`
    summaries (today they show as one line in the Quiz tab's idle state); a `mark` for `fix.drive`
    recommendations (the debrief lists settings and injectors only).
-5. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a screenshot
+5. **Next feature (owner request 2026-09-11): mobile-responsive layout.** Today `App.tsx` is a fixed
+   three-column grid (`col-left` settings/injectors/instructor, `col-center` waveforms + drawer, `col-right`
+   monitor + dashboard) sized for a desktop; on a phone it overflows. Needs a brainstorm → spec first (what
+   a learner does on a phone: watch the waveforms, change a setting, take the quiz, read the debrief; what
+   the instructor does on a tablet), then a plan. Likely shape: CSS breakpoints in `src/ui/theme.css`
+   (single column under ≈ 700 px with the waveform screen first and full width, panels collapsed into
+   accordions or bottom tabs; two columns on tablets), the canvases sized from their container with
+   `ResizeObserver` (`WaveformCanvas`, `LoopCanvas` — check they read `getBoundingClientRect`/devicePixelRatio
+   on resize rather than once), touch-friendly hit targets for the badge strip and the settings inputs, the
+   Monitor tiles wrapping, the debrief table scrolling inside its container. Playwright: add a mobile
+   project (`devices['Pixel 7']` or `iPhone 14`) with a smoke test (no horizontal overflow: `document.
+   documentElement.scrollWidth <= innerWidth`, waveforms visible, settings confirm reachable, quiz start →
+   debrief on the phone viewport) and keep the desktop suite unchanged. Screenshot refresh afterwards.
+6. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a screenshot
    refresh for the docs (`SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts`) now that the
    Monitor has the SpO2 tile, the Instructor panel the elastance row and the Quiz view section, and the
    quiz result the debrief; a Pes-position dependence of the cardiac artifact (larger behind the heart);
@@ -224,12 +237,20 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > after any constants change.
 >
 > Task — first, the alias: HANDOFF "What is left" item 3 has the root cause (the personal site's Netlify
-> deploy key is missing on github.com/nahata5/personal-website). If the owner has re-linked the repo, verify
-> with the curl there and record the result in PROGRESS and HANDOFF; if not, remind them and move on.
-> Then pick the next item with the owner: either the D-019 follow-ups in item 4 (picker masking while
-> unlocked, an instructor review of stored debrief summaries, a mark for `fix.drive` recommendations) or
-> one of the optional items in 5 (the docs screenshot refresh is cheap and overdue: run
-> `SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts` and check the images in
-> docs/screenshots). For anything new, brainstorm → spec → writing-plans → execute tests-first, one commit
-> and deploy check per task, a DECISIONS entry for any choice the spec left open, and a PROGRESS entry. When
-> you reach a good place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.
+> deploy key is missing on github.com/nahata5/personal-website). Re-check with the curl there; if it now
+> returns 200 with the VentSim title, record it in PROGRESS and HANDOFF; if not, say so in one line and
+> move on (only the owner can fix it in the Netlify dashboard).
+>
+> Main task — make VentSim mobile-responsive (HANDOFF "What is left" item 5, owner request): the app must
+> be usable on a phone (single column, waveform screen first and full width, panels reachable without
+> horizontal scrolling, touch-sized controls, quiz and debrief readable) and on a tablet (two columns),
+> with the desktop layout unchanged. Use superpowers brainstorming to settle the phone layout with the
+> owner (what collapses, what stays visible while the waveforms run), write the spec to
+> docs/superpowers/specs/2026-09-1x-mobile-layout-design.md, then writing-plans → execute tests-first:
+> a Playwright mobile project with a smoke test (no horizontal overflow, waveforms visible, settings
+> confirm reachable, quiz start → debrief on the phone viewport), the canvases resizing from their
+> container, the existing 31 desktop tests untouched. No physics, detector or scenario changes. Commit,
+> push and check the live site after each task; add D-020 to DECISIONS (layout choices), a PROGRESS entry,
+> a README note, and refresh the docs screenshots (`SCREENSHOTS=1 npx playwright test
+> tests/e2e/screenshots.spec.ts`). If time remains, the D-019 follow-ups in item 4. When you reach a good
+> place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.
