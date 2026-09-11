@@ -40,6 +40,18 @@ export interface RowRange {
   slack: number;
 }
 
+export interface BadgeLabels {
+  det: string[];
+  truth: string[] | null;
+  triggerCause: string;
+}
+
+export interface BadgeHit {
+  x0: number;
+  x1: number;
+  index: number;
+}
+
 export interface DrawOptions {
   store: StreamStore;
   rows: Row[];
@@ -48,10 +60,43 @@ export interface DrawOptions {
   ranges: Map<string, RowRange>;
   cursorT: number | null;
   showBadges: boolean;
+  /** Pattern labels per breath index (detector; truth row when the truth layer is on). */
+  badges?: Map<number, BadgeLabels>;
+  truthBadges?: boolean;
+  /** Filled by the renderer: x extents of every drawn badge (hover hit-testing). */
+  badgeHits?: BadgeHit[];
   dpr: number;
 }
 
 export const BADGE_STRIP = 18;
+
+/** Short badge codes and colours per pattern (Spec §7 table). */
+export const PATTERN_CODES: Record<string, { code: string; color: string; name: string }> = {
+  'ineffective-effort': { code: 'IE', color: '#ff8a65', name: 'ineffective effort' },
+  'double-trigger': { code: 'DT', color: '#ef5350', name: 'double trigger' },
+  'auto-trigger': { code: 'AT', color: '#ba68c8', name: 'auto-trigger' },
+  'delayed-trigger': { code: 'dT', color: '#ffd54f', name: 'delayed trigger' },
+  'premature-cycling': { code: 'PC', color: '#ffb74d', name: 'premature cycling' },
+  'delayed-cycling': { code: 'DC', color: '#4fc3f7', name: 'delayed cycling' },
+  'flow-starvation': { code: 'FS', color: '#f06292', name: 'flow starvation' },
+  'reverse-trigger': { code: 'RT', color: '#9575cd', name: 'reverse trigger' },
+  overshoot: { code: 'OV', color: '#ffee58', name: 'overshoot' },
+  'auto-peep': { code: 'AP', color: '#a1887f', name: 'auto-PEEP' },
+  leak: { code: 'LK', color: '#80cbc4', name: 'leak' },
+  secretions: { code: 'SC', color: '#aed581', name: 'secretions' },
+  water: { code: 'WA', color: '#81d4fa', name: 'water' },
+  'high-resistance': { code: 'HR', color: '#ff7043', name: 'high resistance' },
+  'low-compliance': { code: 'LC', color: '#90a4ae', name: 'low compliance' },
+  cough: { code: 'CG', color: '#e57373', name: 'cough' },
+  pendelluft: { code: 'PL', color: '#26a69a', name: 'pendelluft' },
+  overdistension: { code: 'OD', color: '#ffca28', name: 'overdistension' },
+  'high-effort': { code: 'HE', color: '#ce93d8', name: 'high effort' },
+  'low-effort': { code: 'LE', color: '#b0bec5', name: 'low effort' },
+};
+
+export function badgeStripHeight(o: Pick<DrawOptions, 'showBadges' | 'truthBadges'>): number {
+  return o.showBadges ? (o.truthBadges ? 2 * BADGE_STRIP : BADGE_STRIP) : 0;
+}
 export const ROW_GAP = 4;
 const GAP_FRACTION = 0.015;
 
@@ -145,7 +190,7 @@ export function drawWaveforms(ctx: CanvasRenderingContext2D, w: number, h: numbe
     ctx.restore();
     return;
   }
-  const top = o.showBadges ? BADGE_STRIP : 0;
+  const top = badgeStripHeight(o);
   const rowH = (h - top - ROW_GAP * (rows.length - 1)) / rows.length;
   const tSweepStart = Math.floor(tView / sweep) * sweep;
   const tWinLo = tView - sweep;
@@ -319,19 +364,57 @@ export function drawWaveforms(ctx: CanvasRenderingContext2D, w: number, h: numbe
     }
   });
 
-  // Breath badges above the traces: trigger cause · cycle cause (M6 replaces with pattern labels).
+  // Breath badges above the traces: the detector's pattern codes (trigger letter when none); a second row
+  // with the truth labels when the truth layer is on. Badge extents are recorded for hover hit-testing.
   if (o.showBadges) {
-    ctx.font = '10px system-ui, sans-serif';
+    if (o.badgeHits) o.badgeHits.length = 0;
+    ctx.font = 'bold 10px system-ui, sans-serif';
     ctx.textBaseline = 'middle';
     for (const b of store.breaths) {
       if (b.tStart < tWinLo || b.tStart > tView) continue;
       const x = xForT(b.tStart, tView, sweep, w);
-      const label = badgeText(b.triggerCause, b.cycleCause);
-      const tw = ctx.measureText(label).width + 8;
-      ctx.fillStyle = b.triggerCause === 'patient' ? 'rgba(102,187,106,0.25)' : 'rgba(139,155,176,0.2)';
-      ctx.fillRect(x, 2, tw, BADGE_STRIP - 4);
-      ctx.fillStyle = '#e6edf3';
-      ctx.fillText(label, x + 4, BADGE_STRIP / 2);
+      const lbl = o.badges?.get(b.index);
+      const det = lbl?.det ?? [];
+      let cx = x;
+      if (det.length === 0) {
+        const label = TRIGGER_LETTER[b.triggerCause] ?? '?';
+        const tw = ctx.measureText(label).width + 8;
+        ctx.fillStyle = b.triggerCause === 'patient' ? 'rgba(102,187,106,0.25)' : 'rgba(139,155,176,0.2)';
+        ctx.fillRect(cx, 2, tw, BADGE_STRIP - 4);
+        ctx.fillStyle = '#e6edf3';
+        ctx.fillText(label, cx + 4, BADGE_STRIP / 2);
+        cx += tw + 2;
+      } else {
+        for (const p of det) {
+          const pc = PATTERN_CODES[p] ?? { code: p.slice(0, 2).toUpperCase(), color: '#e6edf3', name: p };
+          const tw = ctx.measureText(pc.code).width + 8;
+          ctx.fillStyle = pc.color;
+          ctx.globalAlpha = 0.9;
+          ctx.fillRect(cx, 2, tw, BADGE_STRIP - 4);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#0b1016';
+          ctx.fillText(pc.code, cx + 4, BADGE_STRIP / 2);
+          cx += tw + 2;
+        }
+      }
+      if (o.truthBadges) {
+        const truth = lbl?.truth ?? [];
+        let tx = x;
+        ctx.font = '10px system-ui, sans-serif';
+        for (const p of truth) {
+          const pc = PATTERN_CODES[p] ?? { code: p.slice(0, 2).toUpperCase(), color: '#e6edf3', name: p };
+          const tw = ctx.measureText(pc.code).width + 8;
+          ctx.strokeStyle = pc.color;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(tx + 0.5, BADGE_STRIP + 2.5, tw, BADGE_STRIP - 5);
+          ctx.fillStyle = pc.color;
+          ctx.fillText(pc.code, tx + 4, BADGE_STRIP * 1.5);
+          tx += tw + 2;
+        }
+        ctx.font = 'bold 10px system-ui, sans-serif';
+        cx = Math.max(cx, tx);
+      }
+      if (o.badgeHits) o.badgeHits.push({ x0: x, x1: Math.max(cx, x + 12), index: b.index });
     }
   }
 

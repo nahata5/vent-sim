@@ -454,3 +454,109 @@ tr.band-danger .metric-value {
     flex: 1;
   }
 }
+
+/* ── M6: injectors, AI tile, badge readout, validation page ── */
+.injector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 10px;
+}
+.injector.on span {
+  color: var(--warn);
+}
+.tile-warn .tile-value {
+  color: var(--danger);
+}
+.cluster-flag {
+  color: var(--warn);
+}
+.cursor-readout.badge-readout {
+  max-width: 340px;
+  white-space: normal;
+}
+.cursor-readout .evidence {
+  margin: 2px 0 4px 0;
+  opacity: 0.9;
+}
+.scenario-fix {
+  margin-top: 6px;
+}
+.scenario-fix button {
+  margin-right: 8px;
+}
+.validation {
+  padding: 8px 16px 24px 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.validation .panel {
+  margin-bottom: 12px;
+}
+.validation code {
+  font-size: 0.85em;
+}
+.table-wrap {
+  overflow-x: auto;
+}
+.validation-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.validation-table th,
+.validation-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.validation-table tr.fail td {
+  color: var(--danger);
+}
+.target {
+  display: inline-block;
+  margin: 0 8px 2px 0;
+}
+.target.bad,
+.bad {
+  color: var(--danger);
+}
+.target.ok,
+.ok {
+  color: #81c784;
+}
+.confusion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.confusion {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.confusion.fail {
+  border-color: var(--danger);
+}
+.confusion h3 {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+}
+.confusion-table {
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+.confusion-table th,
+.confusion-table td {
+  padding: 2px 8px;
+  text-align: right;
+}
+.confusion-table td.tp,
+.confusion-table td.tn {
+  color: #81c784;
+}
+.confusion-table td.fp,
+.confusion-table td.fn {
+  color: var(--warn);
+}

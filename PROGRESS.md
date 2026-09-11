@@ -243,5 +243,31 @@ high resistance 0.94/1.00 tuning (0.57/1.00 held-out), leak 1.00/0.99, secretion
 `npm test` → 122 passed (18 files) incl. `tests/detector/heldout.test.ts`; lint clean. New docs:
 `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` Q-1…Q-3.
 
-**Not done in M6:** UI (pattern badges, AI tile, injector panel, apply-fix button, Validation page), main-thread
-wiring of labeler and detector, screenshots, deploy check.
+**UI wiring (2026-09-11, M6 complete).** `SessionController` keeps the settings and injector timelines from
+status messages (`PatientSummary.rTotal`, `SessionStatus.rScale/eScale` added to the protocol) and, on
+every closed breath, runs one analysis pass off the animation frame (`setTimeout 0`) over the last 90 s of
+the StreamStore: `labelBreaths` (truth) and `detect` (signal-only) with readers over the ring buffers,
+labels keyed by the ventilator breath index (`ctl.labels`), `ieEvents`, `efforts`, and the asynchrony index
+over the last 2 min (`ctl.ai`, cluster and severe flags). Measured cost ≈ 10–40 ms per pass (e2e asserts
+< 150 ms). `waveform-draw.ts` draws pattern badges above the traces (short codes and colours in
+`PATTERN_CODES`; trigger letter when no pattern) and a second outlined row with the truth labels when the
+truth layer is on; badge extents are recorded for hover hit-testing and the cursor readout shows each
+detector label's evidence string (e.g. `Fdef 12.3 L/min ≥ 5.45 over 0.71 s`). New `InjectorPanel` (eight
+live toggles → `worker.inject`), AI tile in the monitor (`mon-AI`, red when > 10 %, "IE cluster" flag),
+"Apply suggested fix" in the scenario card (`ctl.applyFix`: settings, drive, injector removals), and
+`ValidationPage` behind `#validation` (physics suite list, emergence matrix, per-pattern confusion
+matrices against the §9.5 targets; first paint from `src/validation/snapshot.json` written by
+`scripts/validation-snapshot.ts`, "Recompute in this browser" streams the same computation from
+`validation.worker.ts`). `runEmergence` moved to `src/detector/validation.ts` (the test imports it).
+
+**Tests:** Vitest 122/122. Playwright 13/13: the M5 suite plus `m6.spec.ts` (badges labelled live in the
+IE scenario with evidence on hover; AI tile > 10 % and red in the double-trigger scenario; leak injector
+toggle raises the measured leak; apply-fix changes ETS and disables the button; Validation page shows ≥ 10
+emergence rows and 7 confusion matrices). Render budget unchanged: 1.45 ms/frame at 60 fps headless. Lint
+clean; `npm run build` bundles the two workers (sim 63 kB, validation 120 kB).
+
+**Screenshots:** `docs/screenshots/m6-ineffective-effort-badges.png` (COPD over-assisted on PSV, truth layer
+on: detector badges DC/IE over the breaths, truth row beneath, AI tile), `docs/screenshots/m6-validation.png`.
+
+**Known issues:** the AI window is the 120 s the store retains, not Thille's full minutes; the Netlify site
+still needs its first build check by the owner; delayed cycling 0.84 on the held-out grid (D-012).

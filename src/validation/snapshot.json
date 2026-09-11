@@ -1,0 +1,554 @@
+{
+ "generatedAt": "2026-09-11T12:14:11.054Z",
+ "commit": "2cf9cb8",
+ "emergence": [
+  {
+   "id": "double-trigger",
+   "targets": [
+    {
+     "pattern": "double-trigger",
+     "fraction": 0.5,
+     "required": 0.2
+    },
+    {
+     "pattern": "flow-starvation",
+     "fraction": 0.5,
+     "required": 0.2
+    }
+   ],
+   "aiBefore": 100,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "flow-starvation",
+   "targets": [
+    {
+     "pattern": "flow-starvation",
+     "fraction": 1,
+     "required": 0.5
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "ineffective-effort",
+   "targets": [
+    {
+     "pattern": "ineffective-effort",
+     "fraction": 0.7368421052631579,
+     "required": 0.2
+    },
+    {
+     "pattern": "delayed-cycling",
+     "fraction": 1,
+     "required": 0.2
+    }
+   ],
+   "aiBefore": 100,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "reverse-trigger",
+   "targets": [
+    {
+     "pattern": "reverse-trigger",
+     "fraction": 0.5238095238095238,
+     "required": 0.5
+    }
+   ],
+   "aiBefore": 100,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "auto-trigger",
+   "targets": [
+    {
+     "pattern": "auto-trigger",
+     "fraction": 0.5263157894736842,
+     "required": 0.3
+    }
+   ],
+   "aiBefore": 52.63157894736842,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "leak-psv",
+   "targets": [
+    {
+     "pattern": "leak",
+     "fraction": 1,
+     "required": 0.3
+    },
+    {
+     "pattern": "auto-trigger",
+     "fraction": 0.9090909090909091,
+     "required": 0.3
+    }
+   ],
+   "aiBefore": 100,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "premature-cycling",
+   "targets": [
+    {
+     "pattern": "premature-cycling",
+     "fraction": 0.5666666666666667,
+     "required": 0.3
+    },
+    {
+     "pattern": "double-trigger",
+     "fraction": 0.43333333333333335,
+     "required": 0.3
+    }
+   ],
+   "aiBefore": 100,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "copd-auto-peep",
+   "targets": [
+    {
+     "pattern": "auto-peep",
+     "fraction": 1,
+     "required": 0.8
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [
+    {
+     "metric": "peepiTrue",
+     "value": 1.6663582364718117,
+     "max": 4
+    }
+   ],
+   "pass": true
+  },
+  {
+   "id": "secretions",
+   "targets": [
+    {
+     "pattern": "secretions",
+     "fraction": 1,
+     "required": 0.8
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "bronchospasm",
+   "targets": [
+    {
+     "pattern": "high-resistance",
+     "fraction": 1,
+     "required": 0.8
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "pneumothorax",
+   "targets": [
+    {
+     "pattern": "low-compliance",
+     "fraction": 1,
+     "required": 0.8
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "mainstem",
+   "targets": [
+    {
+     "pattern": "low-compliance",
+     "fraction": 1,
+     "required": 0.8
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  }
+ ],
+ "heldOut": [
+  {
+   "pattern": "ineffective-effort",
+   "tp": 37,
+   "fp": 6,
+   "tn": 784,
+   "fn": 3,
+   "sensitivity": 0.925,
+   "specificity": 0.9924050632911392
+  },
+  {
+   "pattern": "double-trigger",
+   "tp": 136,
+   "fp": 1,
+   "tn": 767,
+   "fn": 2,
+   "sensitivity": 0.9855072463768116,
+   "specificity": 0.9986979166666666
+  },
+  {
+   "pattern": "auto-trigger",
+   "tp": 72,
+   "fp": 11,
+   "tn": 821,
+   "fn": 2,
+   "sensitivity": 0.972972972972973,
+   "specificity": 0.9867788461538461
+  },
+  {
+   "pattern": "premature-cycling",
+   "tp": 114,
+   "fp": 11,
+   "tn": 775,
+   "fn": 6,
+   "sensitivity": 0.95,
+   "specificity": 0.9860050890585241
+  },
+  {
+   "pattern": "delayed-cycling",
+   "tp": 95,
+   "fp": 16,
+   "tn": 777,
+   "fn": 18,
+   "sensitivity": 0.8407079646017699,
+   "specificity": 0.9798234552332913
+  },
+  {
+   "pattern": "flow-starvation",
+   "tp": 49,
+   "fp": 9,
+   "tn": 571,
+   "fn": 5,
+   "sensitivity": 0.9074074074074074,
+   "specificity": 0.9844827586206897
+  },
+  {
+   "pattern": "reverse-trigger",
+   "tp": 40,
+   "fp": 1,
+   "tn": 858,
+   "fn": 7,
+   "sensitivity": 0.851063829787234,
+   "specificity": 0.9988358556461001
+  },
+  {
+   "pattern": "delayed-trigger",
+   "tp": 108,
+   "fp": 43,
+   "tn": 599,
+   "fn": 156,
+   "sensitivity": 0.4090909090909091,
+   "specificity": 0.9330218068535826
+  },
+  {
+   "pattern": "auto-peep",
+   "tp": 344,
+   "fp": 73,
+   "tn": 417,
+   "fn": 72,
+   "sensitivity": 0.8269230769230769,
+   "specificity": 0.8510204081632653
+  },
+  {
+   "pattern": "leak",
+   "tp": 35,
+   "fp": 7,
+   "tn": 864,
+   "fn": 0,
+   "sensitivity": 1,
+   "specificity": 0.9919632606199771
+  },
+  {
+   "pattern": "secretions",
+   "tp": 37,
+   "fp": 2,
+   "tn": 866,
+   "fn": 1,
+   "sensitivity": 0.9736842105263158,
+   "specificity": 0.9976958525345622
+  },
+  {
+   "pattern": "high-resistance",
+   "tp": 21,
+   "fp": 3,
+   "tn": 866,
+   "fn": 16,
+   "sensitivity": 0.5675675675675675,
+   "specificity": 0.996547756041427
+  },
+  {
+   "pattern": "low-compliance",
+   "tp": 112,
+   "fp": 21,
+   "tn": 653,
+   "fn": 120,
+   "sensitivity": 0.4827586206896552,
+   "specificity": 0.9688427299703264
+  },
+  {
+   "pattern": "overshoot",
+   "tp": 0,
+   "fp": 0,
+   "tn": 906,
+   "fn": 0,
+   "sensitivity": null,
+   "specificity": 1
+  },
+  {
+   "pattern": "cough",
+   "tp": 0,
+   "fp": 0,
+   "tn": 906,
+   "fn": 0,
+   "sensitivity": null,
+   "specificity": 1
+  }
+ ],
+ "tuning": [
+  {
+   "pattern": "ineffective-effort",
+   "tp": 30,
+   "fp": 6,
+   "tn": 748,
+   "fn": 1,
+   "sensitivity": 0.967741935483871,
+   "specificity": 0.9920424403183024
+  },
+  {
+   "pattern": "double-trigger",
+   "tp": 127,
+   "fp": 2,
+   "tn": 737,
+   "fn": 3,
+   "sensitivity": 0.9769230769230769,
+   "specificity": 0.9972936400541272
+  },
+  {
+   "pattern": "auto-trigger",
+   "tp": 67,
+   "fp": 12,
+   "tn": 790,
+   "fn": 0,
+   "sensitivity": 1,
+   "specificity": 0.9850374064837906
+  },
+  {
+   "pattern": "premature-cycling",
+   "tp": 104,
+   "fp": 3,
+   "tn": 750,
+   "fn": 12,
+   "sensitivity": 0.896551724137931,
+   "specificity": 0.9960159362549801
+  },
+  {
+   "pattern": "delayed-cycling",
+   "tp": 85,
+   "fp": 15,
+   "tn": 753,
+   "fn": 16,
+   "sensitivity": 0.8415841584158416,
+   "specificity": 0.98046875
+  },
+  {
+   "pattern": "flow-starvation",
+   "tp": 46,
+   "fp": 0,
+   "tn": 561,
+   "fn": 3,
+   "sensitivity": 0.9387755102040817,
+   "specificity": 1
+  },
+  {
+   "pattern": "reverse-trigger",
+   "tp": 55,
+   "fp": 1,
+   "tn": 804,
+   "fn": 9,
+   "sensitivity": 0.859375,
+   "specificity": 0.9987577639751553
+  },
+  {
+   "pattern": "delayed-trigger",
+   "tp": 86,
+   "fp": 31,
+   "tn": 604,
+   "fn": 148,
+   "sensitivity": 0.36752136752136755,
+   "specificity": 0.9511811023622048
+  },
+  {
+   "pattern": "auto-peep",
+   "tp": 284,
+   "fp": 72,
+   "tn": 422,
+   "fn": 91,
+   "sensitivity": 0.7573333333333333,
+   "specificity": 0.854251012145749
+  },
+  {
+   "pattern": "leak",
+   "tp": 38,
+   "fp": 5,
+   "tn": 826,
+   "fn": 0,
+   "sensitivity": 1,
+   "specificity": 0.9939831528279182
+  },
+  {
+   "pattern": "secretions",
+   "tp": 34,
+   "fp": 0,
+   "tn": 835,
+   "fn": 0,
+   "sensitivity": 1,
+   "specificity": 1
+  },
+  {
+   "pattern": "high-resistance",
+   "tp": 32,
+   "fp": 0,
+   "tn": 835,
+   "fn": 2,
+   "sensitivity": 0.9411764705882353,
+   "specificity": 1
+  },
+  {
+   "pattern": "low-compliance",
+   "tp": 108,
+   "fp": 11,
+   "tn": 649,
+   "fn": 101,
+   "sensitivity": 0.5167464114832536,
+   "specificity": 0.9833333333333333
+  },
+  {
+   "pattern": "overshoot",
+   "tp": 0,
+   "fp": 0,
+   "tn": 869,
+   "fn": 0,
+   "sensitivity": null,
+   "specificity": 1
+  },
+  {
+   "pattern": "cough",
+   "tp": 0,
+   "fp": 0,
+   "tn": 869,
+   "fn": 0,
+   "sensitivity": null,
+   "specificity": 1
+  }
+ ],
+ "targets": {
+  "ineffective-effort": {
+   "sens": 0.85,
+   "spec": 0.9
+  },
+  "double-trigger": {
+   "sens": 0.85,
+   "spec": 0.9
+  },
+  "auto-trigger": {
+   "sens": 0.85,
+   "spec": 0.9
+  },
+  "premature-cycling": {
+   "sens": 0.85,
+   "spec": 0.9
+  },
+  "delayed-cycling": {
+   "sens": 0.85,
+   "spec": 0.9
+  },
+  "flow-starvation": {
+   "sens": 0.85,
+   "spec": 0.9
+  },
+  "reverse-trigger": {
+   "sens": 0.75,
+   "spec": 0.9
+  }
+ },
+ "gridSizes": {
+  "tuning": 36,
+  "heldOut": 36
+ },
+ "suites": [
+  {
+   "file": "tests/physics/analytic.test.ts",
+   "what": "§9.1 analytic: PC Vt, VC Ppeak − Pplat = R·Q, mass balance, PEEPi vs e^(−Te/τ), determinism"
+  },
+  {
+   "file": "tests/physics/partition.test.ts",
+   "what": "§9.2 partition: ΔPL/ΔPaw = EL/Ers, obesity PL,ee < 0, specific elastance, Gattinoni direction, P1/P2"
+  },
+  {
+   "file": "tests/physics/effort-calibration.test.ts",
+   "what": "§9.3 effort: Bertoni k1/k2, P0.1, balloon occlusion test, PMI"
+  },
+  {
+   "file": "tests/physics/emergence-first.test.ts",
+   "what": "first emergence: IE, double trigger, scooped Paw, reverse trigger"
+  },
+  {
+   "file": "tests/scenarios/emergence.test.ts",
+   "what": "§9.4 emergence matrix (every scenario, fix brings AI < 10 % in 60 s)"
+  },
+  {
+   "file": "tests/detector/heldout.test.ts",
+   "what": "§9.5 detector on the held-out grid"
+  },
+  {
+   "file": "tests/unit/session.test.ts",
+   "what": "determinism: byte-identical batches under random chunking"
+  },
+  {
+   "file": "tests/e2e/load.spec.ts",
+   "what": "performance budget: 7 rows + 4 loops < 8 ms per frame"
+  }
+ ]
+}

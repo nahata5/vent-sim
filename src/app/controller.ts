@@ -9,10 +9,25 @@ import type { BreathRecord, ManeuverKind, ManeuverResult, VentEvent } from '../s
 import type { VentSettings } from '../sim/vent/settings';
 import type { BalloonParams } from '../sim/patient/balloon';
 import { defaultBalloon } from '../sim/patient/balloon';
-import { resolveScenario, scenarioById, type ScenarioDef } from '../edu/scenarios';
+import { resolveScenario, scenarioById, type ScenarioDef, type ScenarioFix } from '../edu/scenarios';
 import type { PatientSummary, SessionStatus, WorkerToMain } from '../worker/protocol';
 import { StreamStore } from './StreamStore';
 import { WorkerClient } from './WorkerClient';
+import { asynchronyIndex, contextFromSettings, labelBreaths, type AsynchronyIndex, type BreathLabel, type EffortLabel } from '../sim/truth/labeler';
+import { detect, type DetectedBreath, type IeEvent } from '../detector/detector';
+import { deviceContext, measuredBreath, type MeasuredBreath, type MeasuredKey } from '../detector/features';
+import { INJECTOR_KINDS, type InjectorKind, type InjectorLogEntry, type InjectorParamMap } from '../sim/injectors';
+
+/** Per-breath labels from the truth layer and the signal-only detector, keyed by the ventilator's breath index. */
+export interface BreathLabels {
+  truth: BreathLabel | null;
+  det: DetectedBreath | null;
+}
+
+/** Simulated seconds of breaths the main-thread analysis re-labels on each closed breath (≈ 25 breaths). */
+export const ANALYSIS_WINDOW_SECONDS = 90;
+/** AI window (Brief 1 §3 uses minutes; the store keeps 120 s). */
+export const AI_WINDOW_SECONDS = 120;
 
 export const SCROLLBACK_SECONDS = 120;
 
@@ -52,6 +67,18 @@ export class SessionController {
   ready = false;
   /** Increments on every tick (canvases use it to detect new data). */
   tickCount = 0;
+  /** Labels for every closed breath in the analysis window (truth + detector), by breath index. */
+  labels = new Map<number, BreathLabels>();
+  ieEvents: IeEvent[] = [];
+  efforts: EffortLabel[] = [];
+  ai: AsynchronyIndex | null = null;
+  /** Wall-clock cost of the last analysis pass, ms (perf tests). */
+  analysisMs = 0;
+  analysisCount = 0;
+  /** Settings and injector timelines as seen in status messages (context for labeler and detector). */
+  private settingsLog: Array<{ t: number; settings: VentSettings }> = [];
+  private injectorLog: InjectorLogEntry[] = [];
+  private analysisScheduled = false;
   private listeners = new Set<ControllerListener>();
   private notifyScheduled = false;
 
@@ -83,8 +110,103 @@ export class SessionController {
     this.latestTruth = null;
     this.maneuvers = { p01: null, pocc: null, occlusionTest: null, inspHold: null, expHold: null };
     this.alarmLog = [];
+    this.labels = new Map();
+    this.ieEvents = [];
+    this.efforts = [];
+    this.ai = null;
+    this.settingsLog = [];
+    this.injectorLog = [];
     this.view = { ...this.view, frozen: false, tView: NaN, paused: false };
     this.worker.init(spec);
+    this.notify();
+  }
+
+  private recordStatus(s: SessionStatus): void {
+    const last = this.settingsLog[this.settingsLog.length - 1];
+    if (!last || last.settings !== s.settings) {
+      // Settings objects are re-sent on every status; only keep a new entry when a value changed.
+      if (!last || JSON.stringify(last.settings) !== JSON.stringify(s.settings)) this.settingsLog.push({ t: s.t, settings: s.settings });
+    }
+    const li = this.injectorLog[this.injectorLog.length - 1];
+    if (!li || li.kinds.join() !== s.injectors.join() || li.rScale !== s.rScale || li.eScale !== s.eScale) {
+      this.injectorLog.push({ t: s.t, kinds: s.injectors.slice(), rScale: s.rScale, eScale: s.eScale });
+    }
+    if (this.settingsLog.length > 64) this.settingsLog.shift();
+    if (this.injectorLog.length > 64) this.injectorLog.shift();
+  }
+
+  private settingsAt(t: number): VentSettings | null {
+    let s: VentSettings | null = this.settingsLog[0]?.settings ?? null;
+    for (const e of this.settingsLog) if (e.t <= t + 1e-9) s = e.settings;
+    return s;
+  }
+
+  private injectorAt(t: number): InjectorLogEntry | undefined {
+    let e: InjectorLogEntry | undefined = this.injectorLog[0];
+    for (const x of this.injectorLog) if (x.t <= t + 1e-9) e = x;
+    return e;
+  }
+
+  /** Schedule one truth + detector pass over the store, off the animation frame. */
+  private scheduleAnalysis(): void {
+    if (this.analysisScheduled) return;
+    this.analysisScheduled = true;
+    setTimeout(() => {
+      this.analysisScheduled = false;
+      this.runAnalysis();
+    }, 0);
+  }
+
+  /** Label every closed breath in the analysis window: truth labels and signal-only detector labels. */
+  runAnalysis(): void {
+    const store = this.store;
+    const patient = this.patient;
+    if (!patient || store.length === 0 || this.settingsLog.length === 0) return;
+    const t0 = performance.now();
+    const tLatest = store.tLatest;
+    const tFrom = tLatest - ANALYSIS_WINDOW_SECONDS;
+    const breaths = store.breaths.filter((b) => b.tEnd !== null && b.tStart >= tFrom);
+    if (breaths.length === 0) return;
+    const mech = { rTotal: patient.rTotal, el: patient.el, ecw: patient.ecw };
+    const fallback = this.settingsLog[this.settingsLog.length - 1]?.settings;
+    if (!fallback) return;
+    const settingsAt = (t: number): VentSettings => this.settingsAt(t) ?? fallback;
+    const truth = labelBreaths({
+      fs: store.fs,
+      n: store.length,
+      read: (ch, i) => store.read(ch, i),
+      indexAt: (t) => store.indexAt(t),
+      breaths,
+      neural: store.neural,
+      events: store.events,
+      ctxAt: (t) => contextFromSettings(settingsAt(t), this.injectorAt(t), mech),
+      tEnd: tLatest,
+      hasDrive: patient.hasDrive,
+    });
+    const measured = breaths.map(measuredBreath).filter((b): b is MeasuredBreath => b !== null);
+    const det = detect({
+      reader: { n: store.length, fs: store.fs, read: (ch: MeasuredKey, i: number) => store.read(ch, i), indexAt: (t) => store.indexAt(t) },
+      breaths: measured,
+      events: store.events,
+      ctxAt: (t) => deviceContext(settingsAt(t)),
+    });
+    const labels = new Map<number, BreathLabels>();
+    // The labeler indexes breaths by array position; map back to the ventilator's breath index.
+    for (const tl of truth.breaths) {
+      const b = breaths[tl.breathIndex];
+      if (b) labels.set(b.index, { truth: { ...tl, breathIndex: b.index }, det: null });
+    }
+    for (const d of det.breaths) {
+      const cur = labels.get(d.breathIndex);
+      if (cur) cur.det = d;
+      else labels.set(d.breathIndex, { truth: null, det: d });
+    }
+    this.labels = labels;
+    this.ieEvents = det.ieEvents;
+    this.efforts = truth.efforts;
+    this.ai = asynchronyIndex(truth, Math.max(tFrom, tLatest - AI_WINDOW_SECONDS), tLatest);
+    this.analysisMs = performance.now() - t0;
+    this.analysisCount += 1;
     this.notify();
   }
 
@@ -95,6 +217,7 @@ export class SessionController {
         this.monitor = new Monitor({ fs: m.fs, pbw: m.patient.pbw });
         this.patient = m.patient;
         this.status = m.status;
+        this.recordStatus(m.status);
         this.ready = true;
         this.worker.setSpeed(this.view.speed);
         this.notify();
@@ -105,6 +228,7 @@ export class SessionController {
         break;
       case 'status':
         this.status = m.status;
+        this.recordStatus(m.status);
         this.view.speed = m.speed;
         this.view.paused = m.paused;
         this.notify();
@@ -136,6 +260,7 @@ export class SessionController {
     store.addEvents(events);
     store.addBreaths(m.breaths, m.neural);
     for (const b of m.breaths) this.onBreathClosed(b);
+    if (m.breaths.some((b) => b.tEnd !== null)) this.scheduleAnalysis();
     if (this.monitor.latest !== this.latestBreath) this.latestBreath = this.monitor.latest;
     this.tickCount += 1;
     if (m.breaths.length || events.length) this.notify();
@@ -195,6 +320,23 @@ export class SessionController {
   setBalloon(b: BalloonParams): void {
     this.balloon = b;
     this.worker.setBalloon(b);
+    this.notify();
+  }
+
+  /** Toggle an injector live (default parameters when enabling). */
+  setInjector<K extends InjectorKind>(kind: K, params: Partial<InjectorParamMap[K]> | null): void {
+    this.worker.inject(kind, params);
+  }
+
+  /** Apply a scenario's scripted fix: settings, drive and injector changes, as the emergence test does. */
+  applyFix(fix: ScenarioFix): void {
+    if (fix.settings) this.worker.applySettings(fix.settings);
+    if (fix.drive) this.worker.setPatient(fix.drive);
+    if (fix.injectors) {
+      for (const kind of INJECTOR_KINDS) {
+        if (kind in fix.injectors) this.worker.inject(kind, fix.injectors[kind] ?? null);
+      }
+    }
     this.notify();
   }
 

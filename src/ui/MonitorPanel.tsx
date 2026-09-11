@@ -1,6 +1,8 @@
 import type { BreathMetrics } from '../monitor/monitor';
 import type { SessionController, ManeuverReadouts } from '../app/controller';
 import type { VentSettings } from '../sim/vent/settings';
+import type { AsynchronyIndex } from '../sim/truth/labeler';
+import { k } from '../config/constants';
 
 interface Props {
   ctl: SessionController;
@@ -10,13 +12,15 @@ interface Props {
   rrTotal: number;
   veMinute: number;
   busy: boolean;
+  /** Asynchrony index over the last 2 min from the truth labels (null until the first breath closes). */
+  ai: AsynchronyIndex | null;
 }
 
 function v(x: number | null | undefined, digits = 1): string {
   return x === null || x === undefined || !Number.isFinite(x) ? '—' : x.toFixed(digits);
 }
 
-export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy }: Props) {
+export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai }: Props) {
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
@@ -57,6 +61,20 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
             <div class="tile-unit">{unit}</div>
           </div>
         ))}
+        <div
+          class={`tile tile-ai ${ai?.severe ? 'tile-warn' : ''}`}
+          data-testid="mon-AI"
+          data-ai={ai ? ai.ai.toFixed(1) : ''}
+          data-cluster={ai?.cluster ? '1' : '0'}
+          title={`Asynchrony index (Thille 2006): asynchronous events ÷ (ventilator cycles + ineffective efforts) over the last 2 min. Severe above ${k('AI_SEVERE')}%. Cluster flag: > ${k('IE_CLUSTER_COUNT')} ineffective efforts in ${k('IE_CLUSTER_WINDOW') / 60} min (Vaporidi 2017).`}
+        >
+          <div class="tile-label">AI</div>
+          <div class="tile-value">{ai ? `${ai.ai.toFixed(0)}%` : '—'}</div>
+          <div class="tile-unit">
+            {ai ? `${ai.events} / ${ai.cycles + ai.ie}` : 'events / cycles'}
+            {ai?.cluster ? <span class="cluster-flag"> · IE cluster</span> : null}
+          </div>
+        </div>
       </div>
       <div class="maneuvers">
         <span class="muted small">Maneuvers</span>

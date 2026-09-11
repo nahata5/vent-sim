@@ -37,6 +37,9 @@ export interface ScenarioSpec {
 export interface SessionStatus {
   t: number;
   injectors: InjectorKind[];
+  /** Current injector resistance / elastance multipliers (for the main-thread truth labeler). */
+  rScale: number;
+  eScale: number;
   phase: Phase;
   alarms: AlarmId[];
   inBackup: boolean;
@@ -50,6 +53,8 @@ export interface PatientSummary {
   pbw: number; // kg
   el: number;
   ecw: number;
+  /** Preset total inspiratory resistance at the reference flow, cmH2O/(L/s) (truth labeler). */
+  rTotal: number;
   hasDrive: boolean;
 }
 

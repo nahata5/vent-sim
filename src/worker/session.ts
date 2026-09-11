@@ -12,6 +12,7 @@ import type { BalloonParams } from '../sim/patient/balloon';
 import type { DriveParams, NeuralBreath } from '../sim/patient/neural-drive';
 import type { InjectorKind, InjectorParamMap } from '../sim/injectors';
 import { BATCH_CHANNELS, type PatientSummary, type ScenarioSpec, type SessionStatus } from './protocol';
+import { totalResistance } from '../sim/truth/labeler';
 
 export interface SessionOutput {
   n: number;
@@ -143,9 +144,12 @@ export class SimSession {
 
   status(): SessionStatus {
     const vent = this.engine.vent;
+    const inj = this.engine.injectors.log[this.engine.injectors.log.length - 1];
     return {
       t: this.engine.t,
       injectors: this.engine.injectors.activeKinds(),
+      rScale: inj?.rScale ?? 1,
+      eScale: inj?.eScale ?? 1,
       phase: vent.phase,
       alarms: vent.activeAlarms(),
       inBackup: vent.inBackup,
@@ -157,6 +161,6 @@ export class SimSession {
 
   patientSummary(): PatientSummary {
     const m = this.engine.patient.params.mechanics;
-    return { frc: m.frc, pbw: m.pbw, el: m.el, ecw: m.ecw, hasDrive: this.engine.neural !== null };
+    return { frc: m.frc, pbw: m.pbw, el: m.el, ecw: m.ecw, rTotal: totalResistance(m), hasDrive: this.engine.neural !== null };
   }
 }

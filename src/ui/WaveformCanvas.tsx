@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { SessionController } from '../app/controller';
-import { BADGE_STRIP, drawWaveforms, fmt, tForX, traceName, type Row, type RowRange } from './waveform-draw';
+import { badgeStripHeight, drawWaveforms, fmt, PATTERN_CODES, tForX, traceName, type BadgeHit, type BadgeLabels, type Row, type RowRange } from './waveform-draw';
 import { BATCH_CHANNELS, type ChannelKey } from '../worker/protocol';
 
 export const MEASURED_ROWS: Row[] = [
@@ -83,19 +83,32 @@ interface Props {
   truth: boolean;
   balloon: boolean;
   perf: PerfStats;
+  /** Shared array the renderer fills with badge extents (exposed for tests). */
+  hits: BadgeHit[];
 }
 
 interface Readout {
   t: number;
   values: Array<{ label: string; value: string }>;
+  /** Badge hover: pattern evidence lines (detector) and truth labels. */
+  evidence?: Array<{ label: string; text: string; truth: boolean }>;
   x: number;
   y: number;
+}
+
+/** Badge labels for the renderer: detector patterns per breath, truth patterns when the layer is on. */
+function badgeMap(ctl: SessionController, truth: boolean): Map<number, BadgeLabels> {
+  const m = new Map<number, BadgeLabels>();
+  for (const [idx, l] of ctl.labels) {
+    m.set(idx, { det: l.det?.patterns ?? [], truth: truth ? (l.truth?.patterns ?? []) : null, triggerCause: l.truth?.triggerCause ?? '' });
+  }
+  return m;
 }
 
 const READOUT_CHANNELS: ChannelKey[] = ['paw', 'flow', 'vol', 'pes', 'truth.pmus', 'truth.palv', 'truth.pplND', 'truth.pplD', 'truth.plND', 'truth.plD', 'truth.qND', 'truth.qD'];
 const READOUT_SCALE: Partial<Record<ChannelKey, number>> = { flow: 60, vol: 1000, 'truth.qND': 60, 'truth.qD': 60 };
 
-export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
+export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const rangesRef = useRef(new Map<string, RowRange>());
@@ -104,6 +117,10 @@ export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
   const rows = truth ? [...MEASURED_ROWS, ...TRUTH_ROWS] : balloon ? [...MEASURED_ROWS, PES_ROW] : MEASURED_ROWS;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const truthRef = useRef(truth);
+  truthRef.current = truth;
+  // Badge labels are rebuilt only when the analysis produced a new label map.
+  const badgesRef = useRef<{ src: Map<number, unknown> | null; truth: boolean; map: Map<number, BadgeLabels> }>({ src: null, truth: false, map: new Map() });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -123,6 +140,12 @@ export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
         canvas.height = Math.round(h * dpr);
       }
       const t0 = performance.now();
+      const bref = badgesRef.current;
+      if (bref.src !== ctl.labels || bref.truth !== truthRef.current) {
+        bref.src = ctl.labels;
+        bref.truth = truthRef.current;
+        bref.map = badgeMap(ctl, truthRef.current);
+      }
       drawWaveforms(ctx, w, h, {
         store: ctl.store,
         rows: rowsRef.current,
@@ -131,6 +154,9 @@ export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
         ranges: rangesRef.current,
         cursorT: cursorRef.current,
         showBadges: true,
+        badges: bref.map,
+        truthBadges: truthRef.current,
+        badgeHits: hits,
         dpr,
       });
       const dt = performance.now() - t0;
@@ -146,7 +172,7 @@ export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [ctl, perf]);
+  }, [ctl, perf, hits]);
 
   const onMove = (ev: MouseEvent) => {
     const wrap = wrapRef.current;
@@ -154,7 +180,23 @@ export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
     const rect = wrap.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
-    if (y < BADGE_STRIP) return;
+    if (y < badgeStripHeight({ showBadges: true, truthBadges: truth })) {
+      // Badge strip: show the labels and their evidence for the breath under the pointer.
+      const hit = hits.find((h) => x >= h.x0 && x <= h.x1);
+      const l = hit ? ctl.labels.get(hit.index) : undefined;
+      if (!hit || !l) {
+        cursorRef.current = null;
+        setReadout(null);
+        return;
+      }
+      const evidence: NonNullable<Readout['evidence']> = [];
+      for (const p of l.det?.patterns ?? []) evidence.push({ label: PATTERN_CODES[p]?.name ?? p, text: l.det?.evidence[p] ?? '', truth: false });
+      if (truth) for (const p of l.truth?.patterns ?? []) evidence.push({ label: PATTERN_CODES[p]?.name ?? p, text: 'truth label', truth: true });
+      if (evidence.length === 0) evidence.push({ label: l.truth ? `${l.truth.triggerCause}-triggered breath` : 'breath', text: 'no pattern detected', truth: false });
+      cursorRef.current = l.det?.tStart ?? l.truth?.tStart ?? null;
+      setReadout({ t: l.det?.tStart ?? l.truth?.tStart ?? NaN, values: [], evidence, x: Math.min(x + 12, rect.width - 350), y: 4 });
+      return;
+    }
     const t = tForX(x, ctl.tView, ctl.view.sweep, rect.width);
     cursorRef.current = t;
     const store = ctl.store;
@@ -176,11 +218,17 @@ export function WaveformCanvas({ ctl, truth, balloon, perf }: Props) {
     <div class="wave-wrap" ref={wrapRef} onMouseMove={onMove} onMouseLeave={onLeave} data-testid="waveforms">
       <canvas ref={canvasRef} class="wave-canvas" aria-label="Ventilator waveforms: pressure, flow and volume sweeps" role="img" />
       {readout && (
-        <div class="cursor-readout" style={{ left: readout.x, top: readout.y }} data-testid="cursor-readout">
-          <div class="muted">t = {readout.t.toFixed(2)} s</div>
+        <div class={`cursor-readout ${readout.evidence ? 'badge-readout' : ''}`} style={{ left: readout.x, top: readout.y }} data-testid="cursor-readout">
+          <div class="muted">{Number.isFinite(readout.t) ? `t = ${readout.t.toFixed(2)} s` : ''}</div>
           {readout.values.map((v) => (
             <div key={v.label}>
               <span class="muted">{v.label}</span> {v.value}
+            </div>
+          ))}
+          {readout.evidence?.map((e, i) => (
+            <div key={`${e.label}-${i}`} class="evidence">
+              <span class={e.truth ? 'muted' : ''}>{e.truth ? 'truth: ' : ''}<b>{e.label}</b></span>
+              {e.text ? <div class="small">{e.text}</div> : null}
             </div>
           ))}
         </div>
