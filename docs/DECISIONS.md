@@ -246,3 +246,36 @@ breaths) and no signal-only rule separates them from a breath inside a still-ris
 test records 0.80 as the accepted floor for delayed cycling (comment in `tests/detector/heldout.test.ts`)
 so CI guards against regression without hiding the gap; the question of whether the trigger delay should
 count toward the cycling delay is Q-2 in `docs/QUESTIONS.md`.
+
+## D-013 · Recruitable-population lung parametrization and the stress index (2026-09-11, M7)
+
+- **Opening pressures live on the recoil axis** (pressure above the compartment's FRC anchor, D-003), not on
+  the airway or absolute transpulmonary axis. In extrapulmonary ARDS the stiff chest wall keeps the dependent
+  transpulmonary pressure below zero even at PEEP 15, so absolute-PL thresholds of 20–25 cmH2O (Pelosi 2001,
+  airway pressures in oleic-acid dogs) would never open anything. The recoil-axis pressure equals
+  `Paw − Ecw·V` in static conditions, i.e. what a P–V curve at the bedside sweeps.
+- **A fraction of the units is recruitable, the rest always open**, and the Table 1 elastance is what the
+  always-open fraction f0 measures at zero PEEP: the fully recruited compartment has `E_all = E_comp·f0`, one
+  unit's aerated FRC is `FRC_comp/(N·f0)`. Recruiting units therefore lowers elastance and adds aerated volume
+  in proportion, which is what makes Gattinoni 1998's extrapulmonary numbers reproducible (Ers 25.9 → 21.4
+  with 0.293 L recruited) from one parameter pair (`RECRUIT_EXTRAPULMONARY_FRACTION` 0.25,
+  `RECRUIT_EXTRAPULMONARY_TOP` 8): the model gives Ers 25.0 → 23.7 and 0.15–0.2 L at PEEP 14–15.
+- **Consolidated units open above ≈ 30 cmH2O** (`RECRUIT_PULMONARY_TOP`), so pulmonary ARDS recruits nothing
+  at protective pressures and its Ers rise with PEEP comes from the strain cap of its small baby lung
+  (FRC 0.7 L, unit strain 1.3–1.4 at PEEP 15). That baby lung needs its own cap
+  (`RECRUIT_PULMONARY_STRAIN_CAP` 1.25 vs 0.85 elsewhere) or Ers doubles instead of rising 25 → 31.
+- **Tidal recruitment is emergent but small at protective volumes in the recruiter**: the lung's tidal PL
+  swing must exceed the opening–closing hysteresis (`RECRUIT_CLOSE_DELTA` 6), and the chest wall takes most of
+  ΔP in extrapulmonary ARDS. The tests demonstrate it at 10 mL/kg / PEEP 2 (recruiter) and at 12 mL/kg /
+  PEEP 16 (consolidated units cycling at a plateau ≈ 50), which is also where the measured stress index falls
+  below 0.9; the truth count of cycling units is what the explain card should show next to the index.
+- **Trajectory rates** `RECRUIT_K_OPEN/CLOSE` 5 /(cmH2O·s): a unit 1 cmH2O above its TOP opens in 0.2 s so
+  units passed during a 1 s inflation open within the breath; a unit within 0.2 cmH2O of its TOP still needs
+  seconds (slow recruitment during holds). Lower rates (0.4–2) suppressed all tidal recruitment.
+- **Stress index eligibility is read from the signals**: machine-triggered breath, cycled by volume, flow
+  plateau with a coefficient of variation below 10 % over the fit window (0.15 s after onset to cycle-off,
+  ≥ 0.3 s), fitted by a grid search on the offset c with closed-form log–log regression for a and b. Patient-
+  triggered and decelerating-flow breaths report no index (Brief 2 §2.3: invalid with effort).
+- **The Venegas anchor stays the default recoil**; the recruitable recoil is selected per scenario
+  (`presetPatient(id, { recoil: recruitableRecoil(id, overrides) })`), so M0–M6 physics and the detector grids
+  are unchanged.

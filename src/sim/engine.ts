@@ -141,6 +141,7 @@ export class SimEngine {
     this.leakAcc = 0;
     this.neural?.onVentBreath(t);
     this.injectors.onBreathStart(t);
+    this.patient.beginBreath();
     this.breaths.push({
       index: this.breaths.length,
       tStart: t,
@@ -156,6 +157,9 @@ export class SimEngine {
       peakFlowMeasured: 0,
       ppeakMeasured: 0,
       leakTrue: 0,
+      openFractionEE: 1,
+      frcAeratedEE: this.patient.params.mechanics.frc,
+      tidalRecruitUnits: 0,
     });
   }
 
@@ -163,6 +167,10 @@ export class SimEngine {
     b.tEnd = t;
     b.vteTrue = this.vteTrueAcc;
     b.leakTrue = this.leakAcc;
+    const rec = this.patient.recruitment();
+    b.openFractionEE = rec.openFraction;
+    b.frcAeratedEE = rec.aeratedFrc;
+    b.tidalRecruitUnits = rec.tidalRecruitUnits;
     b.vteMeasured = this.sensors.vte;
     if (Number.isNaN(b.tPauseEnd)) b.tPauseEnd = b.tInspEnd;
     this.onBreath?.(b);

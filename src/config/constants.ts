@@ -48,6 +48,22 @@ export const CONSTANTS = {
   ALPHA_ND_INJURED: c(0.65, 'fraction', 'Brief 2 §4: αND ≈ 0.7, αD ≈ 1.4 in injured lungs (Yoshida 2013), weighted mean = 1', 'M'),
   ALPHA_D_INJURED: c(1.35, 'fraction', 'Brief 2 §4: αD ≈ 1.4 in injured lungs (Yoshida 2013), weighted mean = 1', 'M'),
 
+  // ───────────────────────── Recruitable-population lung (Spec §4.3, Brief 2 §2.2 model B) ─────────────────────────
+  RECRUIT_UNITS: c(40, 'units per compartment', 'Brief 2 §2.2: N = 20–50 units stacked vertically', 'L'),
+  RECRUIT_TOP_SD: c(4, 'cmH2O', 'Spread of opening pressures (Pelosi 2001: recruitment continues along the whole P–V curve) [M]', 'M'),
+  RECRUIT_CLOSE_DELTA: c(6, 'cmH2O', 'Brief 2 §2.2: closing pressure 5–10 cmH2O below the opening pressure [M]', 'M'),
+  RECRUIT_K_OPEN: c(5.0, '1/(cmH2O·s)', 'Bates–Irvin trajectory rate: a unit 1 cmH2O above its opening pressure opens in 0.2 s, so units passed during a 1 s inflation open within the breath (tidal recruitment); a unit within 0.2 cmH2O of its TOP still needs seconds (slow recruitment during holds) [M]', 'M'),
+  RECRUIT_K_CLOSE: c(5.0, '1/(cmH2O·s)', 'Derecruitment trajectory rate, same order as opening [M]', 'M'),
+  RECRUIT_STRAIN_CAP: c(0.85, 'unit strain', 'Open units stiffen once their volume exceeds 0.85× their aerated FRC (upper inflection well below TLC ≈ 2–2.5× FRC; Protti 2011 injury above strain 1.5–2) [M]; keeps the Gattinoni 1998 extrapulmonary Ers fall at PEEP 15 and puts the best-compliance PEEP between 8 and 16', 'M'),
+  RECRUIT_OD_GAIN: c(2.5, 'per unit strain', 'Elastance multiplier slope above the strain cap [M]; with the caps below it gives Gattinoni 1998 pulmonary ARDS Ers 25 → ≈ 31 at PEEP 15 with Vt 6 mL/kg (measured 31.2) and a ≈ 7 % compliance loss at PEEP 20 in extrapulmonary ARDS', 'M'),
+  RECRUIT_PULMONARY_STRAIN_CAP: c(1.25, 'unit strain', 'Strain cap for the aerated units of consolidated (pulmonary) ARDS, whose baby lung (FRC 0.7 L) reaches strain 1.3–1.4 at PEEP 15 with 6 mL/kg; set so Ers rises 25.4 → ≈ 31 (Gattinoni 1998) rather than doubling [M]', 'M'),
+  RECRUIT_EXTRAPULMONARY_FRACTION: c(0.25, 'fraction', 'Recruitable share of units in extrapulmonary ARDS [M]; with the TOP distribution below it recruits ≈ 0.3 L from PEEP 0 to 15 (Gattinoni 1998: 0.293 L) and Ers falls 25.8 → ≈ 23', 'M'),
+  RECRUIT_EXTRAPULMONARY_TOP: c(8, 'cmH2O', 'Opening-pressure mode on the recoil axis for extrapulmonary ARDS: airway TOP 20–25 (Pelosi 2001) minus the raised pleural pressure of a stiff chest wall [M]', 'M'),
+  RECRUIT_PULMONARY_FRACTION: c(0.3, 'fraction', 'Recruitable share of units in pulmonary (consolidated) ARDS [M]; nearly none opens below a transpulmonary pressure of 30 cmH2O (Gattinoni 1998: −0.03 L recruited)', 'M'),
+  RECRUIT_PULMONARY_TOP: c(30, 'cmH2O', 'Opening-pressure mode on the recoil axis for consolidated units: above the plateau pressures of protective ventilation (Pelosi 2001 airway mode 20–25 was in oleic-acid dogs, a recruitable model) [M]', 'M'),
+  RECRUIT_DEFAULT_FRACTION: c(0.1, 'fraction', 'Recruitable share for non-ARDS phenotypes (basal atelectasis in anaesthetized normals) [M]', 'M'),
+  RECRUIT_DEFAULT_TOP: c(5, 'cmH2O', 'Opening-pressure mode for basal atelectasis in non-ARDS lungs [M]', 'M'),
+
   // ───────────────────────── Neural drive / Pmus ─────────────────────────
   PMUS_KFV: c(0.3, 'fraction', 'Spec §4.4: k_fv ≈ 0.25–0.3 [M], calibrated so the *measured* ΔPocc → Pmus ratio on the PSV grid gives Bertoni 2019 k1 = −0.74 (the measured ΔPocc slightly under-reads Pmus_iso because Paw is still equilibrating after the occlusion)', 'M'),
   PMUS_QREF: c(0.15, 'L/s', 'Flow above which the force–velocity penalty is fully applied [M]; low so that any flowing breath is penalized and an occluded (isometric) one is not, reproducing Bertoni k1 across the Pmax range', 'M'),
@@ -240,6 +256,9 @@ export const CONSTANTS = {
   PMI_LIMIT: c(6, 'cmH2O', 'Brief 2 §4/§6 Bellani 2016: PMI > 6 excessive effort', 'V'),
   PTP_LOW: c(50, 'cmH2O·s/min', 'Brief 2 §6: PTPes ≤ 50 low effort', 'L'),
   PTP_HIGH: c(200, 'cmH2O·s/min', 'Brief 2 §6: PTPes ≥ 200 high effort', 'L'),
+  STRESS_INDEX_T0: c(0.15, 's', 'Brief 2 §2.3: fit the stress index from 0.1–0.2 s after flow onset (after the resistive step) to end-inspiration [L/M]', 'M'),
+  STRESS_INDEX_FLOW_CV: c(0.1, 'fraction', 'Constant-flow eligibility: coefficient of variation of measured inspiratory flow over the fit window below 10 % (square flow with sensor noise ≈ 2 %) [M]', 'M'),
+  STRESS_INDEX_MIN_WINDOW: c(0.3, 's', 'Minimum fit window for a stress index (≥ 30 samples at 100 Hz) [M]', 'M'),
   STRESS_INDEX_LOW: c(0.9, 'ratio', 'Brief 2 §2.3/§6 Grasso 2004: b < 0.9 tidal recruitment', 'V'),
   STRESS_INDEX_HIGH: c(1.1, 'ratio', 'Brief 2 §2.3/§6 Grasso 2004: b > 1.1 overdistension', 'V'),
   RI_THRESHOLD: c(0.5, 'ratio', 'Brief 2 §2.4/§6 Chen 2020: R/I ≥ 0.5 high recruitability', 'V'),

@@ -47,6 +47,11 @@ export interface BreathRecord {
   ppeakMeasured: number;
   /** True leak volume over the whole cycle (∫ Q_leak dt), L. */
   leakTrue: number;
+  /** Recruitable lung (truth): fraction of units open at the end of the breath, aerated FRC of the open
+   *  units (L), and units that opened during the breath and closed again (tidal recruitment). */
+  openFractionEE: number;
+  frcAeratedEE: number;
+  tidalRecruitUnits: number;
 }
 
 export type ManeuverKind = 'insp' | 'exp' | 'p01' | 'pocc' | 'occlusion-test' | 'ri' | 'peep-trial';

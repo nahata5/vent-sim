@@ -47,7 +47,7 @@ export function LungStressDashboard({ m, truth, truthOn, maneuvers, settings, ba
     { id: 'p01', value: num(maneuvers.p01?.values?.p01) },
     { id: 'pocc', value: num(maneuvers.pocc?.values?.dPocc) },
     { id: 'pmi', value: null, detail: 'M7: Pes during an inspiratory hold' },
-    { id: 'stressIndex', value: null, detail: 'M7' },
+    { id: 'stressIndex', value: m?.stressIndex ?? null, detail: m?.stressIndex != null ? 'Paw = a·t^b + c on this constant-flow breath' : 'needs a machine-triggered constant-flow VC breath' },
     { id: 'ri', value: null, detail: 'M7: PEEP trial' },
   ];
   return (

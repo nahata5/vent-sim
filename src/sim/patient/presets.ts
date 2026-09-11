@@ -11,6 +11,7 @@
  */
 import { k } from '../../config/constants';
 import type { MechanicsParams, PatientParams } from './params';
+import type { RecruitableSpec } from './lung-recruitable';
 
 export type PhenotypeId =
   | 'normal'
@@ -256,6 +257,31 @@ export function presetMechanics(id: PhenotypeId, overrides: Partial<MechanicsPar
     pbw: p.pbw,
     ...overrides,
   };
+}
+
+/**
+ * Recruitable-population recoil for a phenotype (Spec §4.3; the Venegas anchor is the default, this is the
+ * M7 alternative selected per scenario). Opening pressures live on the recoil axis (pressure above the
+ * compartment's FRC anchor), see lung-recruitable.ts.
+ */
+export function recruitableRecoil(id: PhenotypeId, overrides: Partial<Omit<RecruitableSpec, 'kind'>> = {}): RecruitableSpec {
+  return { ...recruitableRecoilBase(id), ...overrides };
+}
+
+function recruitableRecoilBase(id: PhenotypeId): RecruitableSpec {
+  const base = {
+    kind: 'recruitable' as const,
+    n: k('RECRUIT_UNITS'),
+    topSd: k('RECRUIT_TOP_SD'),
+    closeDelta: k('RECRUIT_CLOSE_DELTA'),
+    kOpen: k('RECRUIT_K_OPEN'),
+    kClose: k('RECRUIT_K_CLOSE'),
+    strainCap: k('RECRUIT_STRAIN_CAP'),
+    odGain: k('RECRUIT_OD_GAIN'),
+  };
+  if (id === 'ards-extrapulmonary') return { ...base, recruitableFraction: k('RECRUIT_EXTRAPULMONARY_FRACTION'), topMean: k('RECRUIT_EXTRAPULMONARY_TOP') };
+  if (id === 'ards-pulmonary') return { ...base, recruitableFraction: k('RECRUIT_PULMONARY_FRACTION'), topMean: k('RECRUIT_PULMONARY_TOP'), strainCap: k('RECRUIT_PULMONARY_STRAIN_CAP') };
+  return { ...base, recruitableFraction: k('RECRUIT_DEFAULT_FRACTION'), topMean: k('RECRUIT_DEFAULT_TOP') };
 }
 
 export function presetPatient(id: PhenotypeId, overrides: Partial<MechanicsParams> = {}): PatientParams {

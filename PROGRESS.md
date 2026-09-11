@@ -271,3 +271,29 @@ on: detector badges DC/IE over the breaths, truth row beneath, AI tile), `docs/s
 
 **Known issues:** the AI window is the 120 s the store retains, not Thille's full minutes; the Netlify site
 still needs its first build check by the owner; delayed cycling 0.84 on the held-out grid (D-012).
+
+### M7 — Recruitable lung and stress index (2026-09-11, in progress)
+
+**Built (TDD, tests first):** `src/sim/patient/lung-recruitable.ts` — `RecruitableRecoil` behind the
+`LungRecoil` interface (N units per compartment, deterministic normal quantiles of opening pressure on the
+recoil axis, closing pressure TOP − Δ, Bates–Irvin trajectories `settle`/`advance`, equal volume sharing
+among open units, strain-cap stiffening; D-013), wired through `makeRecoil` (`RecoilSpec` kind
+`'recruitable'`), `PatientModel` (settle at initialization, advance after each RK4 step, `beginBreath`,
+`recruitment()`), `SimEngine` and `BreathRecord` (`openFractionEE`, `frcAeratedEE`, `tidalRecruitUnits`);
+`recruitableRecoil(id, overrides)` in `presets.ts` with `RECRUIT_*` constants. `src/monitor/stress-index.ts`
+(`stressIndexFit`, `isConstantFlow`) and `BreathMetrics.stressIndex` from measured signals on machine-
+triggered constant-flow breaths; dashboard row filled.
+
+**Tests:** `tests/physics/recruitment.test.ts` 4/4 (unit population hysteresis and delay; Gattinoni 1998
+direction with the recruitable lung: extrapulmonary Ers 25.0 → 23.7 with 0.15–0.2 L recruited, pulmonary Ers
+rises with < 0.1 L; tidal recruitment at PEEP 2 / 10 mL/kg, kept open at PEEP 16; decremental PEEP steps give
+Crs 33.8 / 40.7 / 41.6 / 41.1 / 40.5 / 40.0 mL/cmH2O at PEEP 20…0, best at 12).
+`tests/physics/stress-index.test.ts` 4/4 (fit recovers b = 0.8/1.0/1.25 from noisy power laws; linear lung
+b ∈ 0.9–1.1; consolidated ARDS driven to a 50 cmH2O plateau: b < 0.9 with ≥ 2 units cycling; normal lung at
+PEEP 15 / 13 mL/kg: b > 1.1; no index on PC or patient-triggered breaths). Vitest 130/130, lint clean.
+
+**Not done in M7 yet:** R/I maneuver (one-breath PEEP release 15 → 5, Crs,low, `ManeuverKind 'ri'` stub in
+`SimSession.requestManeuver`), decremental PEEP trial maneuver (`'peep-trial'`), Gattinoni full-formula
+mechanical power surrogate, CO2 → drive loop with time warp (`gas-exchange.ts`, `tests/physics/co2.test.ts`),
+recruitment readouts in the truth layer (recruited / tidally recruited volume, `tidal-recruitment` truth-only
+finding), scenario JSON `mechanics.recoil` selection, Playwright coverage, screenshots.

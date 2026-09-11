@@ -4,6 +4,7 @@
  * by the compartment model (docs/DECISIONS.md D-003).
  */
 import type { RecoilSpec } from './params';
+import { RecruitableRecoil } from './lung-recruitable';
 
 export interface LungRecoil {
   /** Recoil pressure change from V = 0, cmH2O. */
@@ -12,6 +13,21 @@ export interface LungRecoil {
   elastance(v: number): number;
   /** Inverse: volume at which pressure(v) = p (exact for both implementations). */
   volumeAt(p: number): number;
+  /** Recruitable lung only: equilibrate the open set at a recoil pressure (initialization). */
+  settle?(p: number): void;
+  /** Recruitable lung only: advance unit opening/closing trajectories at a recoil pressure. */
+  advance?(dt: number, p: number): void;
+  beginBreath?(): void;
+  openFraction?(): number;
+  aeratedFrc?(): number;
+  tidalRecruitCount?(): number;
+}
+
+export interface RecoilExtras {
+  /** Compartment FRC share, L. */
+  frcComp: number;
+  /** Within-compartment pleural offsets per unit (recoil-axis pressure added for a unit's height), cmH2O. */
+  zOffsets: number[];
 }
 
 export class LinearRecoil implements LungRecoil {
@@ -63,12 +79,14 @@ export class VenegasRecoil implements LungRecoil {
   }
 }
 
-export function makeRecoil(spec: RecoilSpec, elCompartment: number, fraction: number): LungRecoil {
+export function makeRecoil(spec: RecoilSpec, elCompartment: number, fraction: number, extras?: RecoilExtras): LungRecoil {
   switch (spec.kind) {
     case 'linear':
       return new LinearRecoil(elCompartment);
     case 'venegas':
       // Venegas parameters are defined for the whole lung; scale the volume axis by the fraction.
       return new VenegasRecoil(spec.a * fraction, spec.b * fraction, spec.c, spec.d);
+    case 'recruitable':
+      return new RecruitableRecoil(spec, elCompartment, extras?.frcComp ?? 1, extras?.zOffsets ?? []);
   }
 }

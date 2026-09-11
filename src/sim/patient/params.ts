@@ -35,9 +35,12 @@ export interface EflParams {
   vClose: number;
 }
 
+import type { RecruitableSpec } from './lung-recruitable';
+
 export type RecoilSpec =
   | { kind: 'linear' }
-  | { kind: 'venegas'; a: number; b: number; c: number; d: number };
+  | { kind: 'venegas'; a: number; b: number; c: number; d: number }
+  | RecruitableSpec;
 
 export interface MechanicsParams {
   /** Lung elastance, cmH2O/L (total, both compartments). */

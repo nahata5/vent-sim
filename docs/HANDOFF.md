@@ -17,10 +17,56 @@ Updated 2026-09-11 (second M6 session), for a fresh session continuing the goal 
 |---|---|
 | M0–M5 | done (scaffold, physics, ventilator, effort, live UI on a deterministic worker) |
 | M6 | **done**: detector meets §9.5 on the held-out grid (delayed cycling 0.84 vs 0.85, documented), UI wiring, badges, AI tile, injector panel, apply-fix, Validation page, Playwright coverage |
-| M7–M9 | not started |
+| M7 | **in progress**: recruitable-population lung and stress index done with tests (D-013); R/I, PEEP trial, full-formula power, CO2 loop + time warp, truth readouts, scenarios, e2e not started |
+| M8–M9 | not started |
 
-`npm test` → 122 passed, 18 files (the held-out suite `tests/detector/heldout.test.ts` is un-gated and runs in CI).
-`npm run lint` clean. `npm run test:e2e` → 13/13. `npm run build` clean. Everything is committed and pushed on `main`.
+`npm test` → 130 passed, 20 files (the held-out suite `tests/detector/heldout.test.ts` is un-gated and runs in CI).
+`npm run lint` clean. `npm run test:e2e` → 13/13 (M7 has no UI yet beyond the stress-index dashboard row).
+`npm run build` clean. Everything is committed and pushed on `main`.
+
+## M7: what exists and what is left
+
+Built (read `PROGRESS.md` M7 and D-013): `src/sim/patient/lung-recruitable.ts`, `RecoilSpec` kind
+`'recruitable'`, `recruitableRecoil(id, overrides)` in `presets.ts`, `PatientModel.recruitment()`,
+`BreathRecord.openFractionEE/frcAeratedEE/tidalRecruitUnits`, `src/monitor/stress-index.ts`,
+`BreathMetrics.stressIndex`, tests `tests/physics/{recruitment,stress-index}.test.ts`. Dev scripts (git-ignored):
+`scripts/dev/recruit.ts <phenotype> [vt]` (open fraction, aerated FRC, tidal units, Ers per PEEP) and
+`scripts/dev/si.ts` (stress index across configurations).
+
+Left, in order (TDD: write the test file first, then the code):
+
+1. **R/I maneuver** (`ManeuverKind 'ri'`, Brief 2 §2.4, Chen 2020): in `Ventilator`, on request and at the next
+   expiration, drop PEEP from the current value to `PEEP_low` (5) for one breath, measure the extra expired
+   volume ΔVrelease = Vte(release) − mean Vte(previous 3 breaths); keep PEEP low for 4 breaths, take an
+   inspiratory hold for Pplat,low → Crs,low = Vt/(Pplat,low − PEEP_low); restore PEEP. Vpred = Crs,low ×
+   (PEEP_high − max(PEEP_low, AOP)); Vrec = ΔVrelease − Vpred; R/I = Vrec/(PEEP_high − PEEP_low)/Crs,low.
+   AOP: optional, from the low-PEEP breath's Paw–volume curve start (skip and document if it cannot be read).
+   Emit a `maneuver` event `{kind: 'ri', values: {dVrelease, crsLow, vrec, ri, peepHigh, peepLow}}`. Test
+   (`tests/physics/ri.test.ts`): extrapulmonary recruitable at PEEP 15 → R/I ≥ 0.5; pulmonary recruitable →
+   R/I < 0.5; Venegas normal → R/I ≈ 0. Wire `SimSession.requestManeuver('ri')`, a monitor button, the
+   dashboard row `ri`.
+2. **Decremental PEEP trial** (`'peep-trial'`): automated steps from the current PEEP (or 20) down by 2 every
+   N breaths (6), each step ending with an inspiratory hold; record Crs, ΔP, Pplat, PL,ei (truth, when the
+   balloon is on) and power per step in `values` (flatten as `crs_20`, `dp_20`, …) or as a new
+   `ManeuverResult.table`; best-compliance PEEP = argmax Crs. Test: the recruitable extrapulmonary trial's
+   best PEEP is between 8 and 16 (the physics test already shows 33.8/40.7/41.6/41.1/40.5/40.0 at 20…0).
+3. **Mechanical power**: add the Gattinoni 2016 full VC formula next to the existing surrogates in
+   `src/monitor/bands.ts` (`powerSurrogate`), keep the truth ∫Paw·dV.
+4. **CO2 loop + time warp** (Brief 1 §1.5, Spec §4.4): `src/sim/patient/gas-exchange.ts` with PaCO2 state
+   (`PaCO2_ss = 0.863·VCO2/VA`, τ 3 min, 10 s chemoreceptor delay, apneic threshold, drive gain → Pmax and
+   neural rate through `NeuralDrive.setParams`), VA from the last minute of true Vt and RR minus dead space
+   (2.2 mL/kg + apparatus), `timeWarp` (×10–×60) scaling only the CO2 integration; protocol/UI: a CO2 panel
+   (PaCO2, drive, warp slider), `SessionStatus.paCO2`. Tests (`tests/physics/co2.test.ts`): steady-state PaCO2
+   within 5 % of 0.863·VCO2/VA; over-assist (PS 20) drives PaCO2 below the apneic threshold and efforts stop
+   within N warped minutes; under-assist raises drive; warp changes only the CO2 time scale (byte-identical
+   breath timing per warped minute is NOT expected — document determinism per warp value).
+5. **Truth layer readouts**: recruited and tidally recruited volume in `LungStressDashboard` (from
+   `BreathRecord`), `tidal-recruitment` as a truth-only `PatternId` (labeler rule `tidalRecruitUnits ≥ 1`) with
+   a `PATTERN_CODES` entry, and scenario JSON support for `mechanics.recoil: 'recruitable'` (resolve in
+   `resolveScenario`) plus two scenarios: PEEP trial recruiter vs non-recruiter (spec §8 #13) and the CO2
+   over/under-assist pair (#15, #16). Re-run `npx tsx scripts/validation-snapshot.ts` after adding scenarios.
+6. Playwright: one test per new maneuver (R/I readout appears, PEEP trial fills the table, CO2 panel moves
+   with the warp), keep < 8 ms/frame. Then PROGRESS M7 final entry with screenshots, DECISIONS, commit, push.
 
 ## Hosting
 
@@ -155,19 +201,18 @@ PMI, stress index and R/I are placeholders waiting for these maneuvers (`LungStr
 > PROGRESS.md and docs/DECISIONS.md (D-001…D-012). The goal and non-negotiables are in
 > docs/FABLE_GOAL_PROMPT.md; the spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md.
 >
-> State: M0–M6 done and pushed. Vitest 122/122 (held-out detector suite un-gated), lint clean, Playwright
-> 13/13, build clean. The detector meets §9.5 on the held-out grid except delayed cycling 0.84 vs 0.85
-> (D-012, LIMITATIONS, Q-2; accepted floor 0.80 in the test). Do not revisit M0–M6 except to fix a bug;
-> never tune the detector on the held-out grid; regenerate src/validation/snapshot.json
-> (`npx tsx scripts/validation-snapshot.ts`) after any detector or scenario change.
+> State: M0–M6 done and pushed; M7 half done (recruitable-population lung and stress index with tests,
+> D-013). Vitest 130/130 (held-out detector suite un-gated), lint clean, Playwright 13/13, build clean.
+> Do not revisit M0–M6 except to fix a bug; never tune the detector on the held-out grid; regenerate
+> src/validation/snapshot.json (`npx tsx scripts/validation-snapshot.ts`) after any scenario change.
 >
-> Task — M7 per the spec (§4 recruitable-population lung and CO2 → drive loop with time warp; §5 R/I,
-> decremental PEEP trial, stress index; §6 mechanical power), TDD for everything in src/sim: write
-> tests/physics/{recruitment,stress-index,ri,co2}.test.ts first, then the code. Wire the maneuvers through
-> SimSession.requestManeuver ('ri', 'peep-trial' stubs exist), the monitor and the dashboard placeholders
-> (PMI, stress index, R/I rows in LungStressDashboard.tsx), add a Playwright test per new maneuver, keep
-> 60 fps, keep every constant cited in constants.ts, record deviations in DECISIONS.md and clinical
-> questions in QUESTIONS.md. Then update PROGRESS.md (M7 entry with numbers and screenshots), commit,
-> push, and continue to M8 (education: ≥ 18 scenarios exist already; explain cards, quiz, instructor mode,
-> progress, session/batch export). When you reach a good place around 50 % context, update
-> docs/HANDOFF.md and write the next prompt into it.
+> Task — finish M7 exactly as listed in HANDOFF "M7: what exists and what is left" items 1–6, TDD for
+> everything in src/sim (tests/physics/{ri,co2}.test.ts and the PEEP-trial test first, then the code): R/I
+> maneuver, decremental PEEP trial, Gattinoni full-formula power surrogate, CO2 → drive loop with time
+> warp, truth-layer recruitment readouts and the tidal-recruitment finding, scenario support for the
+> recruitable recoil with the PEEP-trial and CO2 scenarios, Playwright coverage, 60 fps, every constant
+> cited, deviations in DECISIONS.md, clinical questions in QUESTIONS.md. Then update PROGRESS.md (M7 final
+> entry with numbers and screenshots), commit, push, and continue to M8 (education: explain cards with
+> case-specific evidence from truth, quiz mode, instructor mode with a scenario editor, progress in
+> localStorage, session CSV/JSON export and the headless batch generator). When you reach a good place
+> around 50 % context, update docs/HANDOFF.md and write the next prompt into it.

@@ -44,7 +44,7 @@ describe('StreamStore ring buffers', () => {
   it('trims events and breaths older than the window', () => {
     const s = new StreamStore({ fs: 100, seconds: 1 });
     s.addEvents([{ type: 'trigger', t: 0.1, cause: 'time' }]);
-    s.addBreaths([{ index: 0, tStart: 0.1, triggerCause: 'time', tInspEnd: 0.6, tPauseEnd: 0.6, cycleCause: 'time', tEnd: 2.0, vtiTrue: 0.4, vteTrue: 0.4, vtiMeasured: 0.4, vteMeasured: 0.4, peakFlowMeasured: 0.5, ppeakMeasured: 20, leakTrue: 0 }], []);
+    s.addBreaths([{ index: 0, tStart: 0.1, triggerCause: 'time', tInspEnd: 0.6, tPauseEnd: 0.6, cycleCause: 'time', tEnd: 2.0, vtiTrue: 0.4, vteTrue: 0.4, vtiMeasured: 0.4, vteMeasured: 0.4, peakFlowMeasured: 0.5, ppeakMeasured: 20, leakTrue: 0, openFractionEE: 1, frcAeratedEE: 1.6, tidalRecruitUnits: 0 }], []);
     s.append(batch(100, 0, 100), 100);
     expect(s.events.length).toBe(1);
     s.append(batch(100, 100, 100), 100);

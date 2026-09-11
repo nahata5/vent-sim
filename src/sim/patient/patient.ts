@@ -66,9 +66,21 @@ export class PatientModel {
   constructor(readonly params: PatientParams) {
     const m = params.mechanics;
     this.comp = deriveCompartments(m);
+    // Recruitable units are spread over each compartment's half of the lung height; their local recoil-axis
+    // pressure is offset by the pleural gradient relative to the compartment centre (top units see more PL).
+    const zOffsets = (ci: number): number[] => {
+      const n = m.recoil.kind === 'recruitable' ? m.recoil.n : 0;
+      const out: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const zRel = ((i + 0.5) / n - 0.5) * (m.height / 2); // cm from the compartment centre
+        out.push(-m.gradient * zRel);
+      }
+      void ci;
+      return out;
+    };
     this.recoil = [
-      makeRecoil(m.recoil, this.comp[0].el, this.comp[0].fraction),
-      makeRecoil(m.recoil, this.comp[1].el, this.comp[1].fraction),
+      makeRecoil(m.recoil, this.comp[0].el, this.comp[0].fraction, { frcComp: this.comp[0].frc, zOffsets: zOffsets(0) }),
+      makeRecoil(m.recoil, this.comp[1].el, this.comp[1].fraction, { frcComp: this.comp[1].frc, zOffsets: zOffsets(1) }),
     ];
     this.k1Base = (m.ett?.k1 ?? 0) + m.rCentral;
     this.k2 = m.ett?.k2 ?? 0;
@@ -123,7 +135,11 @@ export class PatientModel {
     let vtot = 0;
     for (let iter = 0; iter < 500; iter++) {
       let sum = 0;
-      for (let i = 0; i < N; i++) sum += this.invertRecoil(i, paw - m.ecw * vtot);
+      for (let i = 0; i < N; i++) {
+        // Recruitable units equilibrate at the static recoil pressure of their compartment.
+        this.recoil[i]?.settle?.(paw - m.ecw * vtot);
+        sum += this.invertRecoil(i, paw - m.ecw * vtot);
+      }
       if (Math.abs(sum - vtot) < 1e-10) {
         vtot = sum;
         break;
@@ -283,9 +299,30 @@ export class PatientModel {
       if ((x0[i] ?? 0) < floor) x0[i] = floor;
     }
     const o = this.outputs(bc, x0, drive);
+    // Recruitable units move along their opening/closing trajectories at the compartment's recoil pressure
+    // (PL − PL0 = eScale·recoil + Pve); a change of the open set takes effect from the next step.
+    for (let i = 0; i < N; i++) {
+      const rc = this.recoil[i] as LungRecoil;
+      if (rc.advance) rc.advance(dt, (o.pl[i] ?? 0) - (this.comp[i] as CompartmentDerived).pl0);
+    }
     this.lastQ = o.q;
     this.lastOut = o;
     this.lastDrive = drive;
     return o;
+  }
+
+  /** Recruitment bookkeeping for the truth layer (all ones / zeros for non-recruitable lungs). */
+  beginBreath(): void {
+    for (const rc of this.recoil) rc.beginBreath?.();
+  }
+
+  recruitment(): { openFraction: number; aeratedFrc: number; tidalRecruitUnits: number; open: [number, number] } {
+    const m = this.params.mechanics;
+    const of: [number, number] = [this.recoil[0].openFraction?.() ?? 1, this.recoil[1].openFraction?.() ?? 1];
+    const aer = (this.recoil[0].aeratedFrc?.() ?? this.comp[0].frc) + (this.recoil[1].aeratedFrc?.() ?? this.comp[1].frc);
+    const tidal = (this.recoil[0].tidalRecruitCount?.() ?? 0) + (this.recoil[1].tidalRecruitCount?.() ?? 0);
+    const openFraction = of[0] * this.comp[0].fraction + of[1] * this.comp[1].fraction;
+    void m;
+    return { openFraction, aeratedFrc: aer, tidalRecruitUnits: tidal, open: of };
   }
 }

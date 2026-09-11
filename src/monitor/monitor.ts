@@ -5,6 +5,7 @@
  */
 import type { MeasuredSample, VentEvent, TriggerCause, CycleCause } from '../sim/types';
 import { k } from '../config/constants';
+import { isConstantFlow, stressIndexFit } from './stress-index';
 
 export interface BreathMetrics {
   index: number;
@@ -40,6 +41,8 @@ export interface BreathMetrics {
   lsqR: number;
   lsqC: number; // mL/cmH2O
   lsqPeep: number;
+  /** Stress index b of Paw = a·t^b + c on a machine-triggered constant-flow breath, else null. */
+  stressIndex: number | null;
 }
 
 export interface MonitorOptions {
@@ -183,6 +186,26 @@ export class Monitor {
 
     const lsq = this.leastSquares(b, tInspEnd);
 
+    // Stress index: machine-triggered, constant-flow inflation, fitted after the resistive step.
+    let stressIndex: number | null = null;
+    if (b.triggerCause !== 'patient' && b.cycleCause === 'volume') {
+      const t0 = b.tStart + k('STRESS_INDEX_T0');
+      const tt: number[] = [];
+      const pp: number[] = [];
+      const qq: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const t = b.t[i] ?? 0;
+        if (t < t0 || t > b.tCycle) continue;
+        tt.push(t - b.tStart);
+        pp.push(b.paw[i] ?? 0);
+        qq.push(b.flow[i] ?? 0);
+      }
+      if (b.tCycle - t0 >= k('STRESS_INDEX_MIN_WINDOW') && isConstantFlow(qq)) {
+        const fit = stressIndexFit(tt, pp);
+        if (fit) stressIndex = fit.b;
+      }
+    }
+
     const m: BreathMetrics = {
       index: this.breaths.length,
       tStart: b.tStart,
@@ -215,6 +238,7 @@ export class Monitor {
       lsqR: lsq.r,
       lsqC: lsq.c,
       lsqPeep: lsq.p0,
+      stressIndex,
     };
     this.breaths.push(m);
     this.latest = m;
