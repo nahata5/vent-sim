@@ -510,3 +510,14 @@ are not on the personal site yet (outside this repo). Vitest 195/195, lint clean
 The `≥ 50× real time` performance test fails inside the parallel full run on a loaded machine (28–49×;
 load average ≈ 17 with a browser busy) and passes alone (60 s in 0.8–1.3 s); it fails identically on the
 pre-change commit a292ac0 under the same load, so it is the environment, not a regression.
+
+## Post-M9 · Alias redirect pushed; quiz bedside-view design approved (2026-09-11, late)
+
+Alias: DNS for tomnahass.com already points at Netlify (nothing on Namecheap). The missing piece was the
+personal site's `netlify.toml`; the two proxy rules (`/vent-sim` → `/vent-sim/` 301, `/vent-sim/*` →
+`https://vent-sim.netlify.app/:splat` 200) were added and pushed (personal-website commit 4d756ac). The
+Netlify webhook fired but the alias still returned the personal site's 404 after 15 min, with no deploy
+status on the commit; the site's Hugo 0.95 build has probably failed and must be read in the Netlify
+dashboard (no Netlify credentials on this machine). Owner request for a quiz "bedside view" with a debrief
+was designed and approved: `docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md`; to be built in
+a fresh session (HANDOFF item 4).

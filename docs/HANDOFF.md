@@ -106,18 +106,28 @@ All spec milestones and the optional extensions listed in the previous handoff a
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
    signal-only idea appears; never tune on the held-out grid.
-3. **Alias** `tomnahass.com/vent-sim/`: still unverified. Checked 2026-09-11: `tomnahass.com` 301s to
-   `www.tomnahass.com`, and `www.tomnahass.com/vent-sim/` returns the personal site's 404 page, so the two
-   `_redirects` lines from README are not on the personal site yet. That change lives in the personal
-   site's repo, not here; once the owner adds them, re-check with
+3. **Alias** `tomnahass.com/vent-sim/`: the redirect rules are now in the personal site's repo
+   (`~/Documents/development/personal-website/netlify.toml`, commit 4d756ac pushed to
+   `github.com/nahata5/personal-website` main on 2026-09-11; remote switched to https because the SSH key
+   is not loaded). DNS already points at Netlify, so nothing on Namecheap. Netlify's GitHub webhook fired
+   but 15 min later the alias still returned the personal site's 404 and no deploy status was posted, so
+   the personal site's build (Hugo 0.95 + `netlify-plugin-hugo-cache-resources`, last built 2023) has
+   probably failed. The owner must check that site's deploy log in the Netlify dashboard (or run
+   `npx netlify-cli login` in the session so the log can be read from here). Re-check with
    `curl -sSL -o /dev/null -w '%{url_effective} %{http_code}\n' https://tomnahass.com/vent-sim/` and expect
-   200 with the VentSim `<title>`.
-4. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a screenshot
+   200 with the VentSim `<title>`, then check that `assets/index-*.js` is proxied too.
+4. **Next feature (owner-approved design, build next)**: the quiz "bedside view" and debrief —
+   `docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md`. Instructor-set hide set (truth, Pes,
+   scenario text, derived numbers, explain cards, CO2), a "Bedside" preset, checkboxes plus a copyable
+   locked quiz link (`#<id>?quiz=bedside`), and a four-section debrief on submit (what you changed, what was
+   happening, the recommended fix key by key, physiology and recognition from the cards). Tests are listed
+   in the spec §6; work tests-first and follow the superpowers writing-plans → executing-plans flow.
+5. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a screenshot
    refresh for the docs (`SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts`) now that the
    Monitor has the SpO2 tile and the Instructor panel the elastance row, a Pes-position dependence of the
    cardiac artifact (larger behind the heart), quiz extras for more scenarios (e.g. `dPes ≤ 8` for the
    P-SILI scenario), and an explain-card/objective for the capstone that lists the fix order.
-5. Keep the working method: tests first for anything in `src/sim`/`src/detector`/`src/edu` logic, constants
+6. Keep the working method: tests first for anything in `src/sim`/`src/detector`/`src/edu` logic, constants
    cited, deviations in DECISIONS, clinical questions in QUESTIONS, regenerate the snapshot after scenario or
    detector changes, `SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts` for the docs.
 
@@ -189,10 +199,12 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > tune the detector on the held-out grid; regenerate src/validation/snapshot.json after any scenario change
 > and the MODEL.md constants table after any constants change.
 >
-> Task — work through HANDOFF "What is left (post-M9)" items 3–4: re-check the tomnahass.com/vent-sim/ alias
-> (it needs the two `_redirects` lines from README on the personal site, which is outside this repo; report
-> the curl result rather than trying to fix the personal site from here), then pick from the open optional
-> items in order (docs screenshot refresh, capstone explain/objective for the fix order, more quiz extras,
-> light panel theme, i18n, balloon-position dependence of the cardiac artifact). Keep tests first, constants
-> cited, docs current; update PROGRESS.md, commit, push and check the live site after each piece. When you
-> reach a good place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.
+> Task — build the quiz "bedside view" and debrief from the owner-approved design in
+> docs/superpowers/specs/2026-09-11-quiz-bedside-view-design.md (HANDOFF "What is left" item 4): first
+> write the implementation plan (superpowers writing-plans) from the spec, then execute it tests-first
+> (spec §6 lists the tests), keeping the existing quiz behaviour unchanged when no hide set is given.
+> Commit, push and check the live site after each task; add D-019 to DECISIONS, a PROGRESS entry and the
+> README quiz section. Before starting, re-check the tomnahass.com/vent-sim/ alias with the curl in
+> HANDOFF item 3 and report the result (the fix is pushed to the personal site's repo; only its Netlify
+> build can be at fault now). When you reach a good place around 50 % context, update docs/HANDOFF.md and
+> write the next prompt into it.
