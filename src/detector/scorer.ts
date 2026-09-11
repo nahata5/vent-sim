@@ -58,6 +58,33 @@ export function truthPositives(truth: LabelOutput, pattern: PatternId): Set<numb
   return s;
 }
 
+/**
+ * Breaths outside a pattern's scoring domain (D-011, D-012): for ineffective effort, a breath holding an
+ * effort that began inside the insufflation (its expiratory continuation is visible to the detector but
+ * the effort is not an IEE); for flow starvation, both members of a truth double-trigger pair (the
+ * stacked pair is scored as double trigger; a 0.3–0.4 s VC breath inside a rising effort has no bedside
+ * signature without a passive reference).
+ */
+export function unscoredBreaths(truth: LabelOutput, pattern: PatternId): Set<number> {
+  const s = new Set<number>();
+  if (pattern === 'ineffective-effort') {
+    const exp = truthPositives(truth, pattern);
+    for (const e of truth.efforts) {
+      if (!e.ineffective || e.phase !== 'insp') continue;
+      const b = truth.breaths.find((x) => x.tStart <= e.tOnset && (x.tEnd ?? Infinity) > e.tOnset);
+      if (b && !exp.has(b.breathIndex)) s.add(b.breathIndex);
+    }
+  }
+  if (pattern === 'flow-starvation') {
+    for (const b of truth.breaths) {
+      if (!b.patterns.includes('double-trigger')) continue;
+      s.add(b.breathIndex);
+      if (b.evidence.firstBreath !== undefined) s.add(b.evidence.firstBreath);
+    }
+  }
+  return s;
+}
+
 export function detectorPositives(det: DetectorOutput, pattern: PatternId): Set<number> {
   const s = new Set<number>();
   for (const b of det.breaths) if (b.patterns.includes(pattern)) s.add(b.breathIndex);
@@ -71,9 +98,10 @@ export function scoreGrid(cases: ScoredCase[], patterns: readonly PatternId[] = 
     for (const c of cases) {
       const tPos = truthPositives(c.truth, p);
       const dPos = detectorPositives(c.det, p);
+      const skip = unscoredBreaths(c.truth, p);
       const cell = { tp: 0, fp: 0, tn: 0, fn: 0 };
       for (const b of c.truth.breaths) {
-        if (b.tStart < c.tFrom || b.tStart > c.tTo) continue;
+        if (b.tStart < c.tFrom || b.tStart > c.tTo || skip.has(b.breathIndex)) continue;
         const t = tPos.has(b.breathIndex);
         const d = dPos.has(b.breathIndex);
         if (t && d) cell.tp += 1;

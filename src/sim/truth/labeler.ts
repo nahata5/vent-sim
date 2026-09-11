@@ -110,6 +110,8 @@ export interface EffortLabel {
   /** Ventilator phase at the effort onset. */
   phase: 'exp' | 'insp';
   reverseTriggered: boolean;
+  /** A time-triggered breath started inside the effort (D-012): assisted, though not by triggering. */
+  assistedByMachine: boolean;
 }
 
 export interface LabelOutput {
@@ -184,6 +186,24 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
   }
   const rtEffort = new Set([...rtOf.values()]);
 
+  // Assisted by a coincident machine breath (D-012): a time-triggered breath that starts inside the
+  // effort's inspiratory window [onset − lead, onset + Ti] delivers gas during the effort, so the effort
+  // is neither wasted nor a reverse trigger (an entrained effort starts after the machine breath).
+  const assistedOf = new Map<number, number>(); // breathIndex → neural index
+  {
+    let bi2 = 0;
+    for (let j = 0; j < neural.length; j++) {
+      const e = neural[j];
+      if (!e || rtEffort.has(j)) continue;
+      const hasPatientTrigger = (triggersOf.get(j) ?? []).some((tr) => tr.cause === 'patient' && effortOf.get(tr.breathIndex) === j);
+      if (hasPatientTrigger) continue;
+      while (bi2 < breaths.length && (breaths[bi2]?.tStart ?? Infinity) < e.tOnset - lead) bi2 += 1;
+      const b = breaths[bi2];
+      if (b && b.triggerCause !== 'patient' && b.tStart <= e.tOnset + e.ti && !assistedOf.has(bi2) && !rtOf.has(bi2)) assistedOf.set(bi2, j);
+    }
+  }
+  const assistedEffort = new Set([...assistedOf.values()]);
+
   // Effort labels.
   const efforts: EffortLabel[] = [];
   const machineInspAt = (t: number): boolean => {
@@ -197,14 +217,17 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     if (wEnd > inp.tEnd) break; // not yet judgeable
     const trig = (triggersOf.get(j) ?? []).find((tr) => tr.cause === 'patient' && effortOf.get(tr.breathIndex) === j);
     const rt = rtEffort.has(j);
+    const assisted = assistedEffort.has(j);
+    const assistedBreath = assisted ? [...assistedOf.entries()].find(([, nj2]) => nj2 === j)?.[0] ?? null : null;
     efforts.push({
       neuralIndex: j,
       tOnset: e.tOnset,
       ti: e.ti,
-      breathIndex: trig ? trig.breathIndex : null,
-      ineffective: !trig && !rt,
+      breathIndex: trig ? trig.breathIndex : assistedBreath,
+      ineffective: !trig && !rt && !assisted,
       phase: machineInspAt(e.tOnset) ? 'insp' : 'exp',
       reverseTriggered: rt,
+      assistedByMachine: assisted,
     });
   }
 
@@ -224,9 +247,10 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     const trig = triggers.find((tr) => tr.breathIndex === i);
     const ej = effortOf.get(i);
     const rtj = rtOf.get(i);
+    const aj = assistedOf.get(i);
     let triggerDelay: number | null = null;
     let cycleDelay: number | null = null;
-    const e = ej !== undefined ? neural[ej] : undefined;
+    const e = ej !== undefined ? neural[ej] : aj !== undefined ? neural[aj] : undefined;
 
     if (b.triggerCause === 'patient') {
       if (e && trig) {
@@ -262,6 +286,13 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
         ev.reverseDelay = re.tOnset - b.tStart;
         lastEffortForBreath.set(rtj, i);
       }
+    } else if (aj !== undefined && e) {
+      // Machine breath that met an effort already under way (D-012): late relative to the effort onset.
+      triggerDelay = b.tStart - e.tOnset;
+      ev.triggerDelay = triggerDelay;
+      ev.assistedByMachine = 1;
+      if (triggerDelay > k('LABEL_TRIGGER_DELAY')) patterns.push('delayed-trigger');
+      lastEffortForBreath.set(aj, i);
     }
 
     // Cycling relative to the neural offset (matched effort only).
@@ -286,6 +317,7 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
       let plMax = -Infinity;
       let pend = 0;
       const iEarly = inp.indexAt(b.tStart + k('LABEL_OVERSHOOT_WINDOW'));
+      const pmusAtStart = Math.max(0, inp.read('truth.pmus', iS));
       for (let idx = iS; idx <= iE; idx++) {
         const pm = inp.read('truth.pmus', idx);
         if (idx <= iI && pm > 0) ptp += pm / inp.fs;
@@ -300,7 +332,13 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
       }
       ev.pmusPeak = pmusPeak;
       ev.ptpInsp = ptp;
-      if (ctx.mode === 'VC-AC' && (e || rtj !== undefined) && ptp >= k('LABEL_FLOW_STARVATION_PTP') && pmusPeak >= k('LABEL_FLOW_STARVATION_PMUS')) {
+      // Flow starvation: effort active during a VC insufflation (PTP), strong enough to shape the ramp, and
+      // still rising after the breath began (a breath that arrives while Pmus already relaxes is a delayed
+      // trigger, not starved demand; D-012).
+      let pmusPeakInsp = 0;
+      for (let idx = iS; idx <= iI; idx++) pmusPeakInsp = Math.max(pmusPeakInsp, inp.read('truth.pmus', idx));
+      ev.pmusRiseInsp = pmusPeakInsp - pmusAtStart;
+      if (ctx.mode === 'VC-AC' && (e || rtj !== undefined) && ptp >= k('LABEL_FLOW_STARVATION_PTP') && pmusPeak >= k('LABEL_FLOW_STARVATION_PMUS') && pmusPeakInsp - pmusAtStart >= k('LABEL_FLOW_STARVATION_RISE')) {
         patterns.push('flow-starvation');
       }
       if (ctx.mode !== 'VC-AC' && pawEarlyMax > ctx.pTarget + k('LABEL_OVERSHOOT_MARGIN')) {
@@ -353,7 +391,7 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
       cycleCause: b.cycleCause,
       patterns,
       evidence: ev,
-      neuralIndex: ej ?? rtj ?? null,
+      neuralIndex: ej ?? rtj ?? aj ?? null,
       triggerDelay,
       cycleDelay,
     });

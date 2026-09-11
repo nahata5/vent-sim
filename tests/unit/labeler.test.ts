@@ -64,6 +64,22 @@ describe('truth labeler', () => {
     expect(Math.abs(mean - 0.4)).toBeLessThan(0.1);
   });
 
+  it('flow starvation needs an effort still rising after the insufflation starts (D-012)', () => {
+    // Entrainment delay 0.5 s against a 0.5 s VC breath: each stacked breath entrains a new effort that
+    // triggers late, so the breath begins while Pmus is already relaxing. That is a delayed trigger, not
+    // flow starvation (the demand peaked before any gas was delivered).
+    const spec = resolveScenario(scenarioById('reverse-trigger'));
+    const patient = { ...spec.patient, drive: { ...(spec.patient.drive ?? defaultDriveParams()), entrainment: { ratio: 1 as const, delay: 0.5, jitter: 0.03 } } };
+    const res = runHeadless({ patient, settings: { ...spec.settings, peakFlow: 50 }, seed: 101, duration: 60 });
+    const out = labelRun(res);
+    const late = out.breaths.filter((b) => b.tStart > 10 && b.triggerCause === 'patient' && (b.triggerDelay ?? 0) > 0.6 && !b.patterns.includes('double-trigger'));
+    expect(late.length).toBeGreaterThan(3);
+    expect(late.every((b) => b.patterns.includes('delayed-trigger'))).toBe(true);
+    expect(late.some((b) => b.patterns.includes('flow-starvation'))).toBe(false);
+    // The scenario's own stacked breaths (effort still rising) keep the label.
+    expect(fraction(run('flow-starvation', 40), 'flow-starvation')).toBeGreaterThan(0.8);
+  });
+
   it('auto-trigger: cardiac oscillation with a 1 L/min flow trigger and no neural drive', () => {
     const patient = presetPatient('normal');
     const res = runHeadless({
@@ -96,6 +112,24 @@ describe('truth labeler', () => {
     const triggered = out.breaths.filter((b) => b.tStart > 10 && b.triggerCause === 'patient' && b.triggerDelay !== null);
     expect(triggered.length).toBeGreaterThan(5);
     expect(triggered.filter((b) => b.patterns.includes('delayed-trigger')).length / triggered.length).toBeGreaterThan(0.3);
+  });
+
+  it('an effort met by a coincident time-triggered breath is assisted, not ineffective (D-012)', () => {
+    const res = run('fibrosis', 60);
+    const out = labelRun(res);
+    const trig = res.events.filter((e) => e.type === 'trigger');
+    let coincident = 0;
+    for (const e of out.efforts) {
+      if (e.tOnset < 5) continue;
+      const met = trig.some((t) => t.t >= e.tOnset - 0.05 && t.t <= e.tOnset + e.ti);
+      if (met) {
+        coincident += 1;
+        expect(e.ineffective).toBe(false);
+        expect(e.breathIndex).not.toBeNull();
+      }
+    }
+    expect(coincident).toBeGreaterThan(0);
+    expect(out.efforts.some((e) => e.assistedByMachine)).toBe(true);
   });
 
   it('injector findings: leak, cough, high resistance and low compliance are labeled from the truth', () => {

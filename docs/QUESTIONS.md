@@ -3,4 +3,27 @@
 Genuinely clinical decisions the briefs do not settle. Each has the default we built around, so nothing
 blocks on an answer. Newest last.
 
-(none yet)
+## Q-1 · Should flow starvation on very short VC breaths count as bedside-detectable? (2026-09-11, D-012)
+
+In the double-trigger scenario every 0.38 s VC breath begins while the effort is still accelerating. The
+truth labels it flow starvation (Pmus PTP ≥ 1 cmH2O·s during the insufflation), but the Paw ramp is nearly
+linear (mid-ramp convexity ≈ 0.2 cmH2O versus ≥ 0.9 for the flow-starvation scenario) and no passive breath
+exists for comparison. **Default:** the truth keeps the PTP rule (it is what the explain card should teach),
+the detector labels the pair as double trigger, and the §9.5 flow-starvation score excludes both members of a
+double-trigger pair. Alternative: define flow starvation only where the scooped ramp is visible (drop the
+truth label on breaths shorter than 0.5 s).
+
+## Q-2 · Is COPD on PSV with ETS 35 % "delayed cycling" when the neural Ti happens to be long? (2026-09-11)
+
+The truth uses van Diepen's margin (cycle delay > 0.3 s after the neural end). In the COPD scenario every
+breath qualifies once the trigger delay (≈ 0.3 s) is added to the slow inspiratory tail, including breaths
+whose machine Ti (0.9 s) is about equal to the neural Ti. **Default:** keep the margin; the detector reads the
+relaxation knee of the flow decay and the trigger delay. Alternative: judge delayed cycling on machine Ti
+minus neural Ti only (ignore the trigger delay), which would relabel about a third of those breaths.
+
+## Q-3 · Is an effort met by a coincident time-triggered breath "assisted"? (2026-09-11, D-012)
+
+In PC-AC at a set rate close to the patient's, an effort sometimes begins within 60 ms of a time-triggered
+breath. **Default:** the effort is assisted (not ineffective, not a reverse trigger), and the breath is a
+delayed trigger when it started more than 0.25 s after the effort onset. Alternative: count it as
+ineffective (the patient did not trigger) and as a synchrony failure in the asynchrony index.
