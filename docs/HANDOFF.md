@@ -70,10 +70,10 @@ Left, in order (TDD: write the test file first, then the code):
 
 ## Hosting
 
-Netlify (D-008). `netlify.toml` builds `npm run build` → `dist`, Node 22; GitHub Actions is CI only. Intended URL
-https://vent-sim.netlify.app/ with alias `tomnahass.com/vent-sim/` (proxy rule in README). The Netlify site had
-not been created as of 2026-09-11: the owner must import `nahata5/vent-sim` in the Netlify UI (build settings
-come from `netlify.toml`; site name `vent-sim`). Verify the URL afterwards and update README/PROGRESS.
+Netlify (D-008). `netlify.toml` builds `npm run build` → `dist`, Node 22; GitHub Actions is CI only. **Live at
+https://vent-sim.netlify.app/** (site created by the owner on 2026-09-11, verified HTTP 200 with the app
+title); every push to `main` redeploys. The alias `tomnahass.com/vent-sim/` needs the proxy rule in README on
+the personal site and is not yet verified.
 
 ## Detector: final numbers and how it works
 

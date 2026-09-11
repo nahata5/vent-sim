@@ -269,8 +269,10 @@ clean; `npm run build` bundles the two workers (sim 63 kB, validation 120 kB).
 **Screenshots:** `docs/screenshots/m6-ineffective-effort-badges.png` (COPD over-assisted on PSV, truth layer
 on: detector badges DC/IE over the breaths, truth row beneath, AI tile), `docs/screenshots/m6-validation.png`.
 
-**Known issues:** the AI window is the 120 s the store retains, not Thille's full minutes; the Netlify site
-still needs its first build check by the owner; delayed cycling 0.84 on the held-out grid (D-012).
+**Known issues:** the AI window is the 120 s the store retains, not Thille's full minutes; delayed cycling
+0.84 on the held-out grid (D-012).
+
+**Deployed:** https://vent-sim.netlify.app/ (site created 2026-09-11, verified live; redeploys on every push).
 
 ### M7 — Recruitable lung and stress index (2026-09-11, in progress)
 
