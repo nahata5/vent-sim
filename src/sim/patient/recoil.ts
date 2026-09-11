@@ -10,6 +10,8 @@ export interface LungRecoil {
   pressure(v: number): number;
   /** Local elastance dP/dV, cmH2O/L. */
   elastance(v: number): number;
+  /** Inverse: volume at which pressure(v) = p (exact for both implementations). */
+  volumeAt(p: number): number;
 }
 
 export class LinearRecoil implements LungRecoil {
@@ -19,6 +21,9 @@ export class LinearRecoil implements LungRecoil {
   }
   elastance(): number {
     return this.el;
+  }
+  volumeAt(p: number): number {
+    return p / this.el;
   }
 }
 
@@ -51,6 +56,10 @@ export class VenegasRecoil implements LungRecoil {
     const eps = 1e-4 * this.b;
     const vv = Math.min(Math.max(v, this.a + eps), this.a + this.b - eps);
     return (this.d * this.b) / ((vv - this.a) * (this.a + this.b - vv));
+  }
+  volumeAt(p: number): number {
+    // raw(v) = p + p0  →  v = a + b / (1 + exp(−(p + p0 − c)/d))
+    return this.a + this.b / (1 + Math.exp(-(p + this.p0 - this.c) / this.d));
   }
 }
 

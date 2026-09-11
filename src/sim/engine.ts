@@ -128,7 +128,15 @@ export class SimEngine {
       const tDev = this.t;
       // Emit the sample for the phase the physics just ran in, before the controller acts on it.
       if (this.onSample) this.onSample(this.makeSample(tDev, m, pesTrue, phase));
-      const events = this.vent.control({ t: tDev, paw: m.paw, flow: m.flow, vol: m.vol, pes: null });
+      const events = this.vent.control({
+        t: tDev,
+        paw: m.paw,
+        flow: m.flow,
+        vol: m.vol,
+        vti: this.sensors.vti,
+        vte: this.sensors.vte,
+        pes: null,
+      });
       for (const e of events) {
         this.events.push(e);
         this.onEvent?.(e);

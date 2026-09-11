@@ -34,6 +34,9 @@ export class DelayLine {
     this.idx = (this.idx + 1) % this.buf.length;
     return out;
   }
+  fill(v: number): void {
+    this.buf.fill(v);
+  }
 }
 
 /**

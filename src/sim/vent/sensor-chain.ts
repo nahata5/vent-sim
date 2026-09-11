@@ -44,6 +44,8 @@ class Channel {
   }
   reset(v: number): void {
     this.lpf.reset(v);
+    this.delay.fill(v);
+    this.latest = v;
   }
 }
 

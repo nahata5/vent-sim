@@ -87,3 +87,30 @@ passive lungs. Total 25/25; lint clean.
 **Known issues:** COPD, asthma, fibrosis and IAH presets are consistent with the briefs but not yet
 exercised by tests beyond construction; they get covered by the M6 emergence matrix. Hosting issue above
 still open.
+
+### M3 — Full ventilator state machine, sensor chain, monitor (2026-09-10)
+
+**Built:** patient triggering on measured signals (flow trigger against the net flow, pressure trigger
+against PEEP), refractory period after cycle-off, actuator latency, PSV/CPAP flow cycling at ETS with a
+30 ms confirmation, pressure-safety cycling (Paw > target + 3), Ti_max cycling, apnea backup (PC breaths at
+the backup rate, cleared by the next patient trigger), alarms (high Ppeak with breath termination, low Vte,
+high/low Ve and high RR on a rolling minute, disconnect, high leak, Ti_max, high PEEPi after an expiratory
+hold) as `alarm` events with active/inactive transitions, optional leak compensation baseline, valve limits
+(inspiratory valve cannot take flow back; expiratory source capped at bias flow; blower peak flow), a
+robust bracketed leak solve in the airway node, and delay-line priming so measurements start at PEEP.
+`src/monitor/monitor.ts`: per-breath Ppeak, Pplat (from a pause ≥ 0.3 s or the last hold), mean Paw,
+measured PEEP, total/intrinsic PEEP from holds, ΔP, Cstat, Cdyn, Raw, Vti/Vte, leak %, Ti/Te/I:E, peak
+and end-expiratory flow, rolling RR and Ve, RSBI, Vt/kg PBW, least-squares R/C/PEEP fit.
+
+**Tests:** `tests/unit/ventilator.test.ts` 14/14 (trigger latency < 150 ms, pressure vs flow trigger,
+refractory, no triggers without effort then apnea backup + alarm, ETS shortens Ti, leak → Ti_max cycling,
+expiratory push → pressure cycling, CPAP holds PEEP, rise time, servo sag under demand only with the
+realistic servo, high-Ppeak alarm and cut-off, leak → leak and low-Vte alarms, disconnect, high RR).
+`tests/physics/monitor.test.ts` 4/4 (VC with pause: all monitored values vs physics; least-squares R/C
+within 10%; COPD intrinsic PEEP after hold with non-zero end-expiratory flow; RSBI and mL/kg). Total 43/43,
+lint clean. Two model bugs fixed on the way: the static initializer carried the pleural offset (now
+Palv = Ecw·V + recoil, zero at FRC), and the leak fixed-point diverged for large leaks (now a bracketed
+monotone solve).
+
+**Known issues:** hosting issue above still open. Emergent double triggers already appear in the CPAP and
+pressure-trigger tests (effort persisting past flow cycling), which is expected physics.

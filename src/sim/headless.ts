@@ -5,11 +5,14 @@
 import { SimEngine, type EngineOptions } from './engine';
 import { TRUTH_CHANNELS, type TruthChannel } from './channels';
 import type { BreathRecord, ManeuverResult, VentEvent } from './types';
+import type { PatientDrive } from './patient/patient';
 
 export interface HeadlessOptions extends EngineOptions {
   duration: number; // s
   /** Optional callback to change inputs mid-run (e.g. apply a fix at t = 60 s). */
   schedule?: Array<{ t: number; action: (engine: SimEngine) => void }>;
+  /** Optional scripted drive evaluated every physics step (tests of trigger/cycle logic before M4). */
+  drive?: (t: number) => Partial<PatientDrive>;
 }
 
 export interface HeadlessResult {
@@ -55,6 +58,7 @@ export function runHeadless(opts: HeadlessOptions): HeadlessResult {
       schedule[next]?.action(engine);
       next += 1;
     }
+    if (opts.drive) engine.setDrive(opts.drive(engine.t));
     engine.step();
   }
   return {

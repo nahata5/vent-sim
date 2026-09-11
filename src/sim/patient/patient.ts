@@ -98,23 +98,21 @@ export class PatientModel {
    */
   initAtStatic(paw: number): void {
     const m = this.params.mechanics;
-    // Solve Ecw·(V0+V1) + PL0_i + recoil_i(V_i) = paw for both i, by fixed-point on Vtot.
+    // Palv_i = Ppl_i + PL_i = (pplOffset + Ecw·Vtot + G_i) + (−(pplOffset + G_i) + recoil_i(V_i))
+    //        = Ecw·Vtot + recoil_i(V_i), so Palv = 0 at V = 0 (FRC) by construction.
+    // Solve recoil_i(V_i) = paw − Ecw·Vtot for both i, by damped fixed-point on Vtot.
     let vtot = 0;
-    for (let iter = 0; iter < 200; iter++) {
+    for (let iter = 0; iter < 500; iter++) {
       let sum = 0;
-      for (let i = 0; i < N; i++) {
-        const target = paw - m.ecw * vtot - (this.comp[i] as CompartmentDerived).pl0;
-        sum += this.invertRecoil(i, target);
-      }
-      if (Math.abs(sum - vtot) < 1e-9) {
+      for (let i = 0; i < N; i++) sum += this.invertRecoil(i, paw - m.ecw * vtot);
+      if (Math.abs(sum - vtot) < 1e-10) {
         vtot = sum;
         break;
       }
       vtot = 0.5 * vtot + 0.5 * sum; // damped fixed point (chest wall couples the compartments)
     }
     for (let i = 0; i < N; i++) {
-      const target = paw - m.ecw * vtot - (this.comp[i] as CompartmentDerived).pl0;
-      this.x[i] = this.invertRecoil(i, target);
+      this.x[i] = this.invertRecoil(i, paw - m.ecw * vtot);
       this.x[N + i] = 0;
     }
     this.lastQ = 0;
@@ -122,17 +120,7 @@ export class PatientModel {
   }
 
   private invertRecoil(i: number, p: number): number {
-    const r = this.recoil[i] as LungRecoil;
-    // Newton on recoil(v) = p; recoil is monotone increasing.
-    let v = p / Math.max(r.elastance(0), 1e-6);
-    for (let k = 0; k < 50; k++) {
-      const f = r.pressure(v) - p;
-      const df = r.elastance(v);
-      const step = f / df;
-      v -= step;
-      if (Math.abs(step) < 1e-10) break;
-    }
-    return v;
+    return (this.recoil[i] as LungRecoil).volumeAt(p);
   }
 
   /** Effective Pmus after the force–velocity penalty (uses last step's inspiratory airway flow). */

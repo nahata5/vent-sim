@@ -40,3 +40,25 @@ FRC) and span b (L) and the code solves d and c so that the elastance at FRC equ
 passes through (V = 0, PL0). The Venegas shape then determines how Ers changes with PEEP, which is what
 the Gattinoni 1998 direction test checks. The recruitable-population lung (M7) replaces this for
 recruitment-specific behaviour.
+
+## D-006 · Ventilator valve limits and cycling details (2026-09-10)
+
+- **Pressure-safety cycling applies to spontaneous pressure-targeted breaths (PSV/CPAP).** Spec §5 lists
+  "Paw above target + 3" among the cycle criteria. In PC-AC the breath stays time-cycled and the
+  high-pressure alarm is the safety, which matches how active-exhalation-valve ventilators behave.
+- **Inspiratory valve cannot take flow back (qMin = 0 during inspiration).** With a pure Thevenin source an
+  ideal integral servo would "inhale" against an expiratory push and Paw could never rise above target,
+  so pressure cycling could never occur. Real valves close; the pressure BC therefore degenerates to a
+  flow source at 0 when the patient pushes.
+- **Expiratory source flow capped at the bias flow.** During expiration the inspiratory valve supplies at
+  most the bias flow (Brief 1 §2.1). A larger patient demand pulls Paw down, which is the mechanism of
+  pressure triggering; without the cap the PEEP servo would supply any demand and the pressure trigger
+  would never see a dip.
+- **Blower peak flow 3 L/s [M].** Bounds the servo under large leaks and disconnects (`MAX_SERVO_FLOW`).
+- **ETS confirmation window 30 ms [M].** The flow-cycle criterion is validated over a few device samples
+  so that an abrupt expiratory push can pressure-cycle first (`ETS_CONFIRM_TIME`).
+- **Disconnect alarm is not phase-limited.** A disconnected circuit auto-triggers through the leak, so
+  expiration can be shorter than the sustain window; Paw < PEEP − 3 for 0.5 s in any phase raises it.
+- **Ventilator vti/vte** are integrated from the measured flow at the physics rate by phase (device
+  internal rate); the Monitor integrates positive and negative flow over the cycle so the sensor delay
+  does not clip the last milliseconds of inspiration.

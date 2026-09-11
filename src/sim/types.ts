@@ -13,7 +13,11 @@ export type CycleCause = 'time' | 'volume' | 'flow' | 'ti-max' | 'pressure' | 'a
 /** Boundary condition the ventilator imposes at the Y-piece for one physics step. */
 export type AirwayBC =
   | { kind: 'flow'; qv: number }
-  | { kind: 'pressure'; psrc: number; rsrc: number }
+  /**
+   * Thevenin pressure source with valve limits: the inspiratory valve cannot pull flow back (qMin = 0 during
+   * inspiration) and the blower has a peak flow (qMax). Outside the limits the source behaves as a flow source.
+   */
+  | { kind: 'pressure'; psrc: number; rsrc: number; qMin?: number; qMax?: number }
   | { kind: 'occluded' };
 
 /** Ventilator event markers (device clock). */
