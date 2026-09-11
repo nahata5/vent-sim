@@ -80,6 +80,16 @@ export const CONSTANTS = {
   ENTRAIN_JITTER_DEFAULT: c(0.03, 'fraction', 'Brief 1 §3.5 Akoumianaki 2013: CV of reverse-triggered breath frequency < 5%', 'V'),
 
   // ───────────────────────── CO2 → drive loop (Spec §4.4, Brief 1 §1.5) ─────────────────────────
+  // ───────────────── Schematic SpO2 (Spec §4.6 stretch goal; display only, not physics) ─────────────────
+  SPO2_PB: c(760, 'mmHg', 'Alveolar gas equation: barometric pressure at sea level', 'V'),
+  SPO2_PH2O: c(47, 'mmHg', 'Alveolar gas equation: saturated water vapour pressure at 37 °C', 'V'),
+  SPO2_RQ: c(0.8, 'ratio', 'Alveolar gas equation: respiratory quotient', 'L'),
+  SPO2_HB: c(12, 'g/dL', 'Typical ICU haemoglobin; O2 content = 1.34·Hb·SaO2 + 0.003·PaO2', 'L'),
+  SPO2_AV_DIFF: c(5, 'mL/dL', 'Arteriovenous O2 content difference (Fick, VO2 250 mL/min at CO 5 L/min)', 'L'),
+  SPO2_SHUNT_BASE: c(0.05, 'fraction', 'Physiological venous admixture of a normal lung ≈ 2–5 % [M, upper end]', 'M'),
+  SPO2_SHUNT_PER_CLOSED: c(0.5, 'fraction per closed fraction', 'Share of a closed (non-aerated) unit that still perfuses after hypoxic vasoconstriction [M]', 'M'),
+  SPO2_MPAW_HALF: c(20, 'cmH2O', 'Mean airway pressure that halves the base shunt (schematic recruitment of unmodelled atelectasis) [M]', 'M'),
+  SPO2_SHUNT_MAX: c(0.6, 'fraction', 'Clamp on the effective shunt [M]', 'M'),
   CO2_BTPS_FACTOR: c(0.863, 'mmHg·L/mL', 'Brief 1 §1.5: PaCO2_ss = 0.863·VCO2/VA (VCO2 mL/min STPD, VA L/min BTPS)', 'V'),
   CO2_VCO2_DEFAULT: c(200, 'mL/min', 'Brief 1 §1.5: VCO2 ≈ 200–250 mL/min', 'L'),
   CO2_DEAD_SPACE_ML_PER_KG: c(2.2, 'mL/kg PBW', 'Brief 1 §1.5: anatomic dead space 2.2 mL/kg PBW', 'L'),

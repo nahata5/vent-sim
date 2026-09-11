@@ -479,3 +479,13 @@ effort 0.63 of efforts, delayed cycling 1.00, auto-PEEP 1.00, leak 1.00, secreti
 the fix and 0 % after it (cuff re-inflated, suctioned, ETS 70 %, PS 6, PEEP 5, trigger 1.5). Test first:
 `scenarios.test.ts` (in the library, ≥ 2 dyssynchrony targets, ≥ 2 injectors, fix removes every injector);
 the emergence test picks it up automatically (now 14 rows). Snapshot regenerated; VALIDATION.md list updated.
+
+## Post-M9 · Schematic SpO2 (2026-09-11)
+
+Spec §4.6 stretch goal, D-017: `src/monitor/spo2.ts` (alveolar gas equation → effective shunt from the
+aerated fraction, mean Paw and a per-scenario base shunt → shunt equation → Severinghaus curve), computed
+per closed breath in the controller and shown as a Monitor tile that says "schematic" with PaO2 and shunt.
+`ScenarioDef.shunt` (pulmonary ARDS 0.3, extrapulmonary 0.2). Nine `SPO2_*` constants cited. Tests first:
+`spo2.test.ts` (room-air normal lung 95–99 %, monotone in FiO2/open fraction/Pmean, base shunt), `m7.spec.ts`
+(tile labelled schematic, ARDS lower than normal). LIMITATIONS and MODEL.md updated; constants table
+regenerated; snapshot regenerated (scenario files changed).

@@ -15,7 +15,12 @@ entry names the decision or milestone that introduced it. Newest additions last 
   low behind the heart, and it is not present on the true pleural channels unless the cardiac injector is on.
 - **CO2 is a single lumped store** (M7, D-014): one mass balance with a 3 min time constant, one chemoreceptor
   delay, no separate lung/tissue/brain compartments, no O2 or peripheral chemoreceptor term, fixed VCO2 and
-  dead space. SpO2 is not modelled.
+  dead space.
+- **SpO2 is schematic** (Spec §4.6 stretch goal, D-017): a display-only sketch from FiO2, PaCO2, the aerated
+  fraction of units, mean airway pressure and a per-scenario base shunt, through the alveolar gas equation,
+  the shunt equation with a fixed a–v difference and the Severinghaus curve. It has no dynamics (no
+  desaturation time course, no lung O2 store), no effect on drive, and the shunt mapping [M] is uncalibrated;
+  the tile says "schematic" and the value must not be read as a prediction.
 - **The time warp scales the CO2 clock only; breathing cannot be warped** (D-014). Every real-time lag in the
   loop (one breath for the VA estimate, the neural response) is multiplied by the warp, so above ≈ ×20 the loop
   shows lag-driven periodic breathing that a real patient would not. The drive gains are set at the low end of

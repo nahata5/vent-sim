@@ -69,6 +69,8 @@ export interface ScenarioDef {
   criteria?: ScenarioCriteria;
   /** Scenario-specific quiz fix checks on truth metrics (Spec §8), e.g. PL,ee ≥ 0 for the obese patient. */
   quizExtras?: QuizExtraDef[];
+  /** Base venous admixture for the schematic SpO2 readout (Spec §4.6), fraction; default SPO2_SHUNT_BASE. */
+  shunt?: number;
 }
 
 // Explicit imports (not import.meta.glob) so the library also loads under plain Node (tsx scripts, tests).

@@ -77,3 +77,20 @@ test('truth layer: the recruited-volume row and the tidal-recruitment badge code
   await expect(page.getByTestId('stress-recruited')).toContainText('mL');
   await expect(page.getByTestId('dashboard')).toContainText('% of units open');
 });
+
+test('schematic SpO2 tile: labelled schematic, a number for the normal lung, lower in pulmonary ARDS on the same FiO2', async ({ page }) => {
+  await page.goto('/#normal-passive');
+  await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+  await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+  await page.waitForFunction(() => (window.__ventsim?.ctl.latestSpo2 ?? null) !== null, undefined, { timeout: 60_000 });
+  const tile = page.getByTestId('mon-SpO2');
+  await expect(tile).toContainText('schematic');
+  const normal = await page.evaluate(() => window.__ventsim?.ctl.latestSpo2?.spo2 ?? 0);
+  expect(normal).toBeGreaterThan(95);
+  await page.goto('/#ards-pulmonary');
+  await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+  await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+  await page.waitForFunction(() => (window.__ventsim?.ctl.latestSpo2 ?? null) !== null, undefined, { timeout: 60_000 });
+  const ards = await page.evaluate(() => window.__ventsim?.ctl.latestSpo2?.spo2 ?? 0);
+  expect(ards).toBeLessThan(normal);
+});

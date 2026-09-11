@@ -113,6 +113,19 @@ the cardiac cycle, `PES_CARDIAC_PP` = 1.5 cmH2O peak-to-peak, beat-mean removed 
 is the model value). The occlusion test (Baydur) and the ΔPes readout of the lung-stress dashboard read Pes
 averaged over `OCCLUSION_SMOOTHING` (0.3 s) so the artifact does not inflate the swing (D-016).
 
+## 5b. Schematic SpO2 (Spec §4.6 stretch goal, D-017) — display only
+
+Not physics: a per-breath sketch on the main thread that nothing in the model reads. From FiO2, PaCO2 (CO2
+loop or the 40 mmHg set point), the aerated fraction of units at end-expiration `open`, the breath's mean
+airway pressure and a per-scenario base shunt `s0` (`ScenarioDef.shunt`, default 0.05):
+```
+PAO2   = FiO2·(760 − 47) − PaCO2/0.8
+Qs/Qt  = min(0.6, s0/(1 + Pmean/20) + 0.5·(1 − open))
+CaO2   = CcO2(PAO2) − (Qs/Qt)·5/(1 − Qs/Qt)        CxO2 = 1.34·12·SaO2(PxO2) + 0.003·PxO2
+SpO2   = SaO2(PaO2),  SaO2(P) = 1/(23400/(P³ + 150·P) + 1)   (Severinghaus 1979), PaO2 by bisection
+```
+The tile is labelled "schematic"; there are no dynamics and the shunt terms are [M].
+
 ## 6. Ventilator (Spec §5, Brief 1 §2)
 
 State machine `EXP → trigger (patient | time | backup) → INSP → cycle → [PAUSE] → EXP`, with hold and
@@ -202,7 +215,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (252 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (261 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -247,6 +260,15 @@ Generated from `src/config/constants.ts` (252 constants). Confidence: V = verifi
 | `SIGH_FACTOR` | 2 | multiple of Pmax | M | Brief 1 §4: sighs ≈ 2× effort every 5–10 min [uncertain] |
 | `ENTRAIN_DELAY_DEFAULT` | 0.4 | s | L | Brief 1 §3.5: reverse-trigger phase delay ≈ 0.39 s (phase angle ~60°) [uncertain generalizability] |
 | `ENTRAIN_JITTER_DEFAULT` | 0.03 | fraction | V | Brief 1 §3.5 Akoumianaki 2013: CV of reverse-triggered breath frequency < 5% |
+| `SPO2_PB` | 760 | mmHg | V | Alveolar gas equation: barometric pressure at sea level |
+| `SPO2_PH2O` | 47 | mmHg | V | Alveolar gas equation: saturated water vapour pressure at 37 °C |
+| `SPO2_RQ` | 0.8 | ratio | L | Alveolar gas equation: respiratory quotient |
+| `SPO2_HB` | 12 | g/dL | L | Typical ICU haemoglobin; O2 content = 1.34·Hb·SaO2 + 0.003·PaO2 |
+| `SPO2_AV_DIFF` | 5 | mL/dL | L | Arteriovenous O2 content difference (Fick, VO2 250 mL/min at CO 5 L/min) |
+| `SPO2_SHUNT_BASE` | 0.05 | fraction | M | Physiological venous admixture of a normal lung ≈ 2–5 % [M, upper end] |
+| `SPO2_SHUNT_PER_CLOSED` | 0.5 | fraction per closed fraction | M | Share of a closed (non-aerated) unit that still perfuses after hypoxic vasoconstriction [M] |
+| `SPO2_MPAW_HALF` | 20 | cmH2O | M | Mean airway pressure that halves the base shunt (schematic recruitment of unmodelled atelectasis) [M] |
+| `SPO2_SHUNT_MAX` | 0.6 | fraction | M | Clamp on the effective shunt [M] |
 | `CO2_BTPS_FACTOR` | 0.863 | mmHg·L/mL | V | Brief 1 §1.5: PaCO2_ss = 0.863·VCO2/VA (VCO2 mL/min STPD, VA L/min BTPS) |
 | `CO2_VCO2_DEFAULT` | 200 | mL/min | L | Brief 1 §1.5: VCO2 ≈ 200–250 mL/min |
 | `CO2_DEAD_SPACE_ML_PER_KG` | 2.2 | mL/kg PBW | L | Brief 1 §1.5: anatomic dead space 2.2 mL/kg PBW |

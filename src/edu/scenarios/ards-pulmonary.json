@@ -1,5 +1,6 @@
 {
   "id": "ards-pulmonary",
+  "shunt": 0.3,
   "order": 20,
   "category": "preset",
   "title": "Pulmonary ARDS, 6 mL/kg VC, deep sedation",

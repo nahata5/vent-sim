@@ -399,3 +399,21 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   effort loses ≈ 4 % of its swing to the window.
 - **Not done.** No amplitude dependence on balloon position (larger behind the heart), no heart-rate
   variability; recorded in LIMITATIONS.
+
+## D-017 · Schematic SpO2 readout (2026-09-11, Spec §4.6 stretch goal)
+
+- **Display only, labelled schematic.** `src/monitor/spo2.ts` runs on the main thread per closed breath; the
+  physics, the drive and the detector never read it. The Monitor tile reads "SpO2 … % schematic" with the
+  estimated PaO2 and effective shunt underneath.
+- **Mapping.** Alveolar gas equation PAO2 = FiO2·(760 − 47) − PaCO2/0.8 (PaCO2 from the CO2 loop when
+  present, else the 40 mmHg set point); effective shunt = base/(1 + Pmean/20) + 0.5·(1 − open fraction),
+  clamped to 0.6; CaO2 = CcO2 − s·5/(1 − s) (shunt equation with a fixed a–v difference, Hb 12); PaO2 by
+  bisection on the Severinghaus 1979 curve, SpO2 = SaO2. Base shunt is `ScenarioDef.shunt` (pulmonary ARDS
+  0.3, extrapulmonary 0.2) or `SPO2_SHUNT_BASE` 0.05. The open fraction comes from the recruitable lung's
+  end-expiratory aerated fraction (1 for a lung without recruitable units), so the PEEP-trial scenarios
+  desaturate as units close and re-saturate as they open; the Pmean term is a schematic stand-in for
+  recruitment of atelectasis the linear-lung phenotypes do not model [M].
+- **Why so simple.** The spec asks for "a simple monotone mapping, clearly labelled schematic"; anything with
+  dynamics or a validated shunt model is out of scope and would invite reading the number as a prediction.
+  Tests: `tests/unit/spo2.test.ts` (normal lung 95–99 % on room air with PaO2 80–110; monotone in FiO2,
+  open fraction and Pmean; base shunt lowers it), `tests/e2e/m7.spec.ts` (tile labelled, ARDS < normal).

@@ -3,6 +3,7 @@ import type { SessionController, ManeuverReadouts } from '../app/controller';
 import type { VentSettings } from '../sim/vent/settings';
 import type { AsynchronyIndex } from '../sim/truth/labeler';
 import { k } from '../config/constants';
+import type { Spo2Readout } from '../monitor/spo2';
 
 interface Props {
   ctl: SessionController;
@@ -14,13 +15,15 @@ interface Props {
   busy: boolean;
   /** Asynchrony index over the last 2 min from the truth labels (null until the first breath closes). */
   ai: AsynchronyIndex | null;
+  /** Schematic SpO2 (Spec §4.6 stretch goal, display only). */
+  spo2: Spo2Readout | null;
 }
 
 function v(x: number | null | undefined, digits = 1): string {
   return x === null || x === undefined || !Number.isFinite(x) ? '—' : x.toFixed(digits);
 }
 
-export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai }: Props) {
+export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2 }: Props) {
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
@@ -48,6 +51,7 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
     ['P0.1', v(p01), 'cmH2O'],
     ['ΔPocc', v(pocc), 'cmH2O'],
     ['ΔPes/ΔPaw', occ ? v(occ.ratio, 2) : '—', 'occlusion test'],
+    ['SpO2', v(spo2?.spo2, 0), spo2 ? `% schematic · PaO2 ${v(spo2.paO2, 0)} · shunt ${v(100 * spo2.shunt, 0)} %` : '% schematic'],
   ];
   return (
     <section class="panel monitor" aria-label="Monitored values" data-testid="monitor-panel">

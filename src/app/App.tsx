@@ -194,6 +194,7 @@ export function App() {
               veMinute={ctl.monitor.veMinute}
               busy={status?.phase === 'exp-hold' || status?.phase === 'occlusion'}
               ai={ctl.ai}
+              spo2={ctl.latestSpo2}
             />
           )}
           {settings && (

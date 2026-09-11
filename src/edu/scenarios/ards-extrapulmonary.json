@@ -1,5 +1,6 @@
 {
   "id": "ards-extrapulmonary",
+  "shunt": 0.2,
   "order": 30,
   "category": "preset",
   "title": "Extrapulmonary ARDS, stiff chest wall, PC",

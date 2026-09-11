@@ -5,6 +5,7 @@
  */
 import { Monitor, type BreathMetrics } from '../monitor/monitor';
 import { truthBreathMetrics, type TruthBreathMetrics } from '../sim/truth/lung-stress';
+import { spo2Schematic, type Spo2Inputs, type Spo2Readout } from '../monitor/spo2';
 import type { BreathRecord, ManeuverKind, ManeuverResult, VentEvent } from '../sim/types';
 import type { VentSettings } from '../sim/vent/settings';
 import type { BalloonParams } from '../sim/patient/balloon';
@@ -90,6 +91,8 @@ export class SessionController {
   latestBreath: BreathMetrics | null = null;
   latestTruth: TruthBreathMetrics | null = null;
   latestRecruit: RecruitReadout | null = null;
+  /** Schematic SpO2 readout (Spec §4.6 stretch goal); null until the first breath closes. */
+  latestSpo2: Spo2Readout | null = null;
   maneuvers: ManeuverReadouts = { ...NO_MANEUVERS };
   alarmLog: Array<Extract<VentEvent, { type: 'alarm' }>> = [];
   view: ViewState = { truth: false, badges: true, drawerTab: 'scenario', frozen: false, tView: NaN, sweep: 12, speed: 1, paused: false };
@@ -153,6 +156,7 @@ export class SessionController {
     this.latestBreath = null;
     this.latestTruth = null;
     this.latestRecruit = null;
+    this.latestSpo2 = null;
     this.maneuvers = { ...NO_MANEUVERS };
     this.alarmLog = [];
     this.co2Log = [];
@@ -188,6 +192,7 @@ export class SessionController {
     this.latestBreath = null;
     this.latestTruth = null;
     this.latestRecruit = null;
+    this.latestSpo2 = null;
     this.maneuvers = { ...NO_MANEUVERS };
     this.alarmLog = [];
     this.co2Log = [];
@@ -414,6 +419,17 @@ export class SessionController {
     this.truthLog.push({ tStart: b.tStart, m: this.latestTruth });
     if (this.truthLog.length > 600) this.truthLog.shift();
     this.latestRecruit = { recruitedVolume: b.frcAeratedEE - this.patient.frc, tidalRecruitUnits: b.tidalRecruitUnits, openFraction: b.openFractionEE };
+    // Schematic SpO2 (Spec §4.6 stretch goal): display only.
+    let pawSum = 0;
+    for (let i = iStart; i <= iEnd; i++) pawSum += s.read('paw', i);
+    const spo2In: Spo2Inputs = {
+      fio2: this.status?.settings.fio2 ?? 0.21,
+      openFraction: b.openFractionEE,
+      meanPaw: pawSum / Math.max(1, iEnd - iStart + 1),
+      paCO2: this.co2Log.at(-1)?.paCO2 ?? k('CO2_SET_POINT'),
+    };
+    if (this.scenario?.shunt !== undefined) spo2In.shunt = this.scenario.shunt;
+    this.latestSpo2 = spo2Schematic(spo2In);
   }
 
   // ─────────── commands ───────────
