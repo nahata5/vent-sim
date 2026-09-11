@@ -53,6 +53,14 @@ describe('progress store', () => {
     expect((JSON.parse(s.map.get('ventsim.progress.v1') ?? '{}') as { scenarios: Record<string, { attempts: number }> }).scenarios.y?.attempts).toBe(1);
   });
 
+  it('keeps a compact debrief summary with the attempt', () => {
+    const s = memoryStorage();
+    const p = new ProgressStore(s);
+    p.record('copd', { score: 70, identification: 1, fixPassed: true, seconds: 80, changes: 2, at: 5, debrief: { changes: ['PS 16 → 6 cmH2O at 84 s'], patterns: ['ineffective-effort'], pass: true } });
+    const again = new ProgressStore(s);
+    expect(again.get('copd')?.history[0]?.debrief?.changes).toEqual(['PS 16 → 6 cmH2O at 84 s']);
+  });
+
   it('reset clears everything', () => {
     const s = memoryStorage();
     const p = new ProgressStore(s);

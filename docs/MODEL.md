@@ -215,7 +215,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (261 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (262 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -476,6 +476,7 @@ Generated from `src/config/constants.ts` (261 constants). Confidence: V = verifi
 | `QUIZ_CHANGES_FREE` | 3 | setting changes | M | Number of setting changes with a full changes score [M] |
 | `QUIZ_CHANGES_PENALTY` | 0.05 | per extra change | M | Score lost per setting change beyond the free ones [M] |
 | `QUIZ_FACTOR_FLOOR` | 0.5 | fraction | M | Floor of the time and changes factors [M] |
+| `QUIZ_FIX_BAND` | 0.25 | fraction of the recommended step | M | Debrief (D-019): a learner value within 25 % of the recommended step of the recommended value counts as "matched"; the same direction but further away is "partial" [M] |
 | `PBW_MALE_INTERCEPT` | 50 | kg | L | Brief 1 §5 ARDSNet 2000: male PBW = 50 + 0.91·(height − 152.4) |
 | `PBW_FEMALE_INTERCEPT` | 45.5 | kg | L | Brief 1 §5 ARDSNet 2000: female PBW = 45.5 + 0.91·(height − 152.4) |
 | `PBW_SLOPE` | 0.91 | kg/cm | L | Brief 1 §5 ARDSNet 2000 |

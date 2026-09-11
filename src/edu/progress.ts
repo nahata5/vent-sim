@@ -10,6 +10,13 @@ export interface KeyValueStorage {
   removeItem(key: string): void;
 }
 
+/** Compact debrief kept with an attempt (design 2026-09-11 §5, D-019): what changed, which patterns, pass. */
+export interface DebriefSummary {
+  changes: string[];
+  patterns: string[];
+  pass: boolean;
+}
+
 export interface QuizAttempt {
   score: number;
   identification: number;
@@ -18,6 +25,8 @@ export interface QuizAttempt {
   changes: number;
   /** Epoch ms. */
   at: number;
+  /** Present for attempts made after the debrief existed. */
+  debrief?: DebriefSummary;
 }
 
 export interface ScenarioProgress {

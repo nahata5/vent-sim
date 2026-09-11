@@ -317,6 +317,7 @@ export const CONSTANTS = {
   QUIZ_CHANGES_FREE: c(3, 'setting changes', 'Number of setting changes with a full changes score [M]', 'M'),
   QUIZ_CHANGES_PENALTY: c(0.05, 'per extra change', 'Score lost per setting change beyond the free ones [M]', 'M'),
   QUIZ_FACTOR_FLOOR: c(0.5, 'fraction', 'Floor of the time and changes factors [M]', 'M'),
+  QUIZ_FIX_BAND: c(0.25, 'fraction of the recommended step', 'Debrief (D-019): a learner value within 25 % of the recommended step of the recommended value counts as "matched"; the same direction but further away is "partial" [M]', 'M'),
 
   // ───────────────────────── Clinical guardrails ─────────────────────────
   PBW_MALE_INTERCEPT: c(50, 'kg', 'Brief 1 §5 ARDSNet 2000: male PBW = 50 + 0.91·(height − 152.4)', 'L'),
