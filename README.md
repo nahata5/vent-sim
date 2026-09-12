@@ -9,7 +9,7 @@ stress, strain, driving pressure, mechanical power and recruitment.
 
 > **Education only.** This is not a medical device and not a clinical decision aid.
 
-**Live:** https://vent-sim.netlify.app/ (also proxied at `tomnahass.com/vent-sim/`). Validation page:
+**Live:** `vent.nahass.ai` on Cloudflare (D-021); https://vent-sim.netlify.app/ is the fallback. Validation page:
 https://vent-sim.netlify.app/#validation.
 
 ## What it does
@@ -125,21 +125,39 @@ buffers, runs the labeler and the detector off the animation frame on each close
 sweeps and loops on Canvas2D at 60 fps. The detector reads only `t, paw, flow, vol, pes` and ventilator
 events; the truth layer is for teaching displays, labels, scoring and exports.
 
-## Hosting (Netlify)
+## Hosting
 
-A static site with no backend. Netlify builds and deploys it from `netlify.toml` (`npm run build`, publish
-`dist/`, Node 22) on every push to `main`; GitHub Actions (`.github/workflows/deploy.yml`) is the quality
-gate (lint, tests, Playwright, build).
+A static site with no backend. Cloudflare serves it; Netlify stays configured as a fallback. Both build the
+same artifact (`npm run build` → `dist/`) and both read `public/_headers` from it, so one header file covers
+either host.
 
-- **Live URL:** https://vent-sim.netlify.app/ (Netlify site `vent-sim`, imported from `nahata5/vent-sim`).
-- **Personal-site alias:** `tomnahass.com/vent-sim/` proxies to the same deploy. The personal site (also on
-  Netlify) needs these two lines in its `_redirects` (or the equivalent `[[redirects]]` in its `netlify.toml`):
+**Cloudflare Workers Static Assets (primary, D-021)** — `vent.nahass.ai`.
 
-  ```
-  /vent-sim   /vent-sim/   301
-  /vent-sim/* https://vent-sim.netlify.app/:splat   200
-  ```
+- `wrangler.toml` declares `[assets] directory = "./dist"` with **no** `main`: no Worker script, no
+  `@cloudflare/vite-plugin`, `vite.config.ts` untouched.
+- Workers Builds settings: build `npm run build`, deploy `npx wrangler deploy`, production branch `main`.
+- `wrangler` is an **exact** devDependency (not `^`) so `npx` uses the pinned version rather than resolving a
+  floating one; its autoconfig behaviour is version-sensitive (see D-021). `npm run deploy` builds and
+  deploys the same way locally.
+- Validate a config change without deploying: `npx wrangler deploy --dry-run`.
+- **`wrangler.toml` must be on the branch Workers Builds builds** (`main`). Without it wrangler falls into an
+  interactive setup wizard that fails in CI — D-021 has the full symptom.
+- Node: Workers Builds reports Node 24 and ignores `.node-version` (that file is a Pages convention; it is
+  kept for local use). The build is clean on both 22 and 24; pin with a `NODE_VERSION` build variable if it
+  ever matters.
 
-Vite's `base` is `./` (from `BASE_PATH`, default `./`), so hashed assets and the module workers resolve
-under the root domain and under the `/vent-sim/` proxy alike. GitHub Pages was abandoned because the
-account's user site still routes `*.github.io` project sites to `tomnahass.com`, a Netlify domain (D-008).
+**Netlify (fallback)** — https://vent-sim.netlify.app/, site `vent-sim` from `nahata5/vent-sim`, built from
+`netlify.toml`, redeploys on every push to `main`.
+
+**Personal-site alias** — `tomnahass.com/vent-sim/` proxies to the Netlify deploy via `[[redirects]]` in the
+personal site's `netlify.toml` (commit 4d756ac on `nahata5/personal-website` main). Those rules are correct
+but have never shipped: that site's Netlify build cannot clone its repo (deploy key missing), so it serves a
+stale deploy. Owner action, HANDOFF "What is left" 3. `vent.nahass.ai` does not depend on it.
+
+GitHub Actions (`.github/workflows/deploy.yml`) is the quality gate (lint, tests, Playwright, build).
+
+Vite's `base` is `./` (from `BASE_PATH`, default `./`), so hashed assets and the module workers resolve under
+a domain root (`vent.nahass.ai`, `vent-sim.netlify.app`) and under the `/vent-sim/` proxy alike. Deploy the
+**`dist/` directory**, never the repo root — the root `index.html` points at `/src/main.tsx`, which exists
+only before a build, so serving it gives a blank dark page. GitHub Pages was abandoned because the account's
+user site still routes `*.github.io` project sites to `tomnahass.com`, a Netlify domain (D-008).

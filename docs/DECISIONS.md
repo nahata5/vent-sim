@@ -528,3 +528,45 @@ owner as options with mockups and the recommended one was taken each time.
 - **Accepted limitations.** Landscape phones (≈ 840 × 400) fall into the tablet rule and are cramped; no
   swipe between tabs; the chosen tab is not persisted; the cursor readout appears at a tap and stays until
   the next tap (no mouseleave on touch); the Instructor JSON editor is usable but small on a phone.
+
+## D-021 · Cloudflare Pages at `vent.nahass.ai` as the primary home (2026-09-12)
+
+The `tomnahass.com/vent-sim/` alias (D-008) never shipped: the proxy rules are correct and on the personal
+site's `main`, but that site's Netlify build cannot clone its repo (deploy key removed from GitHub), so
+tomnahass.com serves a stale deploy and the rules are never applied. Rather than keep VentSim's public URL
+hostage to another site's build, it gets its own subdomain on a domain already in Cloudflare: `nahass.ai`.
+
+Cloudflare builds the same artifact as Netlify — `npm run build` → `dist`, Node 22 — so this is
+configuration, not a port: `wrangler.toml`, `.node-version` (22), and `public/_headers` carrying the
+cache/security rules that live in `netlify.toml`'s `[[headers]]` blocks (Cloudflare and Netlify both read
+`_headers` from the output dir, so one file serves both). Vite's relative `base: './'` (D-008) already works
+at a domain root, so no rebuild semantics change.
+
+**Workers Static Assets, not Pages.** The first attempt used a Pages-shaped `wrangler.toml`
+(`pages_build_output_dir`), but the Cloudflare project is a Workers project whose deploy command is
+`npx wrangler deploy`. Wrangler found no valid *Workers* config, fell back to its interactive setup wizard,
+and that wizard failed in CI: `Cannot modify Vite config: could not find a valid plugins array` — it wanted to
+add `@cloudflare/vite-plugin` to a `vite.config.ts` that declares no `plugins`. The fix is to give wrangler a
+real Workers config instead: `[assets] directory = "./dist"` with no `main`, which serves the build straight
+from the edge — no Worker script, no Vite plugin, no change to `vite.config.ts`. `not_found_handling` is
+`single-page-application` so a typed path lands on the hash-routed app rather than a bare 404.
+
+**Two deploys failed before this was understood; the log looks the same both times but the causes differ.**
+Wrangler skips its autoconfig wizard only when it finds a Workers config *and* that config has no
+`pages_build_output_dir`. The first attempt had the Pages field, so it was disqualified. The second attempt
+had the right `[assets]` config, but on a feature branch — Workers Builds builds `main`, where there was no
+config at all, so wrangler autoconfigured from scratch (it reported `Worker Name: vent-sim` from
+`package.json` and `Output Directory: dist` from Vite's own default, neither read from any file). In both
+cases the wizard then tried to add `@cloudflare/vite-plugin` to a `vite.config.ts` with no `plugins` array
+and aborted the deploy. Verified by running `wrangler deploy` against the tree with and without the config:
+with it, wrangler goes straight to the API call; without it, it reproduces the CI log verbatim.
+
+Consequences kept in the repo: `wrangler` is an **exact** devDependency, since this behaviour is
+version-sensitive and `npx` would otherwise resolve a floating version; and the config has to live on the
+branch Workers Builds builds, not just on a feature branch.
+
+A hand-uploaded `dist/` is a valid fallback but deploys nothing on push; uploading the **repo root** instead
+of `dist/` serves the unbuilt `index.html`, whose `/src/main.tsx` 404s and leaves a blank dark page.
+
+Netlify stays configured and live as a fallback; nothing is deleted. Fixing the personal site's deploy key
+remains worthwhile on its own (the whole of tomnahass.com is stale), but it is no longer on VentSim's path.
