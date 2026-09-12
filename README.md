@@ -9,7 +9,7 @@ stress, strain, driving pressure, mechanical power and recruitment.
 
 > **Education only.** This is not a medical device and not a clinical decision aid.
 
-**Live:** https://vent-sim.netlify.app/ (also proxied at `tomnahass.com/vent-sim/`). Validation page:
+**Live:** https://vent-sim.netlify.app/ (Cloudflare Pages at `vent.nahass.ai` is the intended home, D-021). Validation page:
 https://vent-sim.netlify.app/#validation.
 
 ## What it does
@@ -125,21 +125,24 @@ buffers, runs the labeler and the detector off the animation frame on each close
 sweeps and loops on Canvas2D at 60 fps. The detector reads only `t, paw, flow, vol, pes` and ventilator
 events; the truth layer is for teaching displays, labels, scoring and exports.
 
-## Hosting (Netlify)
+## Hosting
 
-A static site with no backend. Netlify builds and deploys it from `netlify.toml` (`npm run build`, publish
-`dist/`, Node 22) on every push to `main`; GitHub Actions (`.github/workflows/deploy.yml`) is the quality
-gate (lint, tests, Playwright, build).
+A static site with no backend; it builds the same way on either host (`npm run build` → `dist/`, Node 22)
+and `_headers` in `public/` carries the cache/security policy to both.
 
-- **Live URL:** https://vent-sim.netlify.app/ (Netlify site `vent-sim`, imported from `nahata5/vent-sim`).
-- **Personal-site alias:** `tomnahass.com/vent-sim/` proxies to the same deploy. The personal site (also on
-  Netlify) needs these two lines in its `_redirects` (or the equivalent `[[redirects]]` in its `netlify.toml`):
+- **Cloudflare Pages (primary, D-021):** `wrangler.toml` sets `pages_build_output_dir = "dist"`; `.node-version`
+  pins Node 22. Custom domain `vent.nahass.ai` (Cloudflare already holds `nahass.ai`, so Pages adds the CNAME
+  itself). Build command `npm run build`, output `dist`, every push to `main` redeploys.
+- **Netlify (current live site):** https://vent-sim.netlify.app/ (site `vent-sim`, imported from
+  `nahata5/vent-sim`), built from `netlify.toml`. Kept as a fallback; both configs coexist.
+- **Personal-site alias:** `tomnahass.com/vent-sim/` proxies to the Netlify deploy via `[[redirects]]` in the
+  personal site's `netlify.toml` (commit 4d756ac on `nahata5/personal-website` main). Those rules are correct
+  but have never shipped — that site's Netlify build cannot clone its repo (deploy key missing), so it serves a
+  stale deploy. Owner action, see HANDOFF "What is left" 3. `vent.nahass.ai` does not depend on it.
 
-  ```
-  /vent-sim   /vent-sim/   301
-  /vent-sim/* https://vent-sim.netlify.app/:splat   200
-  ```
+GitHub Actions (`.github/workflows/deploy.yml`) is the quality gate (lint, tests, Playwright, build).
 
-Vite's `base` is `./` (from `BASE_PATH`, default `./`), so hashed assets and the module workers resolve
-under the root domain and under the `/vent-sim/` proxy alike. GitHub Pages was abandoned because the
-account's user site still routes `*.github.io` project sites to `tomnahass.com`, a Netlify domain (D-008).
+Vite's `base` is `./` (from `BASE_PATH`, default `./`), so hashed assets and the module workers resolve under
+a root domain (`vent.nahass.ai`, `vent-sim.netlify.app`) and under the `/vent-sim/` proxy alike. GitHub Pages
+was abandoned because the account's user site still routes `*.github.io` project sites to `tomnahass.com`,
+a Netlify domain (D-008).

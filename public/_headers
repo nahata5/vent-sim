@@ -1,0 +1,8 @@
+# Cloudflare Pages / Netlify header rules (both read `_headers` from the output dir).
+# Mirrors the `[[headers]]` blocks in netlify.toml so either host serves the same policy.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

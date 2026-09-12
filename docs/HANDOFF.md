@@ -148,7 +148,10 @@ All spec milestones and the optional extensions listed in the previous handoff a
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
    signal-only idea appears; never tune on the held-out grid.
 3. **Alias** `tomnahass.com/vent-sim/` — **root cause found 2026-09-11 (evening), owner action needed;
-   re-checked later the same evening: still the personal site's 404.**
+   re-checked later the same evening: still the personal site's 404.** No longer blocks VentSim's public URL:
+   D-021 moves the primary home to Cloudflare Pages at `vent.nahass.ai`, which does not depend on the personal
+   site. Owner still does the Pages setup once (connect `nahata5/vent-sim`, build `npm run build`, output
+   `dist`, add the custom domain) and, separately, the Netlify deploy-key fix below if tomnahass.com matters.
    The redirect rules are in the personal site's repo (`~/Documents/development/personal-website/netlify.toml`,
    commit 4d756ac on `github.com/nahata5/personal-website` main). DNS already points at Netlify. The
    personal site's Netlify build fails at "preparing repo": `git@github.com: Permission denied (publickey)`

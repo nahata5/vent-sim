@@ -528,3 +528,19 @@ owner as options with mockups and the recommended one was taken each time.
 - **Accepted limitations.** Landscape phones (≈ 840 × 400) fall into the tablet rule and are cramped; no
   swipe between tabs; the chosen tab is not persisted; the cursor readout appears at a tap and stays until
   the next tap (no mouseleave on touch); the Instructor JSON editor is usable but small on a phone.
+
+## D-021 · Cloudflare Pages at `vent.nahass.ai` as the primary home (2026-09-12)
+
+The `tomnahass.com/vent-sim/` alias (D-008) never shipped: the proxy rules are correct and on the personal
+site's `main`, but that site's Netlify build cannot clone its repo (deploy key removed from GitHub), so
+tomnahass.com serves a stale deploy and the rules are never applied. Rather than keep VentSim's public URL
+hostage to another site's build, it gets its own subdomain on a domain already in Cloudflare: `nahass.ai`.
+
+Cloudflare Pages builds the same artifact as Netlify — `npm run build` → `dist`, Node 22 — so this is
+configuration, not a port: `wrangler.toml` (`pages_build_output_dir = "dist"`), `.node-version` (22), and
+`public/_headers` carrying the cache/security rules that live in `netlify.toml`'s `[[headers]]` blocks
+(Cloudflare Pages and Netlify both read `_headers` from the output dir, so one file serves both). Vite's
+relative `base: './'` (D-008) already works at a domain root, so no rebuild semantics change.
+
+Netlify stays configured and live as a fallback; nothing is deleted. Fixing the personal site's deploy key
+remains worthwhile on its own (the whole of tomnahass.com is stale), but it is no longer on VentSim's path.
