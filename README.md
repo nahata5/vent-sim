@@ -9,7 +9,7 @@ stress, strain, driving pressure, mechanical power and recruitment.
 
 > **Education only.** This is not a medical device and not a clinical decision aid.
 
-**Live:** https://vent-sim.netlify.app/ (Cloudflare Pages at `vent.nahass.ai` is the intended home, D-021). Validation page:
+**Live:** https://vent-sim.netlify.app/ (Cloudflare at `vent.nahass.ai` is the intended home, D-021). Validation page:
 https://vent-sim.netlify.app/#validation.
 
 ## What it does
@@ -130,9 +130,11 @@ events; the truth layer is for teaching displays, labels, scoring and exports.
 A static site with no backend; it builds the same way on either host (`npm run build` → `dist/`, Node 22)
 and `_headers` in `public/` carries the cache/security policy to both.
 
-- **Cloudflare Pages (primary, D-021):** `wrangler.toml` sets `pages_build_output_dir = "dist"`; `.node-version`
-  pins Node 22. Custom domain `vent.nahass.ai` (Cloudflare already holds `nahass.ai`, so Pages adds the CNAME
-  itself). Build command `npm run build`, output `dist`, every push to `main` redeploys.
+- **Cloudflare Workers Static Assets (primary, D-021):** `wrangler.toml` declares `[assets] directory = "./dist"`
+  with no `main`, so `npx wrangler deploy` serves `dist/` from the edge with no Worker script and no Vite plugin.
+  `.node-version` pins Node 22. Custom domain `vent.nahass.ai` (Cloudflare already holds `nahass.ai`, so it adds
+  the record itself). Build `npm run build`, deploy `npx wrangler deploy`, every push to `main` redeploys.
+  Validate a config change locally with `npx wrangler deploy --dry-run`.
 - **Netlify (current live site):** https://vent-sim.netlify.app/ (site `vent-sim`, imported from
   `nahata5/vent-sim`), built from `netlify.toml`. Kept as a fallback; both configs coexist.
 - **Personal-site alias:** `tomnahass.com/vent-sim/` proxies to the Netlify deploy via `[[redirects]]` in the

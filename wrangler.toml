@@ -1,4 +1,11 @@
-# Cloudflare Pages project config (D-021). Static build, no Worker/functions.
+# Cloudflare Workers Static Assets (D-021). No Worker script and no functions: `[assets]`
+# with no `main` serves `dist/` straight from the edge. `_headers` in that directory is
+# honoured here exactly as it is on Netlify.
 name = "vent-sim"
 compatibility_date = "2026-09-12"
-pages_build_output_dir = "dist"
+
+[assets]
+directory = "./dist"
+# The app is one index.html with hash routes (#validation); serve it for unmatched paths
+# so a typed URL lands on the app instead of a bare 404.
+not_found_handling = "single-page-application"

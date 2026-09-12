@@ -536,11 +536,20 @@ site's `main`, but that site's Netlify build cannot clone its repo (deploy key r
 tomnahass.com serves a stale deploy and the rules are never applied. Rather than keep VentSim's public URL
 hostage to another site's build, it gets its own subdomain on a domain already in Cloudflare: `nahass.ai`.
 
-Cloudflare Pages builds the same artifact as Netlify — `npm run build` → `dist`, Node 22 — so this is
-configuration, not a port: `wrangler.toml` (`pages_build_output_dir = "dist"`), `.node-version` (22), and
-`public/_headers` carrying the cache/security rules that live in `netlify.toml`'s `[[headers]]` blocks
-(Cloudflare Pages and Netlify both read `_headers` from the output dir, so one file serves both). Vite's
-relative `base: './'` (D-008) already works at a domain root, so no rebuild semantics change.
+Cloudflare builds the same artifact as Netlify — `npm run build` → `dist`, Node 22 — so this is
+configuration, not a port: `wrangler.toml`, `.node-version` (22), and `public/_headers` carrying the
+cache/security rules that live in `netlify.toml`'s `[[headers]]` blocks (Cloudflare and Netlify both read
+`_headers` from the output dir, so one file serves both). Vite's relative `base: './'` (D-008) already works
+at a domain root, so no rebuild semantics change.
+
+**Workers Static Assets, not Pages.** The first attempt used a Pages-shaped `wrangler.toml`
+(`pages_build_output_dir`), but the Cloudflare project is a Workers project whose deploy command is
+`npx wrangler deploy`. Wrangler found no valid *Workers* config, fell back to its interactive setup wizard,
+and that wizard failed in CI: `Cannot modify Vite config: could not find a valid plugins array` — it wanted to
+add `@cloudflare/vite-plugin` to a `vite.config.ts` that declares no `plugins`. The fix is to give wrangler a
+real Workers config instead: `[assets] directory = "./dist"` with no `main`, which serves the build straight
+from the edge — no Worker script, no Vite plugin, no change to `vite.config.ts`. `not_found_handling` is
+`single-page-application` so a typed path lands on the hash-routed app rather than a bare 404.
 
 Netlify stays configured and live as a fallback; nothing is deleted. Fixing the personal site's deploy key
 remains worthwhile on its own (the whole of tomnahass.com is stale), but it is no longer on VentSim's path.
