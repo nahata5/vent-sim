@@ -3,7 +3,7 @@
  * Runs in the `mobile` Playwright project (Pixel 7, 412 × 839, touch).
  */
 import { expect, test } from '@playwright/test';
-import { canvasFollowsWrap, noHorizontalOverflow, ready } from './helpers/layout';
+import { canvasFollowsWrap, noHorizontalOverflow, ready, waitForSim } from './helpers/layout';
 
 test('phone: single column, pinned waveforms, tab bar, settings confirm reachable, badge tap', async ({ page }) => {
   test.setTimeout(180_000);
@@ -66,5 +66,41 @@ test('phone: single column, pinned waveforms, tab bar, settings confirm reachabl
   // A narrower viewport: the canvas follows its container.
   await page.setViewportSize({ width: 360, height: 740 });
   await canvasFollowsWrap(page);
+  await noHorizontalOverflow(page);
+});
+
+test('phone: quiz start → identify → fix through the Vent tab → debrief readable in the Learn tab', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/#ineffective-effort');
+  await ready(page);
+  await page.getByTestId('mtab-learn').click();
+  await page.getByTestId('tab-quiz').click();
+  await waitForSim(page, 25);
+  await page.getByTestId('quiz-start').click();
+  await page.getByTestId('quiz-pick-ineffective-effort').check();
+  await page.getByTestId('quiz-submit').click();
+  await page.getByTestId('quiz-fix').click();
+  // The fix is made in the Vent tab; the quiz keeps running in the hidden Learn pane.
+  await page.getByTestId('mtab-vent').click();
+  await page.getByTestId('setting-ps').fill('6');
+  await page.getByTestId('setting-ets').fill('70');
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => (window.__ventsim?.ctl.status?.settings.ps ?? 0) === 6, undefined, { timeout: 15_000 });
+  const t0 = await page.evaluate(() => window.__ventsim?.ctl.quiz.fixWindowStart ?? 0);
+  await waitForSim(page, t0 + 61);
+  await page.getByTestId('mtab-learn').click();
+  await page.getByTestId('quiz-evaluate').click();
+  await expect(page.getByTestId('debrief-panel')).toBeVisible();
+  await expect(page.getByTestId('debrief-changes')).toContainText('PS 16 → 6 cmH2O');
+  await expect(page.getByTestId('debrief-key-ps')).toBeAttached();
+  // The debrief scrolls inside its pane; nothing overflows horizontally, and the waveforms stay pinned.
+  const fit = await page.evaluate(() => {
+    const pane = document.querySelector('[data-testid="drawer-pane"]') as HTMLElement;
+    return { scroll: pane.scrollWidth, client: pane.clientWidth };
+  });
+  expect(fit.scroll).toBeLessThanOrEqual(fit.client);
+  await page.getByTestId('debrief-physiology').scrollIntoViewIfNeeded();
+  await expect(page.getByTestId('debrief-physiology')).toBeInViewport();
+  await expect(page.getByTestId('waveforms')).toBeInViewport();
   await noHorizontalOverflow(page);
 });

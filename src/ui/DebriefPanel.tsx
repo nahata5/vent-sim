@@ -37,6 +37,7 @@ export function DebriefPanel({ d, checks }: Props) {
         <h3>The recommended fix</h3>
         {d.fix.note ? <p data-testid="debrief-fix-note">{d.fix.note}</p> : <p class="muted">This scenario has no scripted fix.</p>}
         {d.fix.keys.length > 0 && (
+          <div class="table-wrap">
           <table class="debrief-keys">
             <thead>
               <tr>
@@ -57,6 +58,7 @@ export function DebriefPanel({ d, checks }: Props) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
         <p>
           Outcome: AI {d.fix.aiBefore === null ? '—' : `${d.fix.aiBefore.toFixed(0)} %`} before → {d.fix.aiAfter === null ? '—' : `${d.fix.aiAfter.toFixed(0)} %`} after · fix{' '}

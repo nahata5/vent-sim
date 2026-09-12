@@ -136,6 +136,7 @@ export function LungStressDashboard({ m, truth, recruit, truthOn, maneuvers, set
             Decremental PEEP trial · best compliance at PEEP <strong>{trial.values?.bestPeep}</strong> ({trial.values?.bestCrs?.toFixed(0)} mL/cmH2O)
             {trial.values?.peepOriginal !== undefined ? ` · PEEP restored to ${trial.values.peepOriginal}` : ''}
           </div>
+          <div class="table-wrap">
           <table class="small">
             <thead>
               <tr>
@@ -160,6 +161,7 @@ export function LungStressDashboard({ m, truth, recruit, truthOn, maneuvers, set
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </section>
