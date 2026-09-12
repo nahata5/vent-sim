@@ -111,9 +111,9 @@ mobile test asserts it.
 - `src/ui/ExportPanel.tsx`: optional `validationLink` slot; `src/ui/DebriefPanel.tsx`,
   `src/ui/LungStressDashboard.tsx`: `.table-wrap` around the tables.
 - `playwright.config.ts`: projects `chromium` (unchanged, ignores `mobile.spec.ts`), `mobile`
-  (`devices['Pixel 7']`, 412 × 839, touch) and `tablet` (`devices['Nexus 10']`, 800 × 1280, Chromium),
-  both matching only `tests/e2e/mobile.spec.ts`.
-- `tests/e2e/mobile.spec.ts` (new), `tests/unit/breakpoints.test.ts` (new),
+  (`devices['Pixel 7']`, 412 × 839, touch) matching only `tests/e2e/mobile.spec.ts`, and `tablet`
+  (`devices['Nexus 10']`, 800 × 1280, Chromium) matching only `tests/e2e/tablet.spec.ts`.
+- `tests/e2e/mobile.spec.ts`, `tests/e2e/tablet.spec.ts`, `tests/unit/breakpoints.test.ts` (new),
   `tests/e2e/screenshots.spec.ts` (+ phone and tablet screenshots via `test.use(devices[...])`).
 - Docs: `docs/DECISIONS.md` D-020, `PROGRESS.md`, `README.md` note, `docs/HANDOFF.md`, screenshots.
 
@@ -135,7 +135,7 @@ mobile test asserts it.
    does not overflow its pane horizontally, the page has no horizontal overflow.
 3. *Resize follows the container*: set the viewport to 360 × 740, the canvas backing width follows.
 
-**Playwright `tablet` project** (same file, Nexus 10): no horizontal overflow; no tab bar; the waveform
+**Playwright `tablet` project** (`tests/e2e/tablet.spec.ts`, Nexus 10): no horizontal overflow; no tab bar; the waveform
 wrap spans the full width; the settings panel and the monitor panel are side by side (monitor's left edge
 is right of the settings panel's right edge, tops within 40 px); the drawer pane and the loops are visible
 together.
