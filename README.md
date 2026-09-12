@@ -9,7 +9,7 @@ stress, strain, driving pressure, mechanical power and recruitment.
 
 > **Education only.** This is not a medical device and not a clinical decision aid.
 
-**Live:** https://vent-sim.netlify.app/ (Cloudflare at `vent.nahass.ai` is the intended home, D-021). Validation page:
+**Live:** `vent.nahass.ai` on Cloudflare (D-021); https://vent-sim.netlify.app/ is the fallback. Validation page:
 https://vent-sim.netlify.app/#validation.
 
 ## What it does
@@ -127,24 +127,37 @@ events; the truth layer is for teaching displays, labels, scoring and exports.
 
 ## Hosting
 
-A static site with no backend; it builds the same way on either host (`npm run build` → `dist/`, Node 22)
-and `_headers` in `public/` carries the cache/security policy to both.
+A static site with no backend. Cloudflare serves it; Netlify stays configured as a fallback. Both build the
+same artifact (`npm run build` → `dist/`) and both read `public/_headers` from it, so one header file covers
+either host.
 
-- **Cloudflare Workers Static Assets (primary, D-021):** `wrangler.toml` declares `[assets] directory = "./dist"`
-  with no `main`, so `npx wrangler deploy` serves `dist/` from the edge with no Worker script and no Vite plugin.
-  `.node-version` pins Node 22. Custom domain `vent.nahass.ai` (Cloudflare already holds `nahass.ai`, so it adds
-  the record itself). Build `npm run build`, deploy `npx wrangler deploy`, every push to `main` redeploys.
-  Validate a config change locally with `npx wrangler deploy --dry-run`.
-- **Netlify (current live site):** https://vent-sim.netlify.app/ (site `vent-sim`, imported from
-  `nahata5/vent-sim`), built from `netlify.toml`. Kept as a fallback; both configs coexist.
-- **Personal-site alias:** `tomnahass.com/vent-sim/` proxies to the Netlify deploy via `[[redirects]]` in the
-  personal site's `netlify.toml` (commit 4d756ac on `nahata5/personal-website` main). Those rules are correct
-  but have never shipped — that site's Netlify build cannot clone its repo (deploy key missing), so it serves a
-  stale deploy. Owner action, see HANDOFF "What is left" 3. `vent.nahass.ai` does not depend on it.
+**Cloudflare Workers Static Assets (primary, D-021)** — `vent.nahass.ai`.
+
+- `wrangler.toml` declares `[assets] directory = "./dist"` with **no** `main`: no Worker script, no
+  `@cloudflare/vite-plugin`, `vite.config.ts` untouched.
+- Workers Builds settings: build `npm run build`, deploy `npx wrangler deploy`, production branch `main`.
+- `wrangler` is an **exact** devDependency (not `^`) so `npx` uses the pinned version rather than resolving a
+  floating one; its autoconfig behaviour is version-sensitive (see D-021). `npm run deploy` builds and
+  deploys the same way locally.
+- Validate a config change without deploying: `npx wrangler deploy --dry-run`.
+- **`wrangler.toml` must be on the branch Workers Builds builds** (`main`). Without it wrangler falls into an
+  interactive setup wizard that fails in CI — D-021 has the full symptom.
+- Node: Workers Builds reports Node 24 and ignores `.node-version` (that file is a Pages convention; it is
+  kept for local use). The build is clean on both 22 and 24; pin with a `NODE_VERSION` build variable if it
+  ever matters.
+
+**Netlify (fallback)** — https://vent-sim.netlify.app/, site `vent-sim` from `nahata5/vent-sim`, built from
+`netlify.toml`, redeploys on every push to `main`.
+
+**Personal-site alias** — `tomnahass.com/vent-sim/` proxies to the Netlify deploy via `[[redirects]]` in the
+personal site's `netlify.toml` (commit 4d756ac on `nahata5/personal-website` main). Those rules are correct
+but have never shipped: that site's Netlify build cannot clone its repo (deploy key missing), so it serves a
+stale deploy. Owner action, HANDOFF "What is left" 3. `vent.nahass.ai` does not depend on it.
 
 GitHub Actions (`.github/workflows/deploy.yml`) is the quality gate (lint, tests, Playwright, build).
 
 Vite's `base` is `./` (from `BASE_PATH`, default `./`), so hashed assets and the module workers resolve under
-a root domain (`vent.nahass.ai`, `vent-sim.netlify.app`) and under the `/vent-sim/` proxy alike. GitHub Pages
-was abandoned because the account's user site still routes `*.github.io` project sites to `tomnahass.com`,
-a Netlify domain (D-008).
+a domain root (`vent.nahass.ai`, `vent-sim.netlify.app`) and under the `/vent-sim/` proxy alike. Deploy the
+**`dist/` directory**, never the repo root — the root `index.html` points at `/src/main.tsx`, which exists
+only before a build, so serving it gives a blank dark page. GitHub Pages was abandoned because the account's
+user site still routes `*.github.io` project sites to `tomnahass.com`, a Netlify domain (D-008).
