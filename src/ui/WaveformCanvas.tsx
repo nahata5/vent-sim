@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { SessionController } from '../app/controller';
 import { badgeStripHeight, drawWaveforms, fmt, PATTERN_CODES, tForX, traceName, type BadgeHit, type BadgeLabels, type Row, type RowRange } from './waveform-draw';
 import { BATCH_CHANNELS, type ChannelKey } from '../worker/protocol';
+import { BADGE_TAP_HEIGHT, isCoarsePointer } from './breakpoints';
 
 export const MEASURED_ROWS: Row[] = [
   { id: 'paw', label: 'Paw', unit: 'cmH2O', traces: [{ ch: 'paw', color: '#ffd54f' }], minSpan: 20, include: [0], markers: true },
@@ -199,7 +200,7 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
       if (truth) for (const p of l.truth?.patterns ?? []) evidence.push({ label: PATTERN_CODES[p]?.name ?? p, text: 'truth label', truth: true });
       if (evidence.length === 0) evidence.push({ label: l.truth ? `${l.truth.triggerCause}-triggered breath` : 'breath', text: 'no pattern detected', truth: false });
       cursorRef.current = l.det?.tStart ?? l.truth?.tStart ?? null;
-      setReadout({ t: l.det?.tStart ?? l.truth?.tStart ?? NaN, values: [], evidence, x: Math.min(x + 12, rect.width - 350), y: 4 });
+      setReadout({ t: l.det?.tStart ?? l.truth?.tStart ?? NaN, values: [], evidence, x: Math.max(0, Math.min(x + 12, rect.width - 350)), y: 4 });
       return;
     }
     const t = tForX(x, ctl.tView, ctl.view.sweep, rect.width);
@@ -212,7 +213,7 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
       const v = store.valueAt(ch, t) * (READOUT_SCALE[ch] ?? 1);
       if (Number.isFinite(v)) values.push({ label: traceName(ch), value: fmt(v) });
     }
-    setReadout({ t, values, x: Math.min(x + 12, rect.width - 170), y: Math.min(y + 12, rect.height - 40) });
+    setReadout({ t, values, x: Math.max(0, Math.min(x + 12, rect.width - 170)), y: Math.min(y + 12, rect.height - 40) });
   };
   const onLeave = () => {
     cursorRef.current = null;
@@ -225,13 +226,15 @@ export function WaveformCanvas({ ctl, truth, balloon, perf, hits }: Props) {
     const rect = wrap.getBoundingClientRect();
     const x = ev.clientX - rect.left;
     const y = ev.clientY - rect.top;
-    if (y >= badgeStripHeight({ showBadges: true, truthBadges: truth })) return;
+    // On a touch device the tap target is taller than the drawn strip (D-020).
+    const strip = badgeStripHeight({ showBadges: true, truthBadges: truth });
+    if (y >= (isCoarsePointer() ? Math.max(strip, BADGE_TAP_HEIGHT) : strip)) return;
     const hit = hits.find((h) => x >= h.x0 && x <= h.x1);
     if (hit && ctl.labels.has(hit.index)) ctl.selectBreath(hit.index);
   };
 
   return (
-    <div class="wave-wrap" ref={wrapRef} onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick} data-testid="waveforms">
+    <div class="wave-wrap" ref={wrapRef} onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick} data-testid="waveforms" style={`--wave-rows: ${rows.length}`}>
       <canvas ref={canvasRef} class="wave-canvas" aria-label="Ventilator waveforms: pressure, flow and volume sweeps" role="img" />
       {readout && (
         <div class={`cursor-readout ${readout.evidence ? 'badge-readout' : ''}`} style={{ left: readout.x, top: readout.y }} data-testid="cursor-readout">

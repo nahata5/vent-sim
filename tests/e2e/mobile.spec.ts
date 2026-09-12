@@ -53,9 +53,11 @@ test('phone: single column, pinned waveforms, tab bar, settings confirm reachabl
     { timeout: 90_000 },
   );
   const tap = await page.evaluate(() => {
-    const v = window.__ventsim!;
-    const h = v.hits.find((x) => v.ctl.labels.has(x.index))!;
-    const r = document.querySelector('[data-testid="waveforms"]')!.getBoundingClientRect();
+    const v = window.__ventsim;
+    const h = v?.hits.find((x) => v.ctl.labels.has(x.index));
+    const wrap = document.querySelector('[data-testid="waveforms"]');
+    if (!v || !h || !wrap) throw new Error('no labelled badge on screen');
+    const r = wrap.getBoundingClientRect();
     return { x: r.left + (h.x0 + h.x1) / 2, y: r.top + 26 };
   });
   await page.touchscreen.tap(tap.x, tap.y);

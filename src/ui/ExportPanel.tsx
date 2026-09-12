@@ -8,10 +8,12 @@ interface Props {
   ctl: SessionController;
   /** Locked bedside quiz (D-019): no truth exports. */
   hideTruth?: boolean;
+  /** Phone layout (D-020): the Validation link lives here instead of the header. */
+  validationLink?: boolean;
 }
 
 /** Export (Spec §10): session CSV/JSON of the retained window and a batch zip generated in a worker. */
-export function ExportPanel({ ctl, hideTruth = false }: Props) {
+export function ExportPanel({ ctl, hideTruth = false, validationLink = false }: Props) {
   const [msg, setMsg] = useState('');
   const [seeds, setSeeds] = useState('1,2');
   const [duration, setDuration] = useState('30');
@@ -78,6 +80,13 @@ export function ExportPanel({ ctl, hideTruth = false }: Props) {
         <span class="muted" data-testid="export-msg">
           {msg}
         </span>
+      )}
+      {validationLink && (
+        <div class="row">
+          <a class="small muted" href="#validation" data-testid="validation-link">
+            Validation
+          </a>
+        </div>
       )}
     </div>
   );

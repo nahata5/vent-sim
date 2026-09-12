@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { APP_VERSION } from '../config/version';
 import { SessionController } from './controller';
 import { SCENARIOS } from '../edu/scenarios';
@@ -22,6 +22,16 @@ import type { DrawerTab } from './controller';
 import { defaultBalloon } from '../sim/patient/balloon';
 import type { BadgeHit } from '../ui/waveform-draw';
 import { parseQuizHash } from '../edu/quiz-view';
+import { usePhoneLayout } from '../ui/breakpoints';
+
+/** Phone layout (D-020): one panel at a time below the pinned waveforms, chosen from the bottom tab bar. */
+type MobileTab = 'vent' | 'monitor' | 'loops' | 'learn';
+const MOBILE_TABS: Array<[MobileTab, string]> = [
+  ['vent', 'Vent'],
+  ['monitor', 'Monitor'],
+  ['loops', 'Loops'],
+  ['learn', 'Learn'],
+];
 
 export const DISCLAIMER =
   'VentSim is for education only. It is not a medical device and not a clinical decision aid.';
@@ -48,6 +58,16 @@ export function App() {
   const [showObjectives, setShowObjectives] = useState(true);
   const [page, setPage] = useState(hashPage());
   const [fixApplied, setFixApplied] = useState(false);
+  const phone = usePhoneLayout();
+  const [mtab, setMtab] = useState<MobileTab>('vent');
+  // When the controller opens a drawer tab on its own (badge tap → Explain, quiz start → Quiz), the phone shows Learn.
+  const prevDrawerTab = useRef(ctl.view.drawerTab);
+  useEffect(() => {
+    if (prevDrawerTab.current !== ctl.view.drawerTab) {
+      prevDrawerTab.current = ctl.view.drawerTab;
+      if (phone) setMtab('learn');
+    }
+  });
 
   useEffect(() => {
     window.__ventsim = { ctl, perf, hits };
@@ -103,6 +123,18 @@ export function App() {
   const pesOn = balloonOn && !hidePes;
   const tabs = (['scenario', 'explain', 'quiz', 'export'] as DrawerTab[]).filter((t) => !(hideExplain && t === 'explain'));
 
+  // Header controls on the desktop and tablet; the top of the Vent tab on a phone (D-020).
+  const toggles = (
+    <>
+      <TruthToggle on={truthOn} onChange={(on) => ctl.setTruth(on)} disabled={locked || hideTruth} />
+      <label class="inline balloon-toggle">
+        <input type="checkbox" checked={balloonOn} onChange={(e) => ctl.setBalloon({ ...defaultBalloon(), ...ctl.balloon, enabled: (e.currentTarget).checked })} data-testid="balloon-toggle" />
+        <span class="small">Esophageal balloon</span>
+      </label>
+    </>
+  );
+  const co2Panel = status?.co2 && !hideCo2 ? <Co2Panel co2={status.co2} onWarp={(w) => ctl.setWarp(w)} /> : null;
+
   const pick = (id: string) => {
     location.hash = id;
     setPage(id);
@@ -129,25 +161,26 @@ export function App() {
     <div class="app-shell">
       <header class="app-header">
         <h1>VentSim</h1>
-        <span class="muted small">v{APP_VERSION}</span>
+        {!phone && <span class="muted small">v{APP_VERSION}</span>}
         <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} disabled={locked} mask={hideScenario} />
-        <TruthToggle on={truthOn} onChange={(on) => ctl.setTruth(on)} disabled={locked || hideTruth} />
-        <label class="inline balloon-toggle">
-          <input type="checkbox" checked={balloonOn} onChange={(e) => ctl.setBalloon({ ...defaultBalloon(), ...ctl.balloon, enabled: (e.currentTarget).checked })} data-testid="balloon-toggle" />
-          <span class="small">Esophageal balloon</span>
-        </label>
-        {!hideDerived && (
+        {!phone && toggles}
+        {!phone && !hideDerived && (
           <a class="small muted" href="#validation" data-testid="validation-link">
             Validation
           </a>
         )}
       </header>
       <AlarmBar active={status?.alarms ?? []} inBackup={status?.inBackup ?? false} pendingCount={status?.pending.length ?? 0} />
-      <main class="app-main" data-testid="app-main">
+      <main class="app-main" data-testid="app-main" data-mtab={phone ? mtab : undefined}>
         <aside class="col-left">
+          {phone && (
+            <div class="panel view-toggles" data-testid="view-toggles">
+              {toggles}
+            </div>
+          )}
           {settings && <SettingsPanel ctl={ctl} settings={settings} pendingOnVent={status?.pending ?? []} />}
           {status && <InjectorPanel ctl={ctl} active={status.injectors} />}
-          {status?.co2 && !hideCo2 && <Co2Panel co2={status.co2} onWarp={(w) => ctl.setWarp(w)} />}
+          {!phone && co2Panel}
           {status && !locked && <InstructorPanel ctl={ctl} />}
         </aside>
         <section class="col-center">
@@ -206,7 +239,7 @@ export function App() {
               )}
               {view.drawerTab === 'explain' && !hideExplain && <ExplainCard ctl={ctl} />}
               {view.drawerTab === 'quiz' && <QuizPanel ctl={ctl} />}
-              {view.drawerTab === 'export' && <ExportPanel ctl={ctl} hideTruth={locked} />}
+              {view.drawerTab === 'export' && <ExportPanel ctl={ctl} hideTruth={locked} validationLink={phone && !hideDerived} />}
             </div>
           </div>
         </section>
@@ -237,7 +270,17 @@ export function App() {
               rrTotal={ctl.monitor.rrTotal}
             />
           )}
+          {phone && co2Panel}
         </aside>
+        {phone && (
+          <nav class="mobile-tabs" role="tablist" aria-label="Panels" data-testid="mobile-tabs">
+            {MOBILE_TABS.map(([id, label]) => (
+              <button type="button" key={id} role="tab" aria-selected={mtab === id} onClick={() => setMtab(id)} data-testid={`mtab-${id}`}>
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
       </main>
       <footer class="app-footer" data-testid="disclaimer">
         {DISCLAIMER}

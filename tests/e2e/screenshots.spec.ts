@@ -2,7 +2,7 @@
  * Documentation screenshots (PROGRESS.md). Runs only with SCREENSHOTS=1 so CI stays fast:
  *   SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts
  */
-import { test, type Page } from '@playwright/test';
+import { devices, test, type Page } from '@playwright/test';
 
 const enabled = process.env.SCREENSHOTS === '1';
 
@@ -115,4 +115,55 @@ test('m6: validation page', async ({ page }) => {
   await page.goto('/#validation');
   await page.getByTestId('validation-page').waitFor();
   await page.screenshot({ path: 'docs/screenshots/m6-validation.png', fullPage: true });
+});
+
+// Mobile layout (D-020): phone and tablet device emulation inside the chromium project (the descriptor's
+// browser type cannot be set inside a describe block, so it is dropped; both devices are Chromium anyway).
+function emulate(name: string) {
+  const d: Record<string, unknown> = { ...devices[name] };
+  delete d.defaultBrowserType;
+  return d;
+}
+
+test.describe('phone', () => {
+  test.use(emulate('Pixel 7'));
+
+  test('phone: Vent tab with the waveforms pinned', async ({ page }) => {
+    await page.goto('/#ineffective-effort');
+    await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+    await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+    await waitForSim(page, 30);
+    await page.evaluate(() => window.__ventsim?.ctl.freeze(true));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: 'docs/screenshots/mobile-phone-vent.png' });
+  });
+
+  test('phone: Learn tab, quiz idle, and the Monitor tab', async ({ page }) => {
+    await page.goto('/#ineffective-effort');
+    await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+    await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+    await waitForSim(page, 30);
+    await page.evaluate(() => window.__ventsim?.ctl.freeze(true));
+    await page.getByTestId('mtab-learn').click();
+    await page.getByTestId('tab-quiz').click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: 'docs/screenshots/mobile-phone-learn.png' });
+    await page.getByTestId('mtab-monitor').click();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: 'docs/screenshots/mobile-phone-monitor.png' });
+  });
+});
+
+test.describe('tablet', () => {
+  test.use(emulate('Nexus 10'));
+
+  test('tablet: full-width waveforms, two panel columns', async ({ page }) => {
+    await page.goto('/#ineffective-effort');
+    await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
+    await page.evaluate(() => window.__ventsim?.ctl.setSpeed(4));
+    await waitForSim(page, 30);
+    await page.evaluate(() => window.__ventsim?.ctl.freeze(true));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: 'docs/screenshots/mobile-tablet.png', fullPage: true });
+  });
 });
