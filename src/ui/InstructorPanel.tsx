@@ -1,6 +1,8 @@
 import { useState } from 'preact/hooks';
 import type { SessionController } from '../app/controller';
-import type { ScenarioDef } from '../edu/scenarios';
+import { SCENARIOS, type ScenarioDef } from '../edu/scenarios';
+import { CARDS } from '../edu/cards';
+import type { PatternId } from '../sim/truth/labeler';
 import { downloadBytes } from '../export/download';
 import { QUIZ_HIDE_KEYS, QUIZ_HIDE_LABELS, bedsideHide, quizLink, type QuizHideKey } from '../edu/quiz-view';
 
@@ -27,6 +29,8 @@ export function parseScenarioJson(text: string): { def: ScenarioDef | null; erro
   }
 }
 
+const ATTEMPTS_SHOWN = 20;
+
 /** Instructor mode (Spec §8): live patient controls and a scenario editor with JSON import/export. */
 export function InstructorPanel({ ctl }: Props) {
   const [open, setOpen] = useState(false);
@@ -46,6 +50,12 @@ export function InstructorPanel({ ctl }: Props) {
   const co2 = ctl.status?.co2 ?? null;
   const currentJson = () => JSON.stringify(ctl.scenario ?? {}, null, 2);
   const link = quizLink(ctl.scenario?.id ?? '', ctl.view.quizHide, `${location.origin}${location.pathname}`);
+  // Stored quiz attempts across scenarios, newest first (D-019 follow-up: the instructor's review of the debrief summaries).
+  const attempts = Object.entries(ctl.progress.all())
+    .flatMap(([id, p]) => p.history.map((a) => ({ id, ...a })))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, ATTEMPTS_SHOWN);
+  const titleOf = (id: string) => SCENARIOS.find((s) => s.id === id)?.title ?? id;
   return (
     <section class="panel instructor" aria-label="Instructor mode" data-testid="instructor-panel">
       <h2>
@@ -182,6 +192,38 @@ export function InstructorPanel({ ctl }: Props) {
               Copy quiz link
             </button>
           </div>
+          {attempts.length > 0 && (
+            <div class="row attempts" data-testid="instr-attempts">
+              <b>Quiz attempts</b>
+              <span class="muted">stored in this browser, newest first</span>
+              <div class="table-wrap">
+                <table class="attempts-table">
+                  <thead>
+                    <tr>
+                      <th>Case</th>
+                      <th>When</th>
+                      <th>Score</th>
+                      <th>Fix</th>
+                      <th>Patterns</th>
+                      <th>Changes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attempts.map((a) => (
+                      <tr key={`${a.id}-${a.at}`} data-testid="instr-attempt">
+                        <td>{titleOf(a.id)}</td>
+                        <td>{new Date(a.at).toLocaleString()}</td>
+                        <td>{a.score}</td>
+                        <td>{a.fixPassed ? 'passed' : 'failed'}</td>
+                        <td>{a.debrief ? a.debrief.patterns.map((p) => CARDS[p as PatternId]?.title ?? p).join(', ') || 'none' : '—'}</td>
+                        <td>{a.debrief ? a.debrief.changes.join('; ') : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           <div class="row editor">
             <b>Scenario editor</b>
             <textarea value={json} onInput={(e) => setJson(e.currentTarget.value)} placeholder="Scenario JSON (load current to start)" rows={8} data-testid="instr-json" spellcheck={false} />

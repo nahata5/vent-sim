@@ -462,8 +462,18 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   plus the AI before and after and the failed checks, then mechanism, signature, causes, pitfalls and the
   ranked fixes from the cards. Grading is unchanged. A compact summary (changes, patterns, pass) is stored
   with the attempt (`QuizAttempt.debrief`) and shown in the Quiz tab's idle state.
-- **Not done.** No per-learner identity, no server, no instructor dashboard; the picker still lists the
-  other case titles when `scenario` is hidden and the session is not locked (the learner may switch cases).
+- **Not done.** No per-learner identity, no server.
+- **Follow-ups (2026-09-11, later the same day).** (1) With `scenario` hidden and the session not locked,
+  the picker now reads "Case n" for every case (n = position in the library list, stable across sessions)
+  with the category groups labelled "Cases", so the learner can still switch cases without reading a
+  title. (2) Drive changes enter the confirmed-change log like settings: `driveChangesFrom` /
+  `applyDriveSnapshot` / `driveSnapshot` in `src/edu/debrief.ts` keep a `DriveSnapshot` (rate, neural Ti,
+  Pmax, entrainment ratio or off) that the controller starts from the scenario drive and updates on every
+  instructor apply and scripted `fix.drive`; the debrief marks `fix.drive` keys with the same
+  matched / partial / not-done / opposite rule (`debrief-key-drive.<key>`). A passive scenario has no
+  snapshot and no drive marks. (3) The Instructor panel lists the stored quiz attempts across scenarios
+  (newest first, 20 at most: case, time, score, fix, patterns, changes) as the promised review of the
+  `QuizAttempt.debrief` summaries; still browser-local, no export.
 
 ## D-020 · Mobile-responsive layout: pinned waveforms and a bottom tab bar on phones, two columns on tablets (2026-09-11)
 

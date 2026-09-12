@@ -59,9 +59,12 @@ test('bedside quiz link: locked view hides the source material, the debrief reve
   await expect(page.getByTestId('instructor-panel')).toBeVisible();
   await expect(page.getByTestId('tab-explain')).toBeVisible();
   expect(await page.evaluate(() => window.__ventsim?.ctl.view.badges)).toBe(true);
-  // The compact summary is stored with the attempt.
+  // The compact summary is stored with the attempt and listed in the Instructor panel's attempts review.
   const stored = await page.evaluate(() => localStorage.getItem('ventsim.progress.v1') ?? '');
   expect(stored).toContain('"debrief"');
+  await page.getByTestId('instructor-toggle').click();
+  await expect(page.getByTestId('instr-attempts')).toContainText('PS 16 → 6 cmH2O');
+  await expect(page.getByTestId('instr-attempt').first()).toContainText('Ineffective effort');
 });
 
 test('instructor: quiz view checkboxes set the hide set and the link is copyable', async ({ page }) => {
@@ -84,9 +87,14 @@ test('instructor: quiz view checkboxes set the hide set and the link is copyable
   await page.getByTestId('quiz-start').click();
   await expect(page.getByTestId('dashboard')).toHaveCount(0);
   await expect(page.getByTestId('truth-toggle')).toBeDisabled();
-  // Not locked: the instructor panel is still there and the picker enabled.
+  // Not locked: the instructor panel is still there and the picker enabled, but every case reads "Case n".
   await expect(page.getByTestId('instructor-panel')).toBeVisible();
   await expect(page.getByTestId('scenario-select')).toBeEnabled();
+  const options = await page.getByTestId('scenario-select').locator('option').allTextContents();
+  expect(options.length).toBeGreaterThan(10);
+  expect(options.every((o) => /^Case \d+$/.test(o.trim()))).toBe(true);
+  const groups = await page.getByTestId('scenario-select').locator('optgroup').evaluateAll((els) => els.map((e) => e.getAttribute('label')));
+  expect(groups.every((g) => g === 'Cases')).toBe(true);
 });
 
 test('plain scenario hash: nothing hidden, not locked (existing behaviour)', async ({ page }) => {
@@ -97,4 +105,28 @@ test('plain scenario hash: nothing hidden, not locked (existing behaviour)', asy
   await expect(page.getByTestId('instructor-panel')).toBeVisible();
   await expect(page.getByTestId('tab-explain')).toBeVisible();
   await expect(page.getByTestId('dashboard')).toBeVisible();
+});
+
+test('drive fix (reverse trigger): the scripted drive change is logged and marked in the debrief', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/#reverse-trigger');
+  await fast(page);
+  await waitForSim(page, 25);
+  await page.getByTestId('tab-quiz').click();
+  await page.getByTestId('quiz-start').click();
+  await page.getByTestId('quiz-pick-reverse-trigger').check();
+  await page.getByTestId('quiz-submit').click();
+  await page.getByTestId('quiz-fix').click();
+  await page.getByTestId('tab-scenario').click();
+  await page.getByTestId('apply-fix').click();
+  const t0 = await page.evaluate(() => window.__ventsim?.ctl.quiz.fixWindowStart ?? 0);
+  await waitForSim(page, t0 + 61);
+  await page.getByTestId('tab-quiz').click();
+  await page.getByTestId('quiz-evaluate').click();
+  await expect(page.getByTestId('debrief-panel')).toBeVisible();
+  await expect(page.getByTestId('debrief-changes')).toContainText('Entrainment 1:');
+  await expect(page.getByTestId('debrief-changes')).toContainText('→ off');
+  await expect(page.getByTestId('debrief-key-drive.entrainment')).toContainText('matched');
+  await expect(page.getByTestId('debrief-key-drive.rate')).toContainText('matched');
+  await expect(page.getByTestId('debrief-key-drive.pmax')).toContainText('matched');
 });

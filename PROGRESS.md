@@ -570,3 +570,19 @@ end of `theme.css`) and the desktop `grid-template-rows: minmax(0, 1fr)` collaps
 build clean. Screenshots refreshed with `SCREENSHOTS=1` (M6–M8 plus `docs/screenshots/mobile-phone-vent.png`,
 `mobile-phone-learn.png`, `mobile-phone-monitor.png`, `mobile-tablet.png`). Alias `tomnahass.com/vent-sim/`
 re-checked at the start of the session: still the personal site's 404 (owner action, HANDOFF item 3).
+
+## Post-M9 · D-019 follow-ups: masked picker, drive marks, attempts review (2026-09-11)
+
+The three small follow-ups from HANDOFF item 4 (recorded as an addendum to D-019): the picker reads
+"Case n" / "Cases" while the scenario text is hidden and the session is not locked; drive changes
+(instructor apply, scripted `fix.drive`) are logged as `drive.rate` / `drive.ti` / `drive.pmax` /
+`drive.entrainment` entries and the debrief marks `fix.drive` keys (`DriveSnapshot`, `driveChangesFrom`,
+`applyDriveSnapshot`, `driveSnapshot` in `src/edu/debrief.ts`; controller `drive` / `driveAtFixStart`,
+`logDriveChange`); the Instructor panel shows the stored quiz attempts across scenarios (`instr-attempts`).
+`loadScenario` now shares `resetSessionState` with `loadScenarioDef` (the two reset lists had been copies).
+Also fixed while re-shooting the screenshots: the lung-stress table's "needs an inspiratory hold"
+placeholder no longer pushes the band column out of the panel (pre-existing, `.metric-value .small` wraps).
+Tests first: `tests/unit/debrief.test.ts` (drive change log, snapshot, `fix.drive` marks, passive scenario
+skipped), `tests/e2e/quiz-bedside.spec.ts` (options all "Case n" and groups "Cases" during an unlocked
+bedside quiz; the attempts review lists the debrief summary; reverse-trigger scripted fix → drive changes
+logged and marked matched).

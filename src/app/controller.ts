@@ -26,7 +26,7 @@ import { ProgressStore } from '../edu/progress';
 import { SEVERE_ALARMS, extrasFromTruth, truthPatternsInWindow, type FixGrade, type FixInput } from '../edu/quiz';
 import { effortEvidence, explainBreath, type BreathExplanation } from '../edu/cards';
 import type { QuizHideKey } from '../edu/quiz-view';
-import { buildDebrief, injectorChange, settingChangesFrom, type Debrief, type SettingChange } from '../edu/debrief';
+import { applyDriveSnapshot, buildDebrief, driveChangesFrom, driveSnapshot, injectorChange, settingChangesFrom, type Debrief, type DriveSnapshot, type SettingChange } from '../edu/debrief';
 import { sessionCsv } from '../export/csv';
 import { sessionJson, type SessionJson } from '../export/json';
 import { downloadBytes, type DownloadOutcome } from '../export/download';
@@ -122,6 +122,9 @@ export class SessionController {
   private aiAtFixStart: number | null = null;
   private settingsAtFixStart: VentSettings | null = null;
   private injectorsAtFixStart: string[] = [];
+  /** Patient drive as last commanded (scenario drive, instructor applies, scripted fixes); null when passive. */
+  private drive: DriveSnapshot | null = null;
+  private driveAtFixStart: DriveSnapshot | null = null;
   quiz = new QuizSession();
   progress = new ProgressStore();
   /** Breath index whose explain card is open (badge click), or null for the latest labelled breath. */
@@ -166,31 +169,7 @@ export class SessionController {
     const def = scenarioById(id);
     const spec = resolveScenario(def);
     this.scenario = def;
-    this.ready = false;
-    this.balloon = spec.patient.balloon ?? defaultBalloon();
-    this.latestBreath = null;
-    this.latestTruth = null;
-    this.latestRecruit = null;
-    this.latestSpo2 = null;
-    this.maneuvers = { ...NO_MANEUVERS };
-    this.alarmLog = [];
-    this.co2Log = [];
-    this.maneuverLog = [];
-    this.monitorLog = [];
-    this.truthLog = [];
-    this.settingChanges = 0;
-    this.settingsChangeLog = [];
-    this.quizPicks = [];
-    this.lastDebrief = null;
-    this.selectedBreath = null;
-    this.quiz.reset();
-    this.labels = new Map();
-    this.ieEvents = [];
-    this.efforts = [];
-    this.ai = null;
-    this.settingsLog = [];
-    this.injectorLog = [];
-    this.view = { ...this.view, badges: true, frozen: false, tView: NaN, paused: false };
+    this.resetSessionState(spec);
     this.worker.init(spec);
     this.notify();
   }
@@ -219,6 +198,8 @@ export class SessionController {
     this.truthLog = [];
     this.settingChanges = 0;
     this.settingsChangeLog = [];
+    this.drive = this.scenario?.drive ? driveSnapshot(this.scenario.drive) : null;
+    this.driveAtFixStart = null;
     this.quizPicks = [];
     this.lastDebrief = null;
     this.selectedBreath = null;
@@ -466,8 +447,16 @@ export class SessionController {
 
   /** Instructor: live drive, CO2-loop and mechanics changes. */
   setDrive(partial: Partial<DriveParams>): void {
+    this.logDriveChange(partial);
     this.worker.setPatient(partial);
     this.notify();
+  }
+
+  /** Drive changes enter the confirmed-change log like settings (D-019 follow-up); passive scenarios have no drive to compare. */
+  private logDriveChange(partial: Partial<DriveParams>): void {
+    if (!this.drive) return;
+    this.settingsChangeLog.push(...driveChangesFrom(this.store.tLatest, this.drive, partial));
+    this.drive = applyDriveSnapshot(this.drive, partial);
   }
 
   setGas(partial: Partial<GasParams>): void {
@@ -573,6 +562,7 @@ export class SessionController {
     this.aiAtFixStart = this.ai?.ai ?? null;
     this.settingsAtFixStart = this.status?.settings ?? null;
     this.injectorsAtFixStart = this.status?.injectors.slice() ?? [];
+    this.driveAtFixStart = this.drive;
     this.notify();
   }
 
@@ -645,6 +635,8 @@ export class SessionController {
       finalSettings: this.status?.settings ?? null,
       injectorsAtFixStart: this.injectorsAtFixStart,
       finalInjectors: this.status?.injectors.slice() ?? [],
+      driveAtFixStart: this.driveAtFixStart,
+      finalDrive: this.drive,
       evidence: this.latestEvidenceByPattern(truthPatterns),
     });
   }
@@ -715,7 +707,10 @@ export class SessionController {
       if (this.status) this.settingsChangeLog.push(...settingChangesFrom(this.store.tLatest, this.status.settings, fix.settings));
       this.worker.applySettings(fix.settings);
     }
-    if (fix.drive) this.worker.setPatient(fix.drive);
+    if (fix.drive) {
+      this.logDriveChange(fix.drive);
+      this.worker.setPatient(fix.drive);
+    }
     if (fix.injectors) {
       for (const kind of INJECTOR_KINDS) {
         if (kind in fix.injectors) {

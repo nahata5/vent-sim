@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultSettings } from '@sim/vent/settings';
 import { CARDS } from '@/edu/cards';
 import { gradeFix } from '@/edu/quiz';
-import { buildDebrief, fixMark, formatChange, injectorChange, settingChangesFrom, type DebriefInput } from '@/edu/debrief';
+import { applyDriveSnapshot, buildDebrief, driveChangesFrom, driveSnapshot, fixMark, formatChange, injectorChange, settingChangesFrom, type DebriefInput, type DriveSnapshot } from '@/edu/debrief';
 
 const psv = () => ({ ...defaultSettings('PSV'), ps: 16, ets: 0.1, peep: 0, flowTrigger: 3 });
 
@@ -32,6 +32,27 @@ describe('setting change log', () => {
     expect(formatChange({ t: 84.4, key: 'ps', from: 16, to: 6 })).toBe('PS 16 → 6 cmH2O at 84 s');
     expect(formatChange({ t: 90, key: 'ets', from: 0.1, to: 0.7 })).toBe('ETS 10 → 70 % at 90 s');
     expect(formatChange({ t: 91, key: 'injector:leak', from: 'on', to: 'off' })).toBe('Leak injector on → off at 91 s');
+  });
+});
+
+describe('drive change log (D-019 follow-up)', () => {
+  const start: DriveSnapshot = { rate: 12, ti: 0.9, pmax: 4, entrainment: 2 };
+  it('records only the drive keys that changed, entrainment as off / 1:n', () => {
+    const ch = driveChangesFrom(70, start, { rate: 16, pmax: 8, entrainment: null, ti: 0.9 });
+    expect(ch).toEqual([
+      { t: 70, key: 'drive.rate', from: 12, to: 16 },
+      { t: 70, key: 'drive.pmax', from: 4, to: 8 },
+      { t: 70, key: 'drive.entrainment', from: '1:2', to: 'off' },
+    ]);
+    expect(ch.map(formatChange)).toEqual(['Drive rate 12 → 16 /min at 70 s', 'Pmax 4 → 8 cmH2O at 70 s', 'Entrainment 1:2 → off at 70 s']);
+  });
+  it('applies a partial to the snapshot and builds one from a scenario drive with defaults', () => {
+    expect(applyDriveSnapshot(start, { entrainment: { ratio: 3, delay: 0.4, jitter: 0.03 }, pmax: 6 })).toEqual({ rate: 12, ti: 0.9, pmax: 6, entrainment: 3 });
+    const s = driveSnapshot({ rate: 20, entrainment: { ratio: 1, delay: 0.4, jitter: 0.03 } });
+    expect(s.rate).toBe(20);
+    expect(s.entrainment).toBe(1);
+    expect(s.ti).toBeGreaterThan(0);
+    expect(s.pmax).toBeGreaterThan(0);
   });
 });
 
@@ -123,6 +144,21 @@ describe('buildDebrief', () => {
     expect(d.fix.keys).toEqual([{ key: 'injector:leak', label: 'Leak injector', recommended: 'off', learner: 'on', mark: 'not-done' }]);
     expect(d.fix.pass).toBe(false);
     expect(d.fix.failed[0]).toMatch(/Asynchrony index/);
+  });
+
+  it('marks fix.drive recommendations (entrainment, rate, Pmax) against the drive at fix start', () => {
+    const inp = base();
+    inp.fix = { at: 60, note: 'Lighten sedation.', drive: { entrainment: null, rate: 16, pmax: 8 } };
+    inp.driveAtFixStart = { rate: 12, ti: 0.9, pmax: 4, entrainment: 2 };
+    inp.finalDrive = { rate: 16, ti: 0.9, pmax: 6, entrainment: 2 };
+    const d = buildDebrief(inp);
+    expect(d.fix.keys).toEqual([
+      { key: 'drive.entrainment', label: 'Entrainment', recommended: 'off', learner: '1:2', mark: 'not-done' },
+      { key: 'drive.rate', label: 'Drive rate', recommended: '16 /min', learner: '16 /min', mark: 'matched' },
+      { key: 'drive.pmax', label: 'Pmax', recommended: '8 cmH2O', learner: '6 cmH2O', mark: 'partial' },
+    ]);
+    // Without drive snapshots (passive scenario) the drive recommendation is skipped, not thrown.
+    expect(buildDebrief({ ...inp, driveAtFixStart: null, finalDrive: null }).fix.keys).toEqual([]);
   });
 
   it('physiology section carries the card text for the truth patterns only, and the summary is compact', () => {

@@ -71,7 +71,9 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
   open. On **Evaluate** the lock lifts and a debrief lists what you changed, what was happening (found /
   missed / extra), the recommended fix key by key (matched / partial / not done / opposite) with the AI
   before and after, and the physiology and recognition from the explain cards. The lock is a classroom
-  convenience, not security: the URL is editable.
+  convenience, not security: the URL is editable. While the scenario text is hidden the picker reads
+  "Case 1 … Case n". Drive changes (instructor apply, scripted fixes) are logged and marked like settings.
+  The Instructor panel lists the stored quiz attempts (case, time, score, fix, patterns, changes).
 - **Validation** (`#validation`): analytic test list, the emergence matrix and per-pattern confusion
   matrices from the snapshot, with a "Recompute in this browser" button.
 - **On a phone** (under 700 px): the waveform screen stays pinned at the top and a bottom tab bar switches

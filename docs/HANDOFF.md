@@ -1,8 +1,8 @@
 # Handoff — VentSim build state
 
-Updated 2026-09-11 (M9 complete; post-M9 extensions done: Pes artifact fix, quiz extras, capstone, schematic
-SpO2, live EL/Ecw, quiz bedside view + debrief D-019), for a fresh session continuing from
-`docs/FABLE_GOAL_PROMPT.md`.
+Updated 2026-09-11, late (M9 complete; post-M9 extensions done: Pes artifact fix, quiz extras, capstone,
+schematic SpO2, live EL/Ecw, quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout
+D-020), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
@@ -11,10 +11,11 @@ SpO2, live EL/Ecw, quiz bedside view + debrief D-019), for a fresh session conti
    validation, §10 export, §12 milestones).
 3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers, the M9
    definition-of-done walkthrough).
-4. `docs/DECISIONS.md` — D-001…D-019; D-012 is the detector's measurement basis, D-014 the M7 physics
+4. `docs/DECISIONS.md` — D-001…D-020; D-012 is the detector's measurement basis, D-014 the M7 physics
    (recruited gas, R/I limits, CO2 loop gains, the settings-log bug), D-015 the education/export choices,
    D-016 the Pes cardiac artifact and cardiac-smoothed ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw,
-   D-019 the quiz bedside view, locked link and templated debrief.
+   D-019 the quiz bedside view, locked link and templated debrief (+ follow-ups addendum), D-020 the
+   mobile-responsive layout.
 5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-5; Q-1…Q-3 answered: keep the defaults).
 6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md` — the user-facing docs (M9).
 7. This file's "What is left" before touching anything.
@@ -27,14 +28,17 @@ SpO2, live EL/Ecw, quiz bedside view + debrief D-019), for a fresh session conti
 | M7 | **done**: recruitable-population lung with real recruited gas, stress index, R/I, decremental PEEP trial, Gattinoni full power, CO2 → drive loop with time warp, truth recruitment readouts, 4 new scenarios, Playwright |
 | M8 | **done**: explain cards with case evidence, quiz (identify → fix → score), instructor mode with a scenario editor, progress in localStorage, session CSV/JSON, batch zip (worker + `scripts/batch.ts`) |
 | M9 | **done**: README, MODEL.md (equations + constants table via `scripts/model-constants.ts`), VALIDATION.md, determinism and performance tests, axe accessibility pass, keyboard/focus, Validation page links; definition-of-done walked in PROGRESS |
-| Post-M9 | **done** (2026-09-11): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) |
+| Post-M9 | **done** (2026-09-11): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) + follow-ups (masked picker, drive marks, attempts review); **mobile-responsive layout (D-020)** |
 
-`npm test` → 212 passed, 35 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
-→ 31/31 (+ 6 screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and
-pushed on `main`; **live at https://vent-sim.netlify.app/** (every push to `main` redeploys). Note: the
-performance test (`≥ 50× real time`) is a wall-clock test; under a loaded machine it fails inside the
-parallel full run (28–49×) while passing alone (see PROGRESS post-M9); it also fails the same way on the
-pre-change commits, so treat that as environment, not regression, and re-run it alone.
+`npm test` → 217 passed, 36 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
+→ 35/35 = 32 `chromium` (desktop) + 2 `mobile` (Pixel 7) + 1 `tablet` (Nexus 10) (+ 9 screenshot tests
+behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and pushed on `main`; **live at
+https://vent-sim.netlify.app/** (every push to `main` redeploys). Note: the performance test (`≥ 50× real
+time`) is a wall-clock test; under a loaded machine it fails inside the parallel full run (28–49×) while
+passing alone (see PROGRESS post-M9); it also fails the same way on the pre-change commits, so treat that
+as environment, not regression, and re-run it alone. Live-site check after a push: fetch the served
+`assets/index-*.js` and grep for a **literal** string of the change (template strings such as
+`mtab-${id}` are not literal in the bundle; `mobile-tabs` and `view-toggles` are).
 
 ## M7 as built (map of the code)
 
@@ -116,6 +120,25 @@ pre-change commits, so treat that as environment, not regression, and re-run it 
   `quizview-bedside`, `quizview-none`, `quizview-link`, `quizview-copy`. Constant `QUIZ_FIX_BAND`. Tests
   `tests/unit/{quiz-view,debrief}.test.ts`, `progress.test.ts`, `tests/e2e/quiz-bedside.spec.ts`. Plan:
   `docs/superpowers/plans/2026-09-11-quiz-bedside-view.md`.
+- **D-019 follow-ups**: `ScenarioPicker` `mask` → every option "Case n" (library order), groups "Cases";
+  drive changes in the log (`DriveSnapshot`, `driveSnapshot`, `applyDriveSnapshot`, `driveChangesFrom` in
+  `debrief.ts`; controller `drive`, `driveAtFixStart`, `logDriveChange` called from `setDrive` and
+  `applyFix`; `DebriefInput.driveAtFixStart/finalDrive`; keys `drive.rate|ti|pmax|entrainment`, test ids
+  `debrief-key-drive.<key>`); Instructor panel `instr-attempts` / `instr-attempt` table from
+  `ctl.progress.all()` (newest first, `ATTEMPTS_SHOWN` 20). `loadScenario` now uses `resetSessionState`.
+- **Mobile layout (D-020)**: design `docs/superpowers/specs/2026-09-11-mobile-layout-design.md`, plan
+  `docs/superpowers/plans/2026-09-11-mobile-layout.md`. `src/ui/breakpoints.ts` (`PHONE_MAX_WIDTH` 699,
+  `PHONE_QUERY`, `TABLET_QUERY`, `BADGE_TAP_HEIGHT` 32, `isCoarsePointer`, `usePhoneLayout`). `theme.css`:
+  responsive blocks **at the end of the file** (tablet grid, phone flex column with `order`, touch block);
+  they must stay after every base rule they override (`.drawer-pane` bit us once). `App.tsx`: `phone`
+  flag, `MobileTab` state `mtab`, tab bar `mobile-tabs` / `mtab-vent|monitor|loops|learn`, `data-mtab` on
+  `.app-main`, `view-toggles` panel (truth + balloon toggles) at the top of the left column on phones,
+  CO2 panel in the right column on phones, `ExportPanel.validationLink`, drawer-tab → Learn effect.
+  `WaveformCanvas`: `--wave-rows` style on the wrap, coarse-pointer badge tap, readout x clamped ≥ 0.
+  `DebriefPanel` and `LungStressDashboard` tables in `.table-wrap`. Playwright projects `chromium`
+  (ignores `mobile.spec.ts`, `tablet.spec.ts`), `mobile` (Pixel 7), `tablet` (Nexus 10); helpers in
+  `tests/e2e/helpers/layout.ts` (`ready`, `waitForSim`, `noHorizontalOverflow`, `canvasFollowsWrap`).
+  Screenshot spec: `emulate(name)` strips `defaultBrowserType` so `test.use` works inside a describe.
 
 ## What is left (post-M9)
 
@@ -124,7 +147,8 @@ All spec milestones and the optional extensions listed in the previous handoff a
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
    signal-only idea appears; never tune on the held-out grid.
-3. **Alias** `tomnahass.com/vent-sim/` — **root cause found 2026-09-11 (evening), owner action needed.**
+3. **Alias** `tomnahass.com/vent-sim/` — **root cause found 2026-09-11 (evening), owner action needed;
+   re-checked later the same evening: still the personal site's 404.**
    The redirect rules are in the personal site's repo (`~/Documents/development/personal-website/netlify.toml`,
    commit 4d756ac on `github.com/nahata5/personal-website` main). DNS already points at Netlify. The
    personal site's Netlify build fails at "preparing repo": `git@github.com: Permission denied (publickey)`
@@ -137,31 +161,19 @@ All spec milestones and the optional extensions listed in the previous handoff a
    and re-check with `curl -sSL -o /dev/null -w '%{url_effective} %{http_code}\n' https://tomnahass.com/vent-sim/`
    (expect 200 with the VentSim `<title>`), then check that `assets/index-*.js` is proxied too. Nothing in
    this repo can change the outcome. If the Hugo 0.95 build fails next, that log is the next thing to read.
-4. **Quiz bedside view + debrief — done** (D-019, six commits 2454a79…95f112b + docs, live). See the map
-   above. Small follow-ups if wanted: mask the other case titles in the picker when `scenario` is hidden
-   but the session is not locked; an instructor review page for the stored `QuizAttempt.debrief`
-   summaries (today they show as one line in the Quiz tab's idle state); a `mark` for `fix.drive`
-   recommendations (the debrief lists settings and injectors only).
-5. **Next feature (owner request 2026-09-11): mobile-responsive layout.** Today `App.tsx` is a fixed
-   three-column grid (`col-left` settings/injectors/instructor, `col-center` waveforms + drawer, `col-right`
-   monitor + dashboard) sized for a desktop; on a phone it overflows. Needs a brainstorm → spec first (what
-   a learner does on a phone: watch the waveforms, change a setting, take the quiz, read the debrief; what
-   the instructor does on a tablet), then a plan. Likely shape: CSS breakpoints in `src/ui/theme.css`
-   (single column under ≈ 700 px with the waveform screen first and full width, panels collapsed into
-   accordions or bottom tabs; two columns on tablets), the canvases sized from their container with
-   `ResizeObserver` (`WaveformCanvas`, `LoopCanvas` — check they read `getBoundingClientRect`/devicePixelRatio
-   on resize rather than once), touch-friendly hit targets for the badge strip and the settings inputs, the
-   Monitor tiles wrapping, the debrief table scrolling inside its container. Playwright: add a mobile
-   project (`devices['Pixel 7']` or `iPhone 14`) with a smoke test (no horizontal overflow: `document.
-   documentElement.scrollWidth <= innerWidth`, waveforms visible, settings confirm reachable, quiz start →
-   debrief on the phone viewport) and keep the desktop suite unchanged. Screenshot refresh afterwards.
-6. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a screenshot
-   refresh for the docs (`SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts`) now that the
-   Monitor has the SpO2 tile, the Instructor panel the elastance row and the Quiz view section, and the
-   quiz result the debrief; a Pes-position dependence of the cardiac artifact (larger behind the heart);
-   quiz extras for more scenarios (e.g. `dPes ≤ 8` for the P-SILI scenario); an explain-card/objective for
-   the capstone that lists the fix order.
-6. Keep the working method: tests first for anything in `src/sim`/`src/detector`/`src/edu` logic, constants
+4. **Quiz bedside view + debrief — done** (D-019, live), and its three follow-ups are done too (masked
+   picker "Case n", drive marks, Instructor attempts review; D-019 addendum, PROGRESS entry). Nothing open.
+5. **Mobile-responsive layout — done** (D-020, owner-approved design, five commits, live; screenshots
+   refreshed). Open only as polish: landscape phones (≈ 840 × 400) fall into the tablet rule and are
+   cramped (a `(max-height: 500px)` rule could pin a shorter waveform screen); no swipe between tabs; the
+   chosen tab is not persisted; the cursor readout stays after a tap until the next tap; the Validation
+   page (`#validation`) was not re-laid out for phones (its tables already scroll in `.table-wrap`).
+6. **Optional, still open**: light theme for the panels (waveform screen stays dark), i18n, a Pes-position
+   dependence of the cardiac artifact (larger behind the heart), quiz extras for more scenarios (e.g.
+   `dPes ≤ 8` for the P-SILI scenario), an explain-card/objective for the capstone that lists the fix
+   order, an export of the attempts review (CSV of `ctl.progress.all()`), a `(max-height: 500px)` landscape
+   rule for phones.
+7. Keep the working method: tests first for anything in `src/sim`/`src/detector`/`src/edu` logic, constants
    cited, deviations in DECISIONS, clinical questions in QUESTIONS, regenerate the snapshot after scenario or
    detector changes, `SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts` for the docs.
 
@@ -228,29 +240,29 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > keep the defaults; do not reopen them.
 >
 > State: M0–M9 and the post-M9 extensions (Pes artifact fix, quiz extras, capstone, schematic SpO2, live
-> EL/Ecw, quiz bedside view + debrief D-019) are done and deployed at https://vent-sim.netlify.app/.
-> Vitest 212/212 (held-out detector suite un-gated; the performance test is wall-clock and must be re-run
-> alone if the parallel run is under load), lint clean, Playwright 31/31 (the M8 quiz test can flake under
-> a loaded full run because the fix outcome depends on wall-clock click timing; re-run it alone), build
+> EL/Ecw, quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout D-020) are done
+> and deployed at https://vent-sim.netlify.app/. Vitest 217/217 (held-out detector suite un-gated; the
+> performance test is wall-clock and must be re-run alone if the parallel run is under load), lint clean,
+> Playwright 35/35 in three projects (chromium 32, mobile 2, tablet 1; the M8 quiz test can flake under a
+> loaded full run because the fix outcome depends on wall-clock click timing; re-run it alone), build
 > clean. Do not revisit finished milestones except to fix a bug; never tune the detector on the held-out
 > grid; regenerate src/validation/snapshot.json after any scenario change and the MODEL.md constants table
-> after any constants change.
+> after any constants change; keep the responsive CSS blocks at the end of theme.css.
 >
 > Task — first, the alias: HANDOFF "What is left" item 3 has the root cause (the personal site's Netlify
 > deploy key is missing on github.com/nahata5/personal-website). Re-check with the curl there; if it now
 > returns 200 with the VentSim title, record it in PROGRESS and HANDOFF; if not, say so in one line and
 > move on (only the owner can fix it in the Netlify dashboard).
 >
-> Main task — make VentSim mobile-responsive (HANDOFF "What is left" item 5, owner request): the app must
-> be usable on a phone (single column, waveform screen first and full width, panels reachable without
-> horizontal scrolling, touch-sized controls, quiz and debrief readable) and on a tablet (two columns),
-> with the desktop layout unchanged. Use superpowers brainstorming to settle the phone layout with the
-> owner (what collapses, what stays visible while the waveforms run), write the spec to
-> docs/superpowers/specs/2026-09-1x-mobile-layout-design.md, then writing-plans → execute tests-first:
-> a Playwright mobile project with a smoke test (no horizontal overflow, waveforms visible, settings
-> confirm reachable, quiz start → debrief on the phone viewport), the canvases resizing from their
-> container, the existing 31 desktop tests untouched. No physics, detector or scenario changes. Commit,
-> push and check the live site after each task; add D-020 to DECISIONS (layout choices), a PROGRESS entry,
-> a README note, and refresh the docs screenshots (`SCREENSHOTS=1 npx playwright test
-> tests/e2e/screenshots.spec.ts`). If time remains, the D-019 follow-ups in item 4. When you reach a good
+> Main task — pick from HANDOFF "What is left" item 6 in this order unless the owner says otherwise:
+> (a) a light theme for the panels with the waveform screen staying dark (brainstorm the palette and the
+> toggle placement with the owner first; `prefers-color-scheme` default plus a header toggle persisted in
+> localStorage; contrast checked with the axe test; the bands, chips and badge colours must keep their
+> meaning; screenshots stay dark); (b) the landscape-phone rule (`(max-height: 500px)`: a shorter pinned
+> waveform screen, the tab bar stays) with a Playwright `mobile-landscape` project and one smoke test;
+> (c) an export of the Instructor attempts review as CSV. Each is a bounded change: spec in chat or a short
+> design file, tests first, one commit per task, push and check the live site (grep the served bundle for a
+> literal string). No physics, detector or scenario changes; if a scenario or constant does change,
+> regenerate the snapshot and the MODEL.md table. Record layout or theme choices as D-021…, add a PROGRESS
+> entry and a README note, and refresh the screenshots if the desktop look changes. When you reach a good
 > place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.

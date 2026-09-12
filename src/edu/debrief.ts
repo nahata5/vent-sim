@@ -8,6 +8,7 @@
 import { k } from '../config/constants';
 import type { VentSettings } from '../sim/vent/settings';
 import type { PatternId } from '../sim/truth/labeler';
+import { defaultDriveParams, type DriveParams } from '../sim/patient/neural-drive';
 import type { ScenarioFix } from './scenarios';
 import { CARDS } from './cards';
 import { gradeIdentification, type FixGrade } from './quiz';
@@ -58,10 +59,63 @@ const KEY_META: Record<string, KeyMeta> = {
   backupPinsp: { label: 'Backup Pinsp', unit: 'cmH2O' },
   leakCompensation: { label: 'Leak compensation' },
   esophagealBalloon: { label: 'Esophageal balloon' },
+  // Patient drive (instructor controls and scripted `fix.drive`), D-019 follow-up.
+  'drive.rate': { label: 'Drive rate', unit: '/min' },
+  'drive.ti': { label: 'Neural Ti', unit: 's' },
+  'drive.pmax': { label: 'Pmax', unit: 'cmH2O' },
+  'drive.entrainment': { label: 'Entrainment' },
 };
 
 const INJECTOR_PREFIX = 'injector:';
 const ALARM_PREFIX = 'alarms.';
+const DRIVE_PREFIX = 'drive.';
+
+/** The drive parameters the debrief compares; entrainment as its ratio (1, 2, 3) or null when off. */
+export interface DriveSnapshot {
+  rate: number;
+  ti: number;
+  pmax: number;
+  entrainment: number | null;
+}
+const DRIVE_KEYS = ['rate', 'ti', 'pmax', 'entrainment'] as const;
+type DriveKey = (typeof DRIVE_KEYS)[number];
+
+function entrainmentValue(e: DriveParams['entrainment'] | number | null | undefined): SettingValue {
+  if (e === null || e === undefined) return 'off';
+  return `1:${typeof e === 'number' ? e : e.ratio}`;
+}
+function driveValue(s: DriveSnapshot, key: DriveKey): SettingValue {
+  return key === 'entrainment' ? entrainmentValue(s.entrainment) : s[key];
+}
+
+/** Snapshot of a scenario's drive (missing keys take the model defaults). */
+export function driveSnapshot(d: Partial<DriveParams>): DriveSnapshot {
+  const full = { ...defaultDriveParams(), ...d };
+  return { rate: full.rate, ti: full.ti, pmax: full.pmax, entrainment: full.entrainment ? full.entrainment.ratio : null };
+}
+
+/** The snapshot after a live drive change (instructor apply or a scripted fix). */
+export function applyDriveSnapshot(current: DriveSnapshot, partial: Partial<DriveParams>): DriveSnapshot {
+  return {
+    rate: partial.rate ?? current.rate,
+    ti: partial.ti ?? current.ti,
+    pmax: partial.pmax ?? current.pmax,
+    entrainment: partial.entrainment === undefined ? current.entrainment : partial.entrainment === null ? null : partial.entrainment.ratio,
+  };
+}
+
+/** The entries of a drive change: one per drive key whose value differs from the current snapshot. */
+export function driveChangesFrom(t: number, current: DriveSnapshot, partial: Partial<DriveParams>): SettingChange[] {
+  const next = applyDriveSnapshot(current, partial);
+  const out: SettingChange[] = [];
+  for (const key of DRIVE_KEYS) {
+    if (!(key in partial)) continue;
+    const from = driveValue(current, key);
+    const to = driveValue(next, key);
+    if (from !== to) out.push({ t, key: `${DRIVE_PREFIX}${key}`, from, to });
+  }
+  return out;
+}
 
 function metaFor(key: string): KeyMeta {
   if (key.startsWith(INJECTOR_PREFIX)) {
@@ -199,6 +253,9 @@ export interface DebriefInput {
   finalSettings: VentSettings | null;
   injectorsAtFixStart: string[];
   finalInjectors: string[];
+  /** Patient drive at fix start and at evaluation (null for a passive scenario); marks `fix.drive` keys. */
+  driveAtFixStart?: DriveSnapshot | null;
+  finalDrive?: DriveSnapshot | null;
   /** Latest case evidence per truth pattern (missing = no sentence). */
   evidence: Partial<Record<PatternId, string[]>>;
 }
@@ -231,6 +288,19 @@ export function buildDebrief(inp: DebriefInput): Debrief {
       const start = inp.injectorsAtFixStart.includes(kind) ? 'on' : 'off';
       const learner = inp.finalInjectors.includes(kind) ? 'on' : 'off';
       keys.push({ key, label: metaFor(key).label, recommended: rec, learner, mark: fixMark(start, rec, learner) });
+    }
+  }
+  if (inp.fix?.drive && inp.driveAtFixStart && inp.finalDrive) {
+    const rec = inp.fix.drive;
+    for (const key of Object.keys(rec) as Array<keyof DriveParams>) {
+      if (!(DRIVE_KEYS as readonly string[]).includes(key)) continue;
+      const dk = key as DriveKey;
+      const recommended: SettingValue | undefined = dk === 'entrainment' ? entrainmentValue(rec.entrainment) : rec[dk];
+      if (recommended === undefined) continue;
+      const fullKey = `${DRIVE_PREFIX}${dk}`;
+      const start = driveValue(inp.driveAtFixStart, dk);
+      const learner = driveValue(inp.finalDrive, dk);
+      keys.push({ key: fullKey, label: metaFor(fullKey).label, recommended: formatValue(fullKey, recommended), learner: formatValue(fullKey, learner), mark: fixMark(start, recommended, learner) });
     }
   }
   const aiCheck = inp.fixGrade.checks.find((c) => c.id === 'ai');

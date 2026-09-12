@@ -415,6 +415,9 @@ button[aria-pressed='true'] {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.metric-value .small {
+  white-space: normal; /* placeholders such as "needs an inspiratory hold" wrap instead of pushing the band column out */
+}
 .metric-band {
   width: 44px;
   text-align: center;
@@ -726,6 +729,26 @@ tr.band-danger .metric-value {
 }
 .instructor-body input[type='number'] {
   width: 64px;
+}
+.instructor-body .attempts .table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.attempts-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.attempts-table th,
+.attempts-table td {
+  padding: 1px 8px 1px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #1c2632;
+}
+.attempts-table td:last-child {
+  white-space: normal;
+  min-width: 160px;
 }
 .instructor-body .editor textarea {
   width: 100%;
