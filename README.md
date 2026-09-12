@@ -42,7 +42,7 @@ npm ci
 npm run dev        # Vite dev server
 npm test           # Vitest: unit, physics, scenario (emergence matrix) and held-out detector tests
 npm run lint       # ESLint + tsc --noEmit
-npm run test:e2e   # Playwright (builds and previews the site); SCREENSHOTS=1 adds the doc screenshots
+npm run test:e2e   # Playwright: chromium (desktop), mobile (Pixel 7), tablet (Nexus 10); SCREENSHOTS=1 adds the doc screenshots
 npm run build      # production build to dist/
 npm run batch -- --scenarios double-trigger,copd --seeds 1,2,3 --duration 60 --out batch.zip
 npx tsx scripts/validation-snapshot.ts   # regenerate src/validation/snapshot.json after scenario/detector changes
@@ -74,6 +74,12 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
   convenience, not security: the URL is editable.
 - **Validation** (`#validation`): analytic test list, the emergence matrix and per-pattern confusion
   matrices from the snapshot, with a "Recompute in this browser" button.
+- **On a phone** (under 700 px): the waveform screen stays pinned at the top and a bottom tab bar switches
+  the panel below it — **Vent** (truth-layer and balloon toggles, settings with a sticky Confirm, injectors,
+  instructor), **Monitor** (tiles, maneuvers, lung stress, CO2), **Loops**, **Learn** (Scenario · Explain ·
+  Quiz · Export, with the Validation link under Export). Tapping a badge opens its explain card in Learn.
+  **On a tablet** (700–1099 px) the waveforms and drawer span the width with settings and monitor in two
+  columns below; the desktop layout starts at 1100 px (D-020).
 
 ## Documentation
 
@@ -81,7 +87,7 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
 |---|---|
 | [`docs/MODEL.md`](docs/MODEL.md) | Every equation with symbols, units and citations; the constants table |
 | [`docs/VALIDATION.md`](docs/VALIDATION.md) | Spec §9 items, the tests that cover them and the current numbers |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Deviations from the spec and choices it left open (D-001…D-019) |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Deviations from the spec and choices it left open (D-001…D-020) |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What is schematic, what the bedside cannot see, where the model stops |
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Clinical questions for the owner with the defaults built around |
 | [`PROGRESS.md`](PROGRESS.md) | Build log per milestone with test results and screenshots |

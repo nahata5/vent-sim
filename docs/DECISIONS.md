@@ -464,3 +464,57 @@ inspiratory hold; the dashboard's earlier placeholder mentioned Pes, which is no
   with the attempt (`QuizAttempt.debrief`) and shown in the Quiz tab's idle state.
 - **Not done.** No per-learner identity, no server, no instructor dashboard; the picker still lists the
   other case titles when `scenario` is hidden and the session is not locked (the learner may switch cases).
+
+## D-020 · Mobile-responsive layout: pinned waveforms and a bottom tab bar on phones, two columns on tablets (2026-09-11)
+
+Design `docs/superpowers/specs/2026-09-11-mobile-layout-design.md`; the three layout choices were put to the
+owner as options with mockups and the recommended one was taken each time.
+
+- **Breakpoints.** Phone `(max-width: 699px)`, tablet `(min-width: 700px) and (max-width: 1099px)`, desktop
+  ≥ 1100 px unchanged. The phone threshold lives in `PHONE_MAX_WIDTH` (`src/ui/breakpoints.ts`, used by the
+  `usePhoneLayout()` hook) and in `theme.css`; `tests/unit/breakpoints.test.ts` reads the stylesheet and
+  fails if they drift. The earlier `(max-width: 1100px)` two-column fallback (unused by any test) is gone.
+- **Phone: what stays visible.** The waveform screen is pinned at the top, full width, `min(55vh,
+  rows × 74 px + 22 px)` tall (`--wave-rows` set by `WaveformCanvas`: 3 bedside, 4 with the balloon, 8 with the
+  truth layer), then the time controls, then **one** panel filling the rest, chosen from a 48 px bottom tab
+  bar: Vent (truth and balloon toggles, Settings with a sticky Confirm row, Injectors, Instructor), Monitor
+  (tiles, maneuvers, dashboard, CO2), Loops (2-column grid), Learn (the drawer's Scenario · Explain · Quiz ·
+  Export, with the Validation link under Export). All four panels stay mounted; the inactive three are
+  `display: none`, so the settings draft and the instructor's state survive a tab change. When the
+  controller opens a drawer tab on its own (badge tap → Explain, quiz start → Quiz) the phone switches to
+  Learn.
+- **Why a tab bar rather than a long scroll.** The learner's phone task is "watch the traces while
+  changing a setting"; a long scroll takes the waveforms off screen the moment the settings are reached,
+  and a sticky header of eight truth rows leaves no room for anything else. One panel at a time keeps the
+  screen and the control in view together.
+- **DOM unchanged.** `.col-center` and `.drawer` become `display: contents` below 1100 px so the time
+  controls, waveform wrap, loops and drawer pane are laid out directly by `.app-main` (flex column with
+  `order` on the phone, a two-column grid with explicit rows on the tablet). The only JavaScript layout
+  state is the `phone` boolean: it moves the header toggles into the Vent tab and the CO2 panel into the
+  Monitor column, renders the tab bar and stamps `data-mtab` on `.app-main`. Each control renders once, so
+  the test ids stay unique and the desktop suite is untouched.
+- **Tablet.** Time controls, waveforms (`max(300px, min(50vh, rows × 80 px + 22 px))`) and the drawer
+  (loops left, tabbed pane right, 260 px) span both columns; Settings/Injectors/CO2/Instructor sit left and
+  Monitor/Dashboard right, and the page scrolls (`.app-main` `overflow-y: auto`; the columns no longer
+  scroll independently). The desktop `grid-template-rows: minmax(0, 1fr)` had to be reset (`none`) or the
+  first auto row collapsed to zero height.
+- **Touch.** Under the phone query and `(pointer: coarse)`: buttons, selects and inputs ≥ 40 px, inputs at
+  16 px text (no iOS focus zoom), 22 px checkboxes, quiz picks one per row, explain/debrief two-column
+  blocks one column, the debrief keys and PEEP-trial tables inside a horizontally scrolling `.table-wrap`.
+  A tap within `BADGE_TAP_HEIGHT` = 32 px of the top of the waveform screen counts as a badge tap on a
+  coarse pointer (the drawn strip stays 18 px). `isCoarsePointer()` also accepts `navigator.maxTouchPoints`
+  so emulators without the media feature behave like phones.
+- **Canvases.** Both canvases already re-measure their container every frame with the device-pixel ratio
+  capped at 2, so a viewport or tab change resizes them without a `ResizeObserver`; the phone test asserts
+  the backing store equals `round(clientWidth × dpr)` after a viewport change, and the tablet test the same.
+- **Tests.** Playwright projects `mobile` (`devices['Pixel 7']`, `tests/e2e/mobile.spec.ts`: no horizontal
+  overflow, canvas follows its wrap, tab bar, toggles in the Vent tab, settings confirm in the viewport and
+  applied, Monitor/Loops/Learn tabs, badge tap at 26 px opens Explain and switches to Learn, resize; quiz
+  start → identify → fix through the Vent tab → debrief readable inside its pane) and `tablet`
+  (`devices['Nexus 10']`, `tests/e2e/tablet.spec.ts`: no tab bar, full-width waveforms, Settings and Monitor
+  side by side, confirm reachable by scrolling, canvas follows). The `chromium` project ignores both files,
+  so the 31 desktop tests run as before. Screenshots `docs/screenshots/mobile-phone-{vent,learn,monitor}.png`,
+  `mobile-tablet.png`.
+- **Accepted limitations.** Landscape phones (≈ 840 × 400) fall into the tablet rule and are cramped; no
+  swipe between tabs; the chosen tab is not persisted; the cursor readout appears at a tap and stays until
+  the next tap (no mouseleave on touch); the Instructor JSON editor is usable but small on a phone.

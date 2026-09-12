@@ -547,3 +547,26 @@ hash unchanged; instructor checkboxes and link). The `settingsChangeLog` reset i
 run, as before), lint clean, Playwright 31/31, build clean. One flake seen: in a full parallel run the M8
 quiz test once evaluated `data-pass` 0 (the fix outcome depends on where the wall-clock clicks land in
 simulated time at 4×); it passed alone and in the next full run, and the grading code is untouched.
+
+## Post-M9 · Mobile-responsive layout (2026-09-11)
+
+D-020, design `docs/superpowers/specs/2026-09-11-mobile-layout-design.md` (three layout choices put to the
+owner with mockups; recommended options taken), plan `docs/superpowers/plans/2026-09-11-mobile-layout.md`.
+Phone (< 700 px): waveform screen pinned at the top, full width, height from the row count; time controls;
+one panel at a time from a bottom tab bar (Vent · Monitor · Loops · Learn); truth/balloon toggles at the top
+of the Vent tab, Validation link under Export, CO2 panel in the Monitor tab; touch sizes (40 px controls,
+16 px inputs, 32 px badge tap). Tablet (700–1099 px): waveforms and drawer full width, Settings/Injectors/
+Instructor left and Monitor/Dashboard right, page scrolls. Desktop ≥ 1100 px unchanged. Mechanism: CSS
+`display: contents` on `.col-center`/`.drawer` so the desktop DOM re-flows; one `phone` boolean
+(`usePhoneLayout`, `src/ui/breakpoints.ts`) in `App.tsx` for the tab bar and the relocated controls. No
+physics, detector, scenario or education-logic change; no snapshot or constants change.
+
+Tests first: `tests/unit/breakpoints.test.ts` (CSS query = TS constant), Playwright projects `mobile`
+(Pixel 7, `tests/e2e/mobile.spec.ts`, 2 tests) and `tablet` (Nexus 10, `tests/e2e/tablet.spec.ts`, 1 test);
+the `chromium` project ignores both files. Two layout bugs caught by the screenshots before the tests: the
+later base `.drawer-pane { display: flex }` overrode the phone `display: none` (responsive blocks moved to the
+end of `theme.css`) and the desktop `grid-template-rows: minmax(0, 1fr)` collapsed the tablet's first row
+(reset to `none`). Vitest 214/214, lint clean, Playwright 31 (chromium) + 2 (mobile) + 1 (tablet) = 34/34,
+build clean. Screenshots refreshed with `SCREENSHOTS=1` (M6–M8 plus `docs/screenshots/mobile-phone-vent.png`,
+`mobile-phone-learn.png`, `mobile-phone-monitor.png`, `mobile-tablet.png`). Alias `tomnahass.com/vent-sim/`
+re-checked at the start of the session: still the personal site's 404 (owner action, HANDOFF item 3).
