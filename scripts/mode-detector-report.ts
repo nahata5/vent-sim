@@ -14,6 +14,9 @@ const IDS = [
   'prvc-pressure-withdrawal',
   'prvc-volume-not-achieved',
   'prvc-double-trigger',
+  'aprv-tlow-too-long',
+  'aprv-release-collision',
+  'aprv-high-effort',
 ];
 const PATTERNS: PatternId[] = [
   'ineffective-effort',
@@ -21,6 +24,7 @@ const PATTERNS: PatternId[] = [
   'flow-starvation',
   'auto-peep',
   'support-withdrawal',
+  'release-collision',
   'high-resistance',
 ];
 console.log('| Scenario | Pattern | tp | fp | tn | fn | Sens | Spec |');

@@ -106,6 +106,8 @@ export interface BreathFeatures {
   shoulderTail: number;
   /** Early expiration: peak expiratory flow (L/min, negative), Paw minimum in the first 0.4 s minus PEEP. */
   peakExpFlow: number;
+  /** Mean measured flow over the first DET_RC_FLOW_WINDOW s after cycle-off, L/min (positive = still inhaling). */
+  releaseStartFlow: number;
   earlyExpPawDip: number;
   /** Time after cycle-off at which expiratory flow first came back above −1 L/min (s), or NaN. */
   expReturnTime: number;
@@ -385,6 +387,17 @@ export function extractFeatures(r: MeasuredReader, b: MeasuredBreath, ctx: Devic
     if (i <= iEarlyExpEnd) earlyPawMin = Math.min(earlyPawMin, rd('paw', i));
   }
   const earlyExpPawDip = Number.isFinite(earlyPawMin) ? ctx.peep - earlyPawMin : 0;
+  // Flow at the moment expiration opens (in APRV, the release): still positive when the patient is inhaling into it.
+  let releaseStartFlow = 0;
+  {
+    let sum = 0;
+    let n = 0;
+    for (let i = iC; i <= iC + Math.round(k('DET_RC_FLOW_WINDOW') * fs); i++) {
+      sum += rd('flow', i);
+      n += 1;
+    }
+    releaseStartFlow = n ? (sum / n) * 60 : 0;
+  }
   let expReturnTime = NaN;
   for (let i = iPeakExp; i <= iE; i++) {
     if (rd('flow', i) > -1 / 60) {
@@ -815,6 +828,7 @@ export function extractFeatures(r: MeasuredReader, b: MeasuredBreath, ctx: Devic
     endInspRise: Number.isFinite(endInspRise) ? endInspRise : 0,
     shoulderTail,
     peakExpFlow: Number.isFinite(peakExp) ? peakExp * 60 : 0,
+    releaseStartFlow,
     earlyExpPawDip,
     expReturnTime,
     notches,
@@ -875,8 +889,9 @@ export function deviceContext(s: VentSettings): DeviceContext {
   const above = s.mode === 'PC-AC' ? s.pinsp : s.mode === 'PSV' ? s.ps : 0;
   return {
     mode: s.mode,
-    peep: s.peep,
-    pTarget: s.peep + above,
+    // APRV works in absolute pressures: the release pressure is the baseline and Phigh the target.
+    peep: s.mode === 'APRV' ? s.plow : s.peep,
+    pTarget: s.mode === 'APRV' ? s.phigh : s.peep + above,
     breathKind: breathKindFromMode(s),
     prvcMinDp: s.prvcMinDp,
     vt: s.vt,
