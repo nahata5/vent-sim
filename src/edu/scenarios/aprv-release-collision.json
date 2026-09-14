@@ -1,0 +1,19 @@
+{
+  "id": "aprv-release-collision",
+  "order": 421,
+  "category": "mode",
+  "title": "APRV releases landing on the patient's own breaths",
+  "summary": "ARDS breathing at 20 a minute on APRV with a 4.0 s Phigh. Nothing synchronizes the release to the effort: about one release in three begins while the patient is still breathing in, and the airway pressure falls out from under the effort. Lengthening Phigh alone still leaves the same fraction of releases colliding, since the collision probability per release does not depend on Thigh; the fix also has to slow and shorten the patient's own effort.",
+  "phenotype": "ards-pulmonary",
+  "balloon": { "enabled": true },
+  "drive": { "rate": 20, "ti": 1.0, "pmax": 8, "cvRate": 0.05, "cvTi": 0.05, "cvPmax": 0.05 },
+  "settings": { "mode": "APRV", "phigh": 28, "plow": 0, "thigh": 4.0, "tlow": 0.5, "tlowMode": "pefr", "tlowPefr": 0.75 },
+  "seed": 52,
+  "objectives": [
+    "Spot the release that begins while the Pes swing is still growing: the release-collision badge.",
+    "Fix by giving the patient fewer releases (Thigh 8.0 s, Tlow cap 0.6 s) and treating the drive (analgesia/sedation to Pmax 6 at 14 a minute): fewer, shorter efforts land on fewer releases."
+  ],
+  "targetPatterns": ["release-collision"],
+  "fix": { "at": 60, "note": "Thigh 8.0 s, Tlow cap 0.6 s, and treat the drive (Pmax 6, rate 14): longer Thigh alone does not lower the per-release collision fraction, so the fix also gives the patient fewer and shorter efforts.", "settings": { "thigh": 8.0, "tlow": 0.6 }, "drive": { "rate": 14, "pmax": 6 } },
+  "criteria": { "minFraction": 0.15, "aiAfter": 10 }
+}

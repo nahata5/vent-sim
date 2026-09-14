@@ -22,7 +22,7 @@ export const SCENARIO_TOP_KEYS = [
   'id', 'order', 'category', 'title', 'summary', 'phenotype', 'mechanics', 'drive', 'balloon', 'gas',
   'injectors', 'settings', 'seed', 'objectives', 'targetPatterns', 'fix', 'criteria', 'quizExtras', 'shunt',
 ] as const;
-export const CRITERIA_EXTRA_METRICS = ['peepiTrue'] as const;
+export const CRITERIA_EXTRA_METRICS = ['peepiTrue', 'recruitedGain'] as const;
 export const DRIVE_BOUNDS = {
   rate: { min: 4, max: 60, unit: '/min' },
   ti: { min: 0.3, max: 3, unit: 's' },
@@ -194,7 +194,11 @@ export function validateScenario(raw: unknown): ScenarioValidation {
       if (c.extra !== undefined) {
         if (!Array.isArray(c.extra)) errors.push('criteria.extra must be an array');
         else c.extra.forEach((e, i) => {
-          if (!isRec(e) || !(CRITERIA_EXTRA_METRICS as readonly string[]).includes(String(e.metric)) || typeof e.max !== 'number') errors.push(`criteria.extra[${i}] must be { "metric": ${list(CRITERIA_EXTRA_METRICS)}, "max": number }`);
+          const metric = isRec(e) ? String(e.metric) : '';
+          const valid =
+            isRec(e) &&
+            ((metric === 'peepiTrue' && typeof e.max === 'number') || (metric === 'recruitedGain' && typeof e.min === 'number'));
+          if (!valid) errors.push(`criteria.extra[${i}] must be { "metric": "peepiTrue", "max": number } or { "metric": "recruitedGain", "min": number }`);
         });
       }
     }

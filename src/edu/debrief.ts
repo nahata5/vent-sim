@@ -59,6 +59,13 @@ const KEY_META: Record<string, KeyMeta> = {
   backupPinsp: { label: 'Backup Pinsp', unit: 'cmH2O' },
   leakCompensation: { label: 'Leak compensation' },
   esophagealBalloon: { label: 'Esophageal balloon' },
+  // APRV (Task 4 carry-over: KEY_META had no entries, so a fix debrief showed raw key names).
+  phigh: { label: 'Phigh', unit: 'cmH2O' },
+  plow: { label: 'Plow', unit: 'cmH2O' },
+  thigh: { label: 'Thigh', unit: 's' },
+  tlow: { label: 'Tlow', unit: 's' },
+  tlowMode: { label: 'Release mode' },
+  tlowPefr: { label: 'Tlow PEFR', unit: '% of PEFR', scale: 100 },
   // Patient drive (instructor controls and scripted `fix.drive`), D-019 follow-up.
   'drive.rate': { label: 'Drive rate', unit: '/min' },
   'drive.ti': { label: 'Neural Ti', unit: 's' },

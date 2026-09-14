@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T18:18:16.062Z",
- "commit": "d606590",
+ "generatedAt": "2026-09-14T20:50:16.898Z",
+ "commit": "7977a46",
  "emergence": [
   {
    "id": "double-trigger",
@@ -357,6 +357,67 @@
    "aiLimit": 10,
    "extra": [],
    "pass": true
+  },
+  {
+   "id": "aprv-tlow-too-long",
+   "targets": [
+    {
+     "pattern": "tidal-recruitment",
+     "fraction": 0,
+     "required": 0.5
+    },
+    {
+     "pattern": "auto-peep",
+     "fraction": 1,
+     "required": 0.5
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [
+    {
+     "metric": "recruitedGain",
+     "value": 0,
+     "min": 0
+    }
+   ],
+   "pass": false
+  },
+  {
+   "id": "aprv-release-collision",
+   "targets": [
+    {
+     "pattern": "release-collision",
+     "fraction": 0.2727272727272727,
+     "required": 0.15
+    }
+   ],
+   "aiBefore": 27.272727272727273,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "aprv-high-effort",
+   "targets": [
+    {
+     "pattern": "high-effort",
+     "fraction": 1,
+     "required": 0.3
+    },
+    {
+     "pattern": "pendelluft",
+     "fraction": 1,
+     "required": 0.3
+    }
+   ],
+   "aiBefore": 60,
+   "aiAfter": 20,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": false
   }
  ],
  "heldOut": [

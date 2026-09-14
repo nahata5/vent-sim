@@ -33,6 +33,10 @@ describe('setting change log', () => {
     expect(formatChange({ t: 90, key: 'ets', from: 0.1, to: 0.7 })).toBe('ETS 10 → 70 % at 90 s');
     expect(formatChange({ t: 91, key: 'injector:leak', from: 'on', to: 'off' })).toBe('Leak injector on → off at 91 s');
   });
+
+  it('labels the APRV settings by their bedside names (Task 4 carry-over)', () => {
+    expect(formatChange({ t: 60, key: 'thigh', from: 4, to: 6 })).toBe('Thigh 4 → 6 s at 60 s');
+  });
 });
 
 describe('drive change log (D-019 follow-up)', () => {

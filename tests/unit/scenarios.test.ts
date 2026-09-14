@@ -102,3 +102,17 @@ describe('PRVC scenarios', () => {
     }
   });
 });
+
+describe('APRV scenarios', () => {
+  it('the APRV scenarios are in the mode category on APRV with a fix and criteria; the first judges recruited volume', () => {
+    for (const id of ['aprv-tlow-too-long', 'aprv-release-collision', 'aprv-high-effort']) {
+      const s = scenarioById(id);
+      expect(s.category).toBe('mode');
+      expect(s.settings.mode).toBe('APRV');
+      expect(s.fix).toBeDefined();
+      expect(s.criteria).toBeDefined();
+    }
+    const extra = scenarioById('aprv-tlow-too-long').criteria?.extra ?? [];
+    expect(extra.some((x) => x.metric === 'recruitedGain' && 'min' in x)).toBe(true);
+  });
+});

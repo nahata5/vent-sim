@@ -38,7 +38,8 @@ export interface ScenarioCriteria {
   minFraction: number;
   /** AI limit (%) after the fix. */
   aiAfter: number;
-  extra?: Array<{ metric: 'peepiTrue'; max: number }>;
+  /** `recruitedGain`: mean end-expiratory aerated FRC after the fix minus before, L (Spec 2026-09-14 §4.7). */
+  extra?: Array<{ metric: 'peepiTrue'; max: number } | { metric: 'recruitedGain'; min: number }>;
   /** Which breaths the target fractions are measured over (mixed-breath modes); default every breath. */
   over?: 'all' | 'mandatory';
 }
@@ -108,6 +109,9 @@ import simvStacking from './simv-stacking.json';
 import prvcPressureWithdrawal from './prvc-pressure-withdrawal.json';
 import prvcVolumeNotAchieved from './prvc-volume-not-achieved.json';
 import prvcDoubleTrigger from './prvc-double-trigger.json';
+import aprvTlowTooLong from './aprv-tlow-too-long.json';
+import aprvReleaseCollision from './aprv-release-collision.json';
+import aprvHighEffort from './aprv-high-effort.json';
 
 const RAW: unknown[] = [
   capstone,
@@ -117,6 +121,9 @@ const RAW: unknown[] = [
   prvcPressureWithdrawal,
   prvcVolumeNotAchieved,
   prvcDoubleTrigger,
+  aprvTlowTooLong,
+  aprvReleaseCollision,
+  aprvHighEffort,
   peepTrialRecruiter,
   peepTrialNonRecruiter,
   co2OverAssist,

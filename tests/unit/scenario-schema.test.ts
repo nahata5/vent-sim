@@ -110,4 +110,13 @@ describe('validateScenario', () => {
     const bad = validateScenario({ ...good, settings: { mode: 'SIMV', simvBase: 'VS' } });
     expect(bad.errors.join('\n')).toMatch(/settings\.simvBase/);
   });
+
+  it('accepts APRV settings, rejects a bad tlowMode, and accepts a recruitedGain criterion with min', () => {
+    const ok = validateScenario({ ...good, settings: { mode: 'APRV', phigh: 28, plow: 0, thigh: 4.5, tlow: 0.5, tlowMode: 'pefr', tlowPefr: 0.75 }, criteria: { minFraction: 0.3, aiAfter: 10, extra: [{ metric: 'recruitedGain', min: 0 }] } });
+    expect(ok.errors).toEqual([]);
+    const bad = validateScenario({ ...good, settings: { mode: 'APRV', tlowMode: 'auto' } });
+    expect(bad.errors.join('\n')).toMatch(/settings\.tlowMode/);
+    const badExtra = validateScenario({ ...good, criteria: { minFraction: 0.3, aiAfter: 10, extra: [{ metric: 'recruitedGain', max: 1 }] } });
+    expect(badExtra.errors.join('\n')).toMatch(/criteria\.extra/);
+  });
 });
