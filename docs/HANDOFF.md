@@ -364,10 +364,15 @@ ineffective, `release-collision` (in `AI_EVENT_PATTERNS`, evidence `releaseLead`
 plow`, card + badge `RC` + `caseEvidence`, the `auto-peep` card's APRV pitfall, a `baseline()` helper so
 auto-PEEP evidence cites Plow in APRV, the M12 carry-over on the support-withdrawal card). Both reviewed
 clean; held-out grid byte-identical throughout. **Task 3** (detector skips + report-only `release-collision`
-rule with `DET_RC_WINDOW`/`DET_RC_PEFR_DELAY` set on the tuning runs, `scripts/mode-detector-report.ts`
-extended) was dispatched when this handoff was written — check `git log` on the branch: if a Task 3 commit
-exists but the ledger has no `Task 3: complete` line, dispatch its task review over `c46ca2b..<head>` before
-moving on. Deferred minors so far are in the ledger (`minor (deferred)` lines): latched hold/occlusion
+rule, `scripts/mode-detector-report.ts` extended) was in flight when this handoff was written, under a
+ruling that replaced the plan's rule: the brief's expiratory-flow notch never forms in a monotone release
+and the peak-flow delay is valve-dominated (0.12–0.14 s in every class), while the **mean measured flow
+over the first 30 ms after cycle-off** separates collisions (+5.4…+8.0 L/min) from non-collisions
+(≤ −2.7) and passive releases (−3.1…−2.5) — so the rule is `releaseStartFlow ≥ DET_RC_FLOW` (2 L/min,
+window `DET_RC_FLOW_WINDOW` 0.03 s), constants set on the tuning runs; `DET_RC_WINDOW`/`DET_RC_PEFR_DELAY`
+do not exist. Check `git log` on the branch: if a Task 3 commit exists but the ledger has no `Task 3:
+complete` line, dispatch its task review over `4b53627..<head>` (the reviewer must judge the ruled rule,
+not the plan's) before moving on; D-024 and MODEL.md (Task 6) must describe the ruled rule. Deferred minors so far are in the ledger (`minor (deferred)` lines): latched hold/occlusion
 requests and a running PEEP maneuver survive a switch into APRV; the pefr rule ends a release at once on an
 inspiratory flow (a de-facto synchronization to document in D-024); the engine primes the lung at
 `settings.peep` so APRV starts with a t = 0 transient; with Plow 0 the disconnect alarm is unreachable;
