@@ -167,3 +167,20 @@ describe('truth labeler', () => {
     expect(fraction(strong, 'high-effort')).toBeGreaterThan(0.5);
   });
 });
+
+describe('breath kind on labels', () => {
+  it('every breath label carries the kind and mandatory flag from the breath event', () => {
+    const res = run('premature-cycling', 30);
+    const out = labelRun(res);
+    expect(out.breaths.length).toBeGreaterThan(5);
+    for (const b of out.breaths) {
+      expect(b.breathKind).toBe('ps');
+      expect(b.mandatory).toBe(false);
+    }
+    const vc = run('double-trigger', 30);
+    for (const b of labelRun(vc).breaths) {
+      expect(b.breathKind).toBe('vc');
+      expect(b.mandatory).toBe(true);
+    }
+  });
+});
