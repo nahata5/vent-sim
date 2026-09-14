@@ -126,6 +126,49 @@ describe('APRV', () => {
     for (let i = 1; i < b.length; i++) expect(Math.abs((b[i]?.t ?? NaN) - (b[i - 1]?.t ?? NaN) - 5 - k('ACTUATOR_LATENCY'))).toBeLessThan(0.02);
   });
 
+  it('switching into APRV clears requests latched in the previous mode and abandons a running PEEP maneuver', () => {
+    // Requested in PC-AC, then the mode is switched (it commits at the next breath start). Without the
+    // clear in `commitPending` the insp hold is consumed by the first APRV cycle (a 1 s pause inside the
+    // high phase) and the R/I maneuver, which keeps asking for holds APRV refuses, completes with an
+    // invalid result. The occlusion is consumed by the old mode's expiration here (it can never reach the
+    // commit from a mandatory-rate mode); clearing it is defence for the paths where it could, since
+    // `controlRelease` never consults `occlusionRequest`.
+    const res = runHeadless({
+      patient: presetPatient('normal'),
+      settings: defaultSettings('PC-AC'),
+      seed: 7,
+      duration: 40,
+      schedule: [
+        {
+          t: 6,
+          action: (e) => {
+            e.vent.requestHold('insp');
+            e.vent.requestOcclusion('p01');
+            e.vent.requestPeepManeuver('ri');
+          },
+        },
+        { t: 6.5, action: (e) => e.vent.applySettings({ mode: 'APRV', phigh: 28, plow: 0, thigh: 4.5, tlow: 0.5, tlowMode: 'fixed' }) },
+      ],
+    });
+    const b = breathEvents(res.events);
+    const firstAprv = b.find((e) => e.kind === 'aprv')?.t ?? NaN;
+    expect(firstAprv).toBeLessThan(12);
+    const after = res.events.filter((e) => e.t > firstAprv);
+    expect(after.some((e) => e.type === 'hold-start' || e.type === 'hold-end')).toBe(false);
+    expect(after.some((e) => e.type === 'maneuver')).toBe(false);
+    expect(after.some((e) => e.type === 'pause-end')).toBe(false);
+    // Only the pre-switch occlusion ran; no R/I or PEEP-trial result was ever produced.
+    expect(res.maneuvers.map((m) => m.kind)).toEqual(['p01']);
+    expect(res.maneuvers.every((m) => m.tEnd < firstAprv)).toBe(true);
+    // Every breath from the switch on is an APRV high phase on an undisturbed Thigh + Tlow cycle.
+    const aprvBreaths = b.filter((e) => e.t >= firstAprv);
+    expect(aprvBreaths.length).toBeGreaterThan(3);
+    expect(aprvBreaths.every((e) => e.kind === 'aprv' && e.pTarget === 28)).toBe(true);
+    for (let i = 1; i < aprvBreaths.length; i++) {
+      expect(Math.abs((aprvBreaths[i]?.t ?? NaN) - (aprvBreaths[i - 1]?.t ?? NaN) - 5 - k('ACTUATOR_LATENCY'))).toBeLessThan(0.02);
+    }
+  });
+
   it('the low-PEEP (disconnect) alarm judges Paw against Plow, not the unused PEEP setting', () => {
     // PEEP 10 left in the settings object while Plow is 0: a release to 0 must not read as a disconnect.
     const res = runHeadless({ patient: presetPatient('normal'), settings: { ...aprv, peep: 10 }, seed: 5, duration: 30 });

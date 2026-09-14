@@ -162,8 +162,11 @@ signals (D-002), actuators run at 1 ms:
   `PRVC_LIMIT_VT_FRACTION` of the target, both terms read on the breath that just ended.
 - **APRV** (D-024): high phase `insp` at `phigh` for `thigh` (plan kind `aprv`, cycled by time), bidirectional
   servo at Phigh (`qMin −∞`, exhalation valve active) so spontaneous breaths at Phigh produce flow without
-  events; release `exp` at `plow` for `tlow`, or in `pefr` mode until |flow| has decayed to `tlowPefr`·|PEFR|
-  of this release's own peak (gated on that peak exceeding the reused `PSV_CYCLE_MIN_PEAK_FLOW`, not before
+  events — inflow at Phigh therefore passes `EXH_VALVE_R` (1.5 cmH2O/(L/s), the same resistance in both
+  directions) rather than the `SERVO_SOURCE_R` (4.0) every other pressure-targeted inspiration sees, so the
+  Phigh servo is slightly stiffer under inspiratory demand than PC/PSV/PRVC (spec-written; the same
+  bidirectional valve serves both directions); release `exp` at `plow` for `tlow`, or in `pefr` mode until
+  |flow| has decayed to `tlowPefr`·|PEFR| of this release's own peak (gated on that peak exceeding the reused `PSV_CYCLE_MIN_PEAK_FLOW`, not before
   `APRV_TLOW_MIN`, capped at `tlow`) — a spontaneous inspiration during a pefr release ends it at once
   (read as flow fraction 0), a de-facto synchronization the flow rule produces as a side effect; the next
   high phase is a time trigger. No patient trigger, no backup, no holds/occlusions/PEEP maneuvers; the

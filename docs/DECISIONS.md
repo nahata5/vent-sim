@@ -769,10 +769,8 @@ de-facto synchronization anywhere in APRV. The servo at Phigh is bidirectional
 inspiratory effort draws gas from the source and an expiratory effort pushes gas out through the
 exhalation valve, so the patient breathes at Phigh without any triggered event. Holds, occlusions, R/I and
 the PEEP trial (`requestHold`/`requestOcclusion`/`requestPeepManeuver`) return at once in APRV and their UI
-buttons are disabled; a request latched immediately before a switch into APRV is still consumed at the
-first APRV cycle, or survives to fire only after APRV is left, and a PEEP maneuver already running when
-APRV starts is stranded — both deferred as modelling gaps, not fixed here. The disconnect alarm judges Paw
-against Plow rather than the set PEEP; with the shipped defaults (Plow 0, `lowPeep` 3) that makes the
+buttons are disabled; a switch into APRV clears pending hold/occlusion requests and abandons a running
+PEEP maneuver (see below). The disconnect alarm judges Paw against Plow rather than the set PEEP; with the shipped defaults (Plow 0, `lowPeep` 3) that makes the
 disconnect alarm unreachable in APRV (Paw would have to read below −3). One breath record spans a Phigh
 plus its release (`tStart` = Phigh start, `tInspEnd` = release start, `tEnd` = next Phigh start); its
 inspired volume includes whatever spontaneous breaths the patient took at Phigh.
@@ -812,10 +810,28 @@ removed as dead code under this ruling. As with the SIMV and PRVC detector rules
 report-only — `docs/VALIDATION.md`'s mode table, not the held-out grid in §9.5, is the target, and the
 scenario library is never tuned against it.
 
-The quiz substitutes Phigh for the plateau and Phigh − Plow for ΔP (labelled "Phigh" and "Phigh − Plow" so
-the reader is not misled into thinking a hold was taken), because no inspiratory hold exists in APRV.
-`recruitedGain` — mean end-expiratory aerated FRC after the scripted fix minus before, in L — is a new
-`ScenarioCriteria.extra` metric with `min` semantics, alongside the existing `peepiTrue` `max`.
+The quiz substitutes Phigh for the plateau, labelled "Phigh" so the reader is not misled into thinking a
+hold was taken, because no inspiratory hold exists in APRV. **ΔP is reported unverified rather than graded**
+(amending spec §4.5, on the M13 whole-branch review): the driving pressure that matters in APRV is
+Phigh − PEEPtot, the trapped pressure the 75 % release rule sets, and no bedside hold can measure PEEPtot
+in APRV either. The controller therefore passes `dp: null` with the label "Phigh − PEEPtot (needs an
+expiratory hold; not available in APRV)", which goes through `FixInput.labels.dp` and renders through the
+existing unverified-plateau path (`ok: true, verified: false`) — a check the reader can see was not taken,
+not one they silently failed. The first M13 build graded Phigh − Plow against `DP_LIMIT` 15; that is the
+release amplitude rather than a driving pressure, and with the shipped Phigh 28–30 / Plow 0 it read 28–30
+on every APRV scenario, so the fix half of the score (50 % of the total) could never be earned.
+`tests/unit/quiz-aprv.test.ts` locks this down: each APRV scenario is run headless with its scripted fix
+and `gradeFix` must pass over the post-fix window. `recruitedGain` — mean end-expiratory aerated FRC after
+the scripted fix minus before, in L — is a new `ScenarioCriteria.extra` metric with `min` semantics,
+alongside the existing `peepiTrue` `max`.
+
+A switch into APRV clears pending hold/occlusion requests and abandons a running PEEP maneuver
+(`commitPending`, where the mode change takes effect; `mode` is not an immediate key in `applySettings`,
+so that is the only path into APRV). `requestHold`/`requestOcclusion`/`requestPeepManeuver` refuse *new*
+requests in APRV, but without the clear a hold latched just before the switch was consumed by the first
+APRV cycle as a pause inside the high phase, an occlusion request sat latched (`controlRelease` never
+consults it) until APRV was left, and a running R/I or PEEP trial kept asking for holds APRV refuses and
+completed with an invalid result (`valid: 0`, `ri: null`).
 
 Three scenario findings round out D-024, each a pedagogic result rather than a bug, the APRV counterpart of
 D-022's and D-023's. `aprv-tlow-too-long` teaches derecruitment on an over-long release, but

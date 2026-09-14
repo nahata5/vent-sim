@@ -212,6 +212,16 @@ export class Ventilator {
     const prev = this.settings;
     this.settings = clampSettings({ ...this.settings, ...this.pending });
     this.prvcResetIfRetargeted(prev);
+    // Entering APRV: drop anything latched before the switch. `requestHold`/`requestOcclusion`/
+    // `requestPeepManeuver` refuse new requests in APRV, but a request made in the previous mode would
+    // otherwise be consumed by the first APRV cycle (hold), survive until APRV is left (occlusion), or —
+    // for a running R/I or PEEP trial — keep asking for holds that are refused and finish with an invalid
+    // result. `mode` is not an immediate key in `applySettings`, so this is the only path into APRV.
+    if (prev.mode !== 'APRV' && this.settings.mode === 'APRV') {
+      this.holdRequest = null;
+      this.occlusionRequest = null;
+      this.peepManeuver = null;
+    }
     this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
   }

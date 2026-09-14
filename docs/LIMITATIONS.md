@@ -136,11 +136,9 @@ entry names the decision or milestone that introduced it. Newest additions last 
 - **The disconnect alarm is unreachable in APRV at the shipped defaults** (D-024): it judges Paw against
   Plow rather than the set PEEP, and with Plow 0 and `lowPeep` 3 that requires Paw below −3 cmH2O, which
   never occurs.
-- **A hold/occlusion request latched immediately before a switch into APRV is still consumed at the first
-  APRV cycle, or survives to fire only after APRV is left; a PEEP maneuver already running when APRV starts
-  is left stranded and cannot complete** (D-024, deferred from Task 1) — none of the seven maneuver buttons
-  can be pressed once in APRV, so this only matters for a request in flight at the moment of the mode
-  switch.
+- **A switch into APRV clears pending hold/occlusion requests and abandons a running PEEP maneuver**
+  (D-024, M13 review): none of the seven maneuver buttons can be pressed once in APRV, and a request in
+  flight at the moment of the mode switch is dropped rather than carried into the mode.
 - **The APRV detector rule (`release-collision`, D-024) is reported only**, like the SIMV and PRVC rules
   above: it is not part of the held-out grid in §9.5 and the scenario library is never tuned against it.
   Measured on the tuning runs, recall ran 0.67–1.00 and precision 0.67–1.00 across nine runs (seed, drive,
@@ -149,9 +147,14 @@ entry names the decision or milestone that introduced it. Newest additions last 
 - **`auto-peep` fires on almost every APRV release by construction** (D-024): the trapped end-release
   pressure *is* the PEEP in TCAV, so the badge is expected on nearly every breath, not a sign something is
   wrong; the card's first pitfall says so.
-- **The quiz substitutes Phigh for the plateau and Phigh − Plow for ΔP in APRV** (D-024, labelled "Phigh"
-  and "Phigh − Plow" so the reader is not misled into thinking a hold was taken), because no inspiratory
-  hold exists in the mode.
+- **The quiz substitutes Phigh for the plateau in APRV and leaves ΔP unverified** (D-024, amended by the
+  M13 review): no inspiratory hold exists in the mode, so the plateau check is graded on Phigh and labelled
+  so. The driving pressure that matters in APRV is Phigh − PEEPtot — the trapped pressure the 75 % release
+  rule sets — and no bedside hold can measure PEEPtot in APRV either, so the ΔP check is passed as `null`
+  and rendered as unverified (label "Phigh − PEEPtot (needs an expiratory hold; not available in APRV)")
+  rather than graded. Grading Phigh − Plow against the 15 cmH2O ΔP limit, as the first M13 build did, is
+  wrong twice over: it is the release amplitude, not a driving pressure, and at the shipped Phigh 28–30 /
+  Plow 0 it made the fix half of the APRV quiz score unreachable.
 - **`aprv-tlow-too-long` teaches derecruitment on `ards-extrapulmonary`, not `ards-pulmonary`** (D-024):
   `ards-pulmonary`'s recruitable population opens on the recoil axis at `RECRUIT_PULMONARY_TOP` (34 ± 3
   cmH2O), 2–4 cmH2O above what a protective Phigh 28 reaches anywhere in the authorized `tlow`/`thigh`

@@ -593,10 +593,13 @@ export class SessionController {
     const newSevereAlarms = [...new Set(this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm))];
     const extras = extrasFromTruth(this.scenario?.quizExtras ?? [], this.truthLog.filter((x) => x.tStart >= t0).map((x) => x.m));
     const s = this.settings;
-    // APRV has no plateau hold: Phigh and Phigh − Plow stand in for the plateau and driving-pressure checks (spec §4.5).
+    // APRV has no plateau hold: Phigh stands in for the plateau (spec §4.5, amended by the M13 review).
+    // The clinically meaningful driving pressure in APRV is Phigh − PEEPtot, and PEEPtot needs an
+    // expiratory hold, which APRV refuses — so ΔP is reported as unverified (null) rather than graded
+    // against Phigh − Plow, which is the release amplitude and not a driving pressure.
     if (s?.mode === 'APRV') {
-      const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: s.phigh - s.plow, pplat: s.phigh, vtPerKg: m.vtPerKg }));
-      return { ai, breaths: mon, newSevereAlarms, extras, labels: { dp: 'Phigh − Plow', pplat: 'Phigh' } };
+      const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: null, pplat: s.phigh, vtPerKg: m.vtPerKg }));
+      return { ai, breaths: mon, newSevereAlarms, extras, labels: { dp: 'Phigh − PEEPtot (needs an expiratory hold; not available in APRV)', pplat: 'Phigh' } };
     }
     const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
     return { ai, breaths: mon, newSevereAlarms, extras };

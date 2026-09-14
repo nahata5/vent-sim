@@ -104,7 +104,7 @@ export interface FixInput {
   breaths: FixBreath[];
   newSevereAlarms: string[];
   extras: FixExtra[];
-  /** Override the ΔP and plateau check labels (APRV: Phigh − Plow, Phigh — there is no hold to measure a true plateau). */
+  /** Override the ΔP and plateau check labels (APRV: Phigh for the plateau; ΔP is Phigh − PEEPtot, which no hold can measure there, so it is passed as null and reported unverified). */
   labels?: { dp?: string; pplat?: string };
 }
 

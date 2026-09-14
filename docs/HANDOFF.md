@@ -369,7 +369,10 @@ briefs/reports are inside that worktree at `.superpowers/sdd/2026-09-14-m13-aprv
   release's own peak, reset in `enterExp`, gated on exceeding the reused `PSV_CYCLE_MIN_PEAK_FLOW`), capped
   at `tlow` either way; records `aprvLast`/public getter `aprvStatus` (`{tlowUsed, pefrFraction}`) before
   `scheduleInsp(t, 'time', events)`. `requestHold`/`requestOcclusion`/`requestPeepManeuver` refuse at once
-  in APRV (first line of each); `checkDisconnect` reads Plow in APRV; `applySettings`'s immediate-PEEP line
+  in APRV (first line of each), and `commitPending` — the only path into APRV, since `mode` is not an
+  immediate key — clears `holdRequest`/`occlusionRequest`/`peepManeuver` when `prev.mode !== 'APRV' &&
+  settings.mode === 'APRV'`, so a switch into APRV clears pending hold/occlusion requests and abandons a
+  running PEEP maneuver; `checkDisconnect` reads Plow in APRV; `applySettings`'s immediate-PEEP line
   is guarded so it cannot overwrite an APRV plan's Plow baseline; the M12 backup-exit line in `startInsp` is
   extended to `this.hasMandatoryRate || this.settings.mode === 'APRV'`.
 - **Settings and constants**: `src/sim/vent/settings.ts` — `phigh` 5–45 (default 28), `plow` 0–20 (0),
@@ -392,8 +395,11 @@ briefs/reports are inside that worktree at `.superpowers/sdd/2026-09-14-m13-aprv
   `aprv-tlow-mode` select (`data-testid="aprv-tlow-mode"`, `fixed`/`pefr`, mirroring `simv-base-select`) whose
   `onChange` sets `draft.tlowMode` and prunes now-hidden keys, `hiddenKeys(mode, base, tlowMode)` (a third
   arg) called from all three onChange sites. Quiz: `FixInput.labels?: {dp?, pplat?}` (`src/edu/quiz.ts`),
-  `gradeFix` uses them when present; `src/app/controller.ts`'s `quizFixInput()` builds `breaths` from
-  `s.phigh − s.plow` / `s.phigh` and returns `labels: {dp: 'Phigh − Plow', pplat: 'Phigh'}` in APRV. Help:
+  `gradeFix` uses them when present; `src/app/controller.ts`'s `quizFixInput()` builds `breaths` with
+  `dp: null` / `pplat: s.phigh` and returns `labels: {dp: 'Phigh − PEEPtot (needs an expiratory hold; not
+  available in APRV)', pplat: 'Phigh'}` in APRV — ΔP renders unverified rather than failed (D-024 as amended
+  by the M13 review; `tests/unit/quiz-aprv.test.ts` proves all three APRV scenarios' scripted fixes pass
+  `gradeFix`). Help:
   `src/ui/HelpDialog.tsx` drops the "(not in this version yet)" qualifier for APRV and fixes an
   owner-reported bug (first-visit dialog opened scrolled to the bottom because `showModal()` focused the
   bottom-most focusable element): `#help-title` gets `tabIndex={-1}`, the post-`showModal()` effect focuses
@@ -443,12 +449,12 @@ briefs/reports are inside that worktree at `.superpowers/sdd/2026-09-14-m13-aprv
   in an unsynchronized mode, so Thigh/Tlow alone cannot clear either gate); the quiz-extra ruling (a
   scripted fix must clear the scenario's own quiz extras, not only the AI gate — picked `aprv-high-effort`'s
   Thigh 8.0 variant over its Thigh 6.0 one for exactly this reason).
-- **Deferred (recorded in D-024/LIMITATIONS, not fixed)**: a hold/occlusion request latched immediately
-  before a switch into APRV is still consumed at the first APRV cycle or survives to fire after leaving; a
-  running PEEP maneuver survives the switch and cannot complete; the pefr rule's de-facto synchronization
-  (a spontaneous inspiration ends a pefr release at once); the engine's t = 0 transient from `settings.peep`;
+- **Deferred (recorded in D-024/LIMITATIONS, not fixed)**: the pefr rule's de-facto synchronization (a
+  spontaneous inspiration ends a pefr release at once); the engine's t = 0 transient from `settings.peep`;
   the disconnect alarm unreachable at Plow 0; `ventilator.ts` ≈ 1040 lines (the mode-regulator extraction).
-- **Tests**: `tests/physics/aprv.test.ts` (7, new), `tests/detector/aprv.test.ts` (3, new), appended blocks
+- **Tests**: `tests/physics/aprv.test.ts` (8, new — the eighth is the M13-review test that a switch into
+  APRV clears pending maneuver requests), `tests/unit/quiz-aprv.test.ts` (3, new — the scripted fix of each
+  APRV scenario passes `gradeFix`), `tests/detector/aprv.test.ts` (3, new), appended blocks
   in `tests/unit/labeler.test.ts` (5), `tests/unit/cards.test.ts` (1), `tests/unit/quiz.test.ts` (1),
   `tests/unit/scenarios.test.ts`, `tests/unit/scenario-schema.test.ts`, `tests/unit/debrief.test.ts`, three
   new rows in `tests/scenarios/emergence.test.ts`, `tests/e2e/modes.spec.ts` (1, the release tiles and
@@ -639,9 +645,8 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > Open items to offer the owner, in place of a prescribed next milestone: (1) the structural follow-up of
 > extracting the mode regulators (PRVC's step/ceiling/floor, APRV's servo/release) out of
 > `src/sim/vent/ventilator.ts` (≈ 1040 lines); (2) the APRV modelling gaps recorded in D-024/LIMITATIONS —
-> latched hold/occlusion requests and a running PEEP maneuver surviving a switch into APRV, the pefr
-> release rule's de-facto synchronization, the t = 0 transient from `settings.peep`, the disconnect alarm
-> unreachable at Plow 0; (3) the "What is left" list above this section (the pre-M10 leftovers: the
+> the pefr release rule's de-facto synchronization, the t = 0 transient from `settings.peep`, the
+> disconnect alarm unreachable at Plow 0; (3) the "What is left" list above this section (the pre-M10 leftovers: the
 > `tomnahass.com/vent-sim/` alias fix, landscape-phone polish, light theme, i18n, more quiz extras, an
 > attempts-review export); (4) whatever the owner names fresh. When you reach a good place around 50 %
 > context, update docs/HANDOFF.md and write the next prompt into it.

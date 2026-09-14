@@ -89,11 +89,16 @@ describe('quiz: fix grading and score', () => {
     expect(r.checks.find((c) => c.id === 'plEE')?.ok).toBe(false);
   });
 
-  it('custom check labels (APRV): the ΔP and plateau checks carry the names the caller gives them', () => {
-    const r = gradeFix({ ...baseFix({ breaths: [{ dp: 28, pplat: 28, vtPerKg: 6 }] }), labels: { dp: 'Phigh − Plow', pplat: 'Phigh' } });
-    expect(r.checks.find((c) => c.id === 'dp')?.label).toMatch(/^Phigh − Plow/);
+  it('custom check labels (APRV): Phigh stands in for the plateau, ΔP (Phigh − PEEPtot) is unverified', () => {
+    const dpLabel = 'Phigh − PEEPtot (needs an expiratory hold; not available in APRV)';
+    const r = gradeFix({ ...baseFix({ breaths: [{ dp: null, pplat: 30, vtPerKg: 6 }] }), labels: { dp: dpLabel, pplat: 'Phigh' } });
+    expect(r.checks.find((c) => c.id === 'dp')?.label).toMatch(/^Phigh − PEEPtot/);
     expect(r.checks.find((c) => c.id === 'pplat')?.label).toMatch(/^Phigh/);
-    expect(r.checks.find((c) => c.id === 'dp')?.ok).toBe(false);
+    // No hold in APRV: the ΔP check reports as unverified instead of failing, and Phigh ≤ 30 passes.
+    expect(r.checks.find((c) => c.id === 'dp')?.ok).toBe(true);
+    expect(r.checks.find((c) => c.id === 'dp')?.verified).toBe(false);
+    expect(r.checks.find((c) => c.id === 'pplat')?.ok).toBe(true);
+    expect(r.pass).toBe(true);
   });
 
   it('composite score: full marks for a perfect fast fix with one change; decays with time and changes; zero without a pass', () => {
