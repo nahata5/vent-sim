@@ -17,6 +17,7 @@ const CATEGORY_LABEL: Record<ScenarioDef['category'], string> = {
   dyssynchrony: 'Dyssynchrony',
   injector: 'Circuit and airway problems',
   capstone: 'Capstone',
+  mode: 'SIMV, PRVC and APRV',
 };
 
 export function ScenarioPicker({ current, onPick, progress, disabled = false, mask = false }: Props) {

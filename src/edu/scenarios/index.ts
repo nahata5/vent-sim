@@ -18,7 +18,8 @@ import type { ScenarioSpec } from '../../worker/protocol';
 import type { SimEngine } from '../../sim/engine';
 import { INJECTOR_KINDS, type InjectorKind, type InjectorParamMap } from '../../sim/injectors';
 
-export type ScenarioCategory = 'preset' | 'dyssynchrony' | 'injector' | 'capstone';
+export const SCENARIO_CATEGORIES = ['preset', 'dyssynchrony', 'injector', 'capstone', 'mode'] as const;
+export type ScenarioCategory = (typeof SCENARIO_CATEGORIES)[number];
 
 export type ScenarioInjectors = { [K in InjectorKind]?: Partial<InjectorParamMap[K]> & { at?: number } };
 
