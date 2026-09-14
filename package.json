@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "batch": "tsx scripts/batch.ts"
+    "batch": "tsx scripts/batch.ts",
+    "docs:authoring": "tsx scripts/authoring-doc.ts"
   },
   "dependencies": {
     "fflate": "^0.8.2",
