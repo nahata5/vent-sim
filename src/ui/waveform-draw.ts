@@ -483,6 +483,7 @@ export function alarmLabel(e: Extract<VentEvent, { type: 'alarm' }> | string): s
     'high-leak': 'High leak',
     'ti-max': 'Ti max',
     'high-peepi': 'High PEEPi',
+    'prvc-limit': 'PRVC: volume not achieved',
   };
   return names[id] ?? id;
 }

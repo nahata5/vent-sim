@@ -35,7 +35,8 @@ export type AlarmId =
   | 'disconnect'
   | 'high-leak'
   | 'ti-max'
-  | 'high-peepi';
+  | 'high-peepi'
+  | 'prvc-limit';
 
 interface BreathPlan {
   ti: number;
@@ -135,6 +136,12 @@ export class Ventilator {
   /** Estimated expiratory leak baseline for optional leak compensation (L/s). */
   private leakBaseline = 0;
   private lastPeepTotal: number | null = null;
+  /** PRVC: regulated pressure above PEEP, null until the test breath has estimated compliance. */
+  private regulatedDp: number | null = null;
+  /** PRVC: the breath now being delivered is the VC test breath whose plateau seeds `regulatedDp`. */
+  private prvcTestPending = false;
+  /** PRVC: consecutive breaths at the pressure ceiling that fell short of the volume target. */
+  private prvcShortCount = 0;
   /** Settings actually in effect over time (initial + each commit), for the labeler and exports. */
   readonly settingsLog: Array<{ t: number; settings: VentSettings }> = [];
 
@@ -181,7 +188,9 @@ export class Ventilator {
         delete pend[key];
       }
     }
+    const prev = this.settings;
     this.settings = clampSettings(target as unknown as VentSettings);
+    this.prvcResetIfRetargeted(prev);
     this.plan.peep = this.settings.peep;
     if (this.pending && Object.keys(this.pending).length === 0) this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
@@ -189,7 +198,9 @@ export class Ventilator {
 
   private commitPending(): void {
     if (!this.pending) return;
+    const prev = this.settings;
     this.settings = clampSettings({ ...this.settings, ...this.pending });
+    this.prvcResetIfRetargeted(prev);
     this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
   }
@@ -300,8 +311,10 @@ export class Ventilator {
       case 'SIMV':
         return kind === 'ps' ? this.psPlan(s) : s.simvBase === 'PC' ? this.pcPlan(s, s.pinsp) : this.vcPlan(s);
       case 'PRVC':
-        // M12 replaces this with the pressure-regulated volume-control controller.
-        return this.pcPlan(s, s.pinsp);
+        // Until compliance is known, a square-flow VC test breath over the set Ti with a short pause.
+        return this.regulatedDp === null
+          ? this.vcPlan({ ...s, vcTiming: 'ti', flowPattern: 'square', pause: k('PRVC_TEST_PAUSE') })
+          : this.pcPlan(s, this.regulatedDp);
     }
   }
 
@@ -403,7 +416,8 @@ export class Ventilator {
   }
 
   private get hasMandatoryRate(): boolean {
-    return this.settings.mode === 'VC-AC' || this.settings.mode === 'PC-AC' || this.settings.mode === 'SIMV';
+    const mode = this.settings.mode;
+    return mode === 'VC-AC' || mode === 'PC-AC' || mode === 'SIMV' || mode === 'PRVC';
   }
 
   private get isSpontMode(): boolean {
@@ -509,6 +523,7 @@ export class Ventilator {
     this.pendingKind = undefined;
     this.evaluateBreathAlarms(t, events);
     this.commitPending();
+    if (this.settings.mode === 'PRVC') this.prvcRegulate(t, events);
     this.plan = this.makePlan(this.settings, this.backupActive, resolvedKind);
     if (!this.plan.spontaneous) this.tLastMandatory = t;
     this.breathIndex += 1;
@@ -577,6 +592,8 @@ export class Ventilator {
         this.phase = 'pause';
         this.tPhaseStart = t;
       } else {
+        // A test breath cut short (alarm cycle) has no plateau: seed from the end-inspiratory pressure.
+        this.prvcSeedFromTestBreath(m);
         this.enterExp(t, events, 'insp');
       }
     }
@@ -597,6 +614,7 @@ export class Ventilator {
         events.push({ type: 'hold-end', t, kind: 'insp' });
         events.push({ type: 'maneuver', t, result });
         this.hold = null;
+        this.prvcSeedFromTestBreath(m);
         this.enterExp(t, events, 'pause');
         if (this.peepManeuver) {
           const done = this.peepManeuver.onHold({ t, pplat: m.paw, vti: m.vti, pes: m.pes, ppeak: this.peakPawThisBreath, rr: this.settings.rr });
@@ -608,7 +626,10 @@ export class Ventilator {
       }
       return;
     }
-    if (t - this.tPhaseStart >= this.plan.pause) this.enterExp(t, events, 'pause');
+    if (t - this.tPhaseStart >= this.plan.pause) {
+      this.prvcSeedFromTestBreath(m);
+      this.enterExp(t, events, 'pause');
+    }
   }
 
   private controlExpHold(m: VentMeasured, events: VentEvent[]): void {
@@ -787,6 +808,64 @@ export class Ventilator {
     this.psrc = this.lastPaw;
   }
 
+  // ───────────────────────── PRVC regulator (Spec 2026-09-14 §3, D-023) ─────────────────────────
+
+  /** Highest regulated ΔP above PEEP: the pressure alarm limit less a safety margin, never below the floor. */
+  private prvcCeiling(s: VentSettings): number {
+    return Math.max(s.prvcMinDp, s.alarms.highPpeak - k('PRVC_PMAX_MARGIN') - s.peep);
+  }
+
+  /**
+   * At the start of a PRVC breath: adapt ΔP toward the volume target from the volume the previous breath
+   * actually delivered (its effective compliance Vti/ΔP), limited to PRVC_STEP_MAX per breath and to the
+   * floor/ceiling band. Two consecutive short breaths at the ceiling raise the volume-not-achieved alarm.
+   */
+  private prvcRegulate(t: number, events: VentEvent[]): void {
+    const s = this.settings;
+    if (this.regulatedDp === null) {
+      // No compliance estimate yet: the plan built next is the VC test breath.
+      this.prvcTestPending = true;
+      this.prvcShortCount = 0;
+      this.setAlarm('prvc-limit', false, t, events);
+      return;
+    }
+    const m = this.lastMeasured;
+    if (!m || this.breathIndex < 0) return;
+    // The volume sensor resets on the next breath start (engine.onInspStart), so this is still the
+    // inspired volume of the breath that just ended.
+    const vtiPrev = m.vti;
+    const target = s.vt / 1000;
+    const cEff = vtiPrev > 0.02 ? vtiPrev / this.regulatedDp : NaN;
+    if (Number.isFinite(cEff) && cEff > 0) {
+      const step = clamp((k('PRVC_GAIN') * (target - vtiPrev)) / cEff, -k('PRVC_STEP_MAX'), k('PRVC_STEP_MAX'));
+      this.regulatedDp = clamp(this.regulatedDp + step, s.prvcMinDp, this.prvcCeiling(s));
+    }
+    const atCeiling = this.regulatedDp >= this.prvcCeiling(s) - 1e-9;
+    const short = vtiPrev < k('PRVC_LIMIT_VT_FRACTION') * target;
+    this.prvcShortCount = atCeiling && short ? this.prvcShortCount + 1 : 0;
+    this.setAlarm('prvc-limit', this.prvcShortCount >= 2, t, events);
+  }
+
+  /**
+   * End of the PRVC test breath: compliance from the measured plateau (Paw at the end of the pause, or the
+   * end-inspiratory pressure when the breath was cut short) and the measured inspired volume, L/cmH2O.
+   */
+  private prvcSeedFromTestBreath(m: VentMeasured): void {
+    if (!this.prvcTestPending) return;
+    const s = this.settings;
+    const cEst = m.vti / Math.max(0.5, m.paw - s.peep);
+    this.regulatedDp = clamp(s.vt / 1000 / Math.max(1e-3, cEst), s.prvcMinDp, this.prvcCeiling(s));
+    this.prvcTestPending = false;
+  }
+
+  /** Entering PRVC or changing the volume target invalidates the estimate: the next breath is a test breath. */
+  private prvcResetIfRetargeted(prev: VentSettings): void {
+    const s = this.settings;
+    if (s.mode !== 'PRVC' || (prev.mode === 'PRVC' && prev.vt === s.vt)) return;
+    this.regulatedDp = null;
+    this.prvcShortCount = 0;
+  }
+
   // ───────────────────────── Alarms (Brief 1 §2.6) ─────────────────────────
 
   private setAlarm(id: AlarmId, active: boolean, t: number, events: VentEvent[]): void {
@@ -837,6 +916,11 @@ export class Ventilator {
   /** Time since the last cycle-off (for refractory logic). */
   get sinceCycle(): number {
     return this.tNow - this.tLastCycle;
+  }
+
+  /** PRVC: the regulated pressure above PEEP, null before the test breath has run. */
+  get prvcDp(): number | null {
+    return this.regulatedDp;
   }
 
   /** Last measured total PEEP from an expiratory hold, if any. */

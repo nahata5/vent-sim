@@ -65,6 +65,9 @@ export interface VentSettings {
   simvBase: 'VC' | 'PC';
   /** Synchronization window as a fraction of the SIMV period, at the end of the period. */
   simvWindow: number;
+  // PRVC
+  /** Floor of the regulated ΔP above PEEP (the support the regulator never withdraws below). */
+  prvcMinDp: number; // cmH2O above PEEP
 }
 
 export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
@@ -111,13 +114,14 @@ export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
     esophagealBalloon: false,
     simvBase: 'VC',
     simvWindow: k('SIMV_SYNC_WINDOW'),
+    prvcMinDp: k('PRVC_MIN_DP'),
   };
 }
 
 export type NumericSettingKey =
   | 'peep' | 'fio2' | 'flowTrigger' | 'pressureTrigger' | 'biasFlow' | 'vt' | 'rr' | 'peakFlow'
   | 'rampEndFraction' | 'pause' | 'pinsp' | 'ti' | 'riseTime' | 'ps' | 'ets' | 'tiMax' | 'apneaTime' | 'refractory'
-  | 'simvWindow';
+  | 'simvWindow' | 'prvcMinDp';
 
 /** Model bounds of Brief 1 §5 and sane device ranges; one table for the clamp, the settings UI and the scenario validator. */
 export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: number; unit: string }> = {
@@ -140,6 +144,7 @@ export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: numbe
   apneaTime: { min: 5, max: 60, unit: 's' },
   refractory: { min: 0, max: 0.5, unit: 's' },
   simvWindow: { min: 0.05, max: 1, unit: 'fraction of the period' },
+  prvcMinDp: { min: 0, max: 15, unit: 'cmH2O above PEEP' },
 };
 
 /** Clamp settings to the model bounds of Brief 1 §5 and sane device ranges. */
