@@ -570,3 +570,17 @@ of `dist/` serves the unbuilt `index.html`, whose `/src/main.tsx` 404s and leave
 
 Netlify stays configured and live as a fallback; nothing is deleted. Fixing the personal site's deploy key
 remains worthwhile on its own (the whole of tomnahass.com is stale), but it is no longer on VentSim's path.
+
+## D-025 · Scenario authoring through the reader's LLM, a validator as the gate, "My scenarios" in localStorage, help overlay (2026-09-14)
+
+The instructor editor accepted any JSON with four keys and reported one error at a time. Authors now get a
+prompt (`src/edu/authoring.ts`) generated from the same enumerations and bounds the validator
+(`src/edu/scenario-schema.ts`) enforces, so the prompt, the validator and `docs/SCENARIO_AUTHORING.md`
+cannot drift; the validator reports every problem by field and ignores unknown keys with a warning. No LLM
+runs inside VentSim (spec §1 out-of-scope stands): the reader's own model writes the JSON, the validator
+decides. Saved scenarios live in `ventsim.custom.v1` (guarded storage as the progress store); ids that
+collide with shipped scenarios are refused; the controller resolves ids through the library first and the
+store second so hash links and quiz links work for both. Settings bounds moved into `SETTING_BOUNDS`
+(`src/sim/vent/settings.ts`) so the clamp, the UI and the validator share one table. The help dialog is a
+native `<dialog>`; it holds no truth data, so it stays available in the locked quiz view; the first-visit
+auto-open is remembered in `ventsim.help.seen.v1`.

@@ -586,3 +586,63 @@ Tests first: `tests/unit/debrief.test.ts` (drive change log, snapshot, `fix.driv
 skipped), `tests/e2e/quiz-bedside.spec.ts` (options all "Case n" and groups "Cases" during an unlocked
 bedside quiz; the attempts review lists the debrief summary; reverse-trigger scripted fix → drive changes
 logged and marked matched).
+
+## M10 · Scenario authoring, My scenarios, help overlay (2026-09-14)
+
+D-025, spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §5–§7, plan
+`docs/superpowers/plans/2026-09-14-m10-authoring-help.md` (seven tasks, tests first, one commit each plus
+one fix-round commit). A learner can now write a scenario with their own LLM instead of hand-writing JSON:
+**Copy authoring prompt** → paste into any LLM → paste the returned JSON into the Instructor editor →
+**Validate** (every problem reported by field, unknown keys warned and ignored) → **Save to My scenarios**
+(persists in the browser, appears in the picker, works with quiz and hash links). A `?` header button opens
+a how-to-use overlay, on by itself the first visit.
+
+- `src/sim/vent/settings.ts` — `SETTING_BOUNDS` (`NumericSettingKey` → `{min, max, unit}`), one table now
+  shared by `clampSettings`, the settings UI and the validator.
+- `src/edu/scenario-schema.ts` — `validateScenario`/`parseScenarioText`, `SCENARIO_TOP_KEYS`, `DRIVE_BOUNDS`,
+  `CRITERIA_EXTRA_METRICS`; checks ids, enums (phenotype, mode, injector kind, pattern id, quiz metric),
+  every numeric bound, the fix block and the recoil spec, and returns `{def, errors, warnings}`.
+  `src/edu/scenarios/index.ts` gained `SCENARIO_CATEGORIES` (added `'mode'` for the coming SIMV/PRVC/APRV
+  scenarios) and `isShippedScenario`; `ScenarioPicker`'s `CATEGORY_LABEL.mode = 'SIMV, PRVC and APRV'`.
+- `src/edu/authoring.ts` — `AUTHORING_PROMPT` (generated from the same enumerations/bounds the validator
+  uses, so the prompt and the validator cannot drift), `EXAMPLE_SCENARIO` (`example-obesity-pc-short-ti`,
+  not in the shipped library, validates clean and runs), `authoringDocument()`; `scripts/authoring-doc.ts`
+  writes `docs/SCENARIO_AUTHORING.md` (`npm run docs:authoring`, generated — do not hand-edit).
+- `src/edu/custom-scenarios.ts` — `CustomScenarioStore` (guarded `localStorage` like `ProgressStore`, key
+  `ventsim.custom.v1`, one versioned JSON document); refuses an id that collides with a shipped scenario.
+  Controller: `customScenarios`, `findScenario` (library first, then the store), `hasScenario`, `refresh()`
+  (re-render hook for edits that don't change the running scenario). `App.tsx`'s hash resolution and the
+  picker (`custom` prop, "My scenarios" optgroup, `picker-custom-group`) both resolve through it.
+- `src/ui/InstructorPanel.tsx` — authoring controls: `author-copy-prompt` (copies `AUTHORING_PROMPT`, reveals
+  a read-only `author-prompt-field`), `author-load-example`, `author-validate`, `author-save` (saves via the
+  store, then loads it), `author-errors`/`author-warnings` lists; a "My scenarios" list (`custom-list`/
+  `custom-row`) with `custom-load`/`custom-export`/`custom-delete` per saved scenario.
+- `src/ui/HelpDialog.tsx` — native `<dialog>` (`help-dialog`, `help-close`), `HELP_SEEN_KEY`
+  (`ventsim.help.seen.v1`); header button `help-open` (present regardless of quiz lock — the dialog holds no
+  truth data). `tests/e2e/helpers/layout.ts` gained `dismissHelp`, added to every e2e spec's `beforeEach` (13
+  files) except `help.spec.ts` itself so first-visit behaviour doesn't leak into unrelated tests.
+- Fix round: `efd848f` restored the word "loaded" in the `instr-load` ("run without saving") status message,
+  which Task 5's rewording had dropped and which the pre-existing M8 test `quiz.spec.ts:68` asserts on.
+
+Tests first: `tests/unit/scenario-schema.test.ts` (6: minimal accept, every shipped scenario accepted clean,
+field-level errors, unknown-key warnings, fix/drive/recoil validation, JSON syntax error), `authoring.test.ts`
+(3: example validates and runs, prompt contains every enum/bound and the example verbatim, generated doc
+shape), `custom-scenarios.test.ts` (3: save/list/overwrite/export/remove persisted as one document, shipped-id
+refusal, corrupt-document and throwing-storage survival), one appended test in `ventilator.test.ts`
+(`clampSettings` clamps every `SETTING_BOUNDS` key), `tests/e2e/authoring.spec.ts` (3: load example → validate
+→ save → reload → found in picker; a bad scenario lists field errors and is not saved; the prompt is exposed
+for copying), `tests/e2e/help.spec.ts` (2: opens once on first visit, closes, stays closed, reopens from the
+header; available in the locked quiz view).
+
+Full verification (this session, worktree `m10-authoring-help`, all four foreground, no known flakes hit):
+`npm test` → **230 passed, 39 files**, 19.5 s. `npm run lint` (eslint + `tsc --noEmit`) → clean. `npm run
+test:e2e -- --reporter=line` → **40 passed**, 9 skipped (screenshot tests, gated behind `SCREENSHOTS=1`), 1.2
+min, one run, no re-run needed — chromium 37 (32 before this milestone + 3 `authoring.spec.ts` + 2
+`help.spec.ts`), mobile 2, tablet 1. `npm run build` → clean (`dist/assets/index-*.js` 268.52 kB, gzip 93.70
+kB). Deploy check
+verified locally against the built bundle: both `ventsim.custom.v1` and `ventsim.help.seen.v1` are literal
+strings in `dist/assets/index-*.js`. Known flakes not hit this run but still real under load (see HANDOFF):
+`tests/physics/performance.test.ts` (wall-clock, fails 28–49× inside a loaded parallel run, passes alone) and
+occasional `tests/e2e/quiz.spec.ts`/`a11y.spec.ts` contrast flakes under a loaded full Playwright run (both
+seen and re-run clean during Tasks 5–6, see their reports). Per the controller's ruling this session does not
+push or poll the live site; the branch is merged and deployed separately.
