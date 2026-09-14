@@ -1,0 +1,19 @@
+{
+  "id": "prvc-volume-not-achieved",
+  "order": 411,
+  "category": "mode",
+  "title": "PRVC at the ceiling: volume not achieved",
+  "summary": "A passive COPD patient on PRVC at 500 mL with a high-pressure limit of 30. Bronchospasm sets in at 30 s: the regulator raises pressure a step a breath, hits its ceiling five below the limit, and the volume falls short — the ventilator tells you so.",
+  "phenotype": "copd",
+  "drive": null,
+  "injectors": { "bronchospasm": { "rScale": 3, "rampSeconds": 20, "at": 30 } },
+  "settings": { "mode": "PRVC", "vt": 500, "rr": 14, "ti": 1.0, "peep": 5, "alarms": { "highPpeak": 30 } },
+  "seed": 42,
+  "objectives": [
+    "Read the regulated pressure climbing to the ceiling and the delivered volume falling short; connect the alarm to the resistance.",
+    "Fix the cause (bronchodilator) and give the breath more time (Ti 1.3 s)."
+  ],
+  "targetPatterns": ["high-resistance"],
+  "fix": { "at": 60, "note": "Bronchodilator; Ti 1.3 s.", "settings": { "ti": 1.3 }, "injectors": { "bronchospasm": null } },
+  "criteria": { "minFraction": 0.5, "aiAfter": 10 }
+}

@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T17:44:25.039Z",
- "commit": "025e4ec",
+ "generatedAt": "2026-09-14T18:01:19.845Z",
+ "commit": "4651224",
  "emergence": [
   {
    "id": "double-trigger",
@@ -303,6 +303,56 @@
     }
    ],
    "aiBefore": 42.857142857142854,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "prvc-pressure-withdrawal",
+   "targets": [
+    {
+     "pattern": "support-withdrawal",
+     "fraction": 0.7272727272727273,
+     "required": 0.3
+    },
+    {
+     "pattern": "high-effort",
+     "fraction": 0.7727272727272727,
+     "required": 0.3
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 31.818181818181817,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": false
+  },
+  {
+   "id": "prvc-volume-not-achieved",
+   "targets": [
+    {
+     "pattern": "high-resistance",
+     "fraction": 1,
+     "required": 0.5
+    }
+   ],
+   "aiBefore": 0,
+   "aiAfter": 0,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "prvc-double-trigger",
+   "targets": [
+    {
+     "pattern": "double-trigger",
+     "fraction": 0.2916666666666667,
+     "required": 0.2
+    }
+   ],
+   "aiBefore": 100,
    "aiAfter": 0,
    "aiLimit": 10,
    "extra": [],

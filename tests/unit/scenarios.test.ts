@@ -90,3 +90,15 @@ describe('SIMV scenarios', () => {
     expect(scenarioById('simv-mixed-breaths').criteria?.over).toBe('mandatory');
   });
 });
+
+describe('PRVC scenarios', () => {
+  it('the PRVC scenarios are in the mode category on PRVC with a fix and criteria', () => {
+    for (const id of ['prvc-pressure-withdrawal', 'prvc-volume-not-achieved', 'prvc-double-trigger']) {
+      const s = scenarioById(id);
+      expect(s.category).toBe('mode');
+      expect(s.settings.mode).toBe('PRVC');
+      expect(s.fix).toBeDefined();
+      expect(s.criteria).toBeDefined();
+    }
+  });
+});
