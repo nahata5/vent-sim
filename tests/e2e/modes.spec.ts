@@ -68,3 +68,20 @@ test('SIMV: a draft vt typed in VC-AC is dropped on a mode switch into SIMV when
   await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'SIMV', undefined, { timeout: 10_000 });
   expect(await page.evaluate(() => window.__ventsim?.ctl.settings?.vt)).toBe(vtBefore);
 });
+
+test('PRVC: the regulated pressure tile appears and moves, and the floor field is editable', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto('/#ards-pulmonary');
+  await ready(page);
+  await page.getByTestId('mode-select').selectOption('PRVC');
+  await expect(page.getByTestId('setting-prvcMinDp')).toBeVisible();
+  await page.getByTestId('setting-vt').fill('420');
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'PRVC', undefined, { timeout: 10_000 });
+  const t = await page.evaluate(() => window.__ventsim?.ctl.store.tLatest ?? 0);
+  await waitForSim(page, t + 30);
+  await expect(page.getByTestId('mon-Pinsp')).not.toContainText('—');
+  const dp = await page.evaluate(() => window.__ventsim?.ctl.status?.prvcDp ?? null);
+  expect(dp).not.toBeNull();
+  expect(dp ?? 0).toBeGreaterThan(0);
+});

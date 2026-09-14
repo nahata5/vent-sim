@@ -286,6 +286,7 @@ export function App() {
               spo2={ctl.latestSpo2}
               hideBalloonTiles={hidePes || hideDerived}
               simv={settings?.mode === 'SIMV' ? ctl.simvRates() : null}
+              prvcDp={status?.prvcDp ?? null}
             />
           )}
           {settings && !hideDerived && (

@@ -48,7 +48,7 @@ export function HelpDialog({ open, onClose }: Props) {
           <li><b>PSV</b>: the patient sets the rate and Ti; cycling by flow (ETS) — premature or delayed cycling, ineffective efforts with intrinsic PEEP.</li>
           <li><b>CPAP</b>: no support; work of breathing is the patient's.</li>
           <li><b>SIMV</b>: mandatory VC or PC breaths at a set rate, pressure-supported breaths in between; two breath types in one trace.</li>
-          <li><b>PRVC</b> (not in this version yet): pressure control that adapts breath by breath to a volume target; a strong effort makes it withdraw support.</li>
+          <li><b>PRVC</b>: pressure control that adapts breath by breath to a volume target; a strong effort makes it withdraw support.</li>
           <li><b>APRV</b> (not in this version yet): long Phigh with short releases and unrestricted spontaneous breathing; the release timing sets the trapped PEEP and can collide with efforts.</li>
         </ul>
         <h3>Write your own scenario</h3>

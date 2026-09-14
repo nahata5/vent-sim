@@ -54,6 +54,8 @@ export interface SessionStatus {
   co2: Co2Sample | null;
   /** Current lung and chest-wall elastance (instructor live changes; the main-thread labeler follows them). */
   mechanics: { el: number; ecw: number };
+  /** PRVC regulated ΔP above PEEP, or null before the VC test breath / outside PRVC. */
+  prvcDp: number | null;
 }
 
 export interface PatientSummary {
