@@ -215,6 +215,7 @@ export const CONSTANTS = {
   LABEL_TRIGGER_DELAY: c(0.25, 's', 'Brief 1 §3 van Diepen / Mojoli: trigger delay > 250 ms is delayed triggering', 'V'),
   LABEL_EARLY_CYCLING: c(-0.1, 's', 'Brief 1 §3 van Diepen: cycling delay < −100 ms is early (premature) cycling', 'V'),
   LABEL_LATE_CYCLING: c(0.3, 's', 'Brief 1 §3 van Diepen: cycling delay > 300 ms is late (delayed) cycling', 'V'),
+  LABEL_RELEASE_COLLISION: c(0.1, 's', 'A release that begins ≥ 100 ms before the neural offset collides with the effort (mirrors LABEL_EARLY_CYCLING) [M]', 'M'),
   LABEL_EFFORT_LEAD: c(0.05, 's', 'A trigger this long before the recorded neural onset still counts as caused by the effort (parabolic onset is gradual) [M]', 'M'),
   LABEL_EFFORT_TAIL: c(0.4, 's', 'Relaxation window after neural Ti during which a trigger is still attributed to the same effort (τ_relax 0.2 s → 2τ) [M]', 'M'),
   LABEL_RT_MAX_DELAY: c(1.0, 's', 'Brief 1 §3.5: entrained onset delay d = 0.2–0.8 s after the machine breath start; onsets beyond 1 s are not reverse triggers [M]', 'M'),
