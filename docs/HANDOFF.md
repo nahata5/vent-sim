@@ -472,8 +472,16 @@ are also done — see "M10 as built", "M11 as built", "M12 as built" and "M13 as
 modes in the spec's build order are now built** (`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`
 items 1–5 are complete), so what remains is the optional list below plus the structural follow-up of
 extracting the mode regulators (PRVC, APRV) out of `ventilator.ts` (≈ 1040 lines, noted since M13 Task 1).
-See "Prompt for the next session" below. The rest of this section is the pre-M10 leftover list, still
-accurate:
+Two small residuals were parked at the M13 final re-review (owner chose to merge first; a one-dispatch
+follow-up): (a) `src/ui/QuizPanel.tsx` and `src/ui/DebriefPanel.tsx` append "(not verified: take an
+inspiratory hold)" to every unverified check, so the APRV ΔP row — unverified by D-024's ruling — names a
+hold the mode disables; suppress or override the hint when `FixInput.labels.dp` is set. (b) A PEEP maneuver
+abandoned by a switch into APRV (the `commitPending` clear) does not restore `settings.peep`, which stays at a
+trial step (20 for the decremental trial, 5 for R/I) — invisible in APRV, resumed on the way back out; add a
+`PeepManeuver.abort()` that restores PEEP before the clear. Also parked: the `criteria.extra` shape string is
+duplicated between `scenario-schema.ts` and `authoring.ts` (export one constant), and the spec/plan still
+describe the quiz ΔP as Phigh − Plow (D-024 governs). See "Prompt for the next session" below. The rest of
+this section is the pre-M10 leftover list, still accurate:
 
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
