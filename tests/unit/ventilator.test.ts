@@ -307,3 +307,16 @@ describe('expiratory hold in a breathing patient', () => {
     expect(m?.values?.interrupted).toBe(1);
   });
 });
+
+describe('setting bounds table', () => {
+  it('clampSettings clamps every numeric key to SETTING_BOUNDS', async () => {
+    const { SETTING_BOUNDS, clampSettings, defaultSettings } = await import('@sim/vent/settings');
+    const s = defaultSettings();
+    for (const key of Object.keys(SETTING_BOUNDS) as Array<keyof typeof SETTING_BOUNDS>) {
+      const b = SETTING_BOUNDS[key];
+      expect(clampSettings({ ...s, [key]: b.max + 1000 })[key], key).toBe(b.max);
+      expect(clampSettings({ ...s, [key]: b.min - 1000 })[key], key).toBe(b.min);
+    }
+    expect(SETTING_BOUNDS.vt).toEqual({ min: 100, max: 1200, unit: 'mL' });
+  });
+});
