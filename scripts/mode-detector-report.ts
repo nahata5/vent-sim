@@ -1,5 +1,5 @@
 /**
- * Detector agreement with the truth labels in the new modes (reported, not gated; D-022).
+ * Detector agreement with the truth labels in the new modes (reported, not gated; D-022, D-023).
  *   npx tsx scripts/mode-detector-report.ts
  */
 import { runHeadless } from '../src/sim/headless';
@@ -7,8 +7,22 @@ import { labelRun, type PatternId } from '../src/sim/truth/labeler';
 import { detectRun } from '../src/detector/detector';
 import { resolveScenario, scenarioById, scenarioSchedule } from '../src/edu/scenarios';
 
-const IDS = ['simv-low-support', 'simv-mixed-breaths', 'simv-stacking'];
-const PATTERNS: PatternId[] = ['ineffective-effort', 'double-trigger', 'flow-starvation', 'auto-peep'];
+const IDS = [
+  'simv-low-support',
+  'simv-mixed-breaths',
+  'simv-stacking',
+  'prvc-pressure-withdrawal',
+  'prvc-volume-not-achieved',
+  'prvc-double-trigger',
+];
+const PATTERNS: PatternId[] = [
+  'ineffective-effort',
+  'double-trigger',
+  'flow-starvation',
+  'auto-peep',
+  'support-withdrawal',
+  'high-resistance',
+];
 console.log('| Scenario | Pattern | tp | fp | tn | fn | Sens | Spec |');
 console.log('|---|---|---|---|---|---|---|---|');
 for (const id of IDS) {

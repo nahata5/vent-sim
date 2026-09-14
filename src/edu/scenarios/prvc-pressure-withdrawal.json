@@ -1,0 +1,21 @@
+{
+  "id": "prvc-pressure-withdrawal",
+  "order": 410,
+  "category": "mode",
+  "title": "PRVC withdraws support from a patient who is pulling",
+  "summary": "ARDS with a rising drive on PRVC at 360 mL. Every breath the patient pulls a little more, the volume overshoots the target, and the regulator answers by taking pressure away, down to its floor. The screen shows a low pressure and a target volume; the balloon shows who is doing the work.",
+  "phenotype": "ards-pulmonary",
+  "drive": { "rate": 24, "ti": 1.0, "pmax": 12, "cvRate": 0.08, "cvTi": 0.08, "cvPmax": 0.1 },
+  "balloon": { "enabled": true },
+  "gas": { "warp": 10 },
+  "settings": { "mode": "PRVC", "vt": 360, "rr": 20, "ti": 0.9, "peep": 10, "flowTrigger": 2 },
+  "seed": 41,
+  "objectives": [
+    "Watch the regulated pressure step down breath by breath while the volume stays at target, and read the growing ΔPes on the balloon.",
+    "Fix by leaving the fixed-Ti breath for PSV (PS 12) and treating the drive itself — analgesia/sedation, rate 16, Pmax 8 — because no support level absorbs a 24/min drive on its own."
+  ],
+  "targetPatterns": ["support-withdrawal", "high-effort"],
+  "fix": { "at": 60, "note": "PSV, PS 12: a patient-cycled breath that matches its own duration to the effort — and treat the drive (analgesia/sedation: rate 16, Pmax 8), because no support level absorbs a 24/min drive.", "settings": { "mode": "PSV", "ps": 12 }, "drive": { "rate": 16, "pmax": 8 } },
+  "criteria": { "minFraction": 0.3, "aiAfter": 10 },
+  "quizExtras": [{ "metric": "dPes", "max": 10, "label": "ΔPes ≤ 10 cmH2O" }]
+}

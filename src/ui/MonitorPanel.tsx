@@ -21,6 +21,8 @@ interface Props {
   hideBalloonTiles?: boolean;
   /** SIMV mandatory/spontaneous rates (M11); null outside SIMV. */
   simv: { mandatory: number; spontaneous: number } | null;
+  /** PRVC regulated ΔP above PEEP (M12); null outside PRVC or before the VC test breath. */
+  prvcDp: number | null;
 }
 
 /** Tiles that need the esophageal balloon. */
@@ -30,7 +32,7 @@ function v(x: number | null | undefined, digits = 1): string {
   return x === null || x === undefined || !Number.isFinite(x) ? '—' : x.toFixed(digits);
 }
 
-export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false, simv }: Props) {
+export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false, simv, prvcDp }: Props) {
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
@@ -63,6 +65,10 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
   if (settings.mode === 'SIMV') {
     const rrIndex = tiles.findIndex(([label]) => label === 'RR');
     if (rrIndex >= 0) tiles.splice(rrIndex + 1, 0, ['RRmand', v(simv?.mandatory, 0), '/min mandatory'], ['RRspont', v(simv?.spontaneous, 0), '/min spontaneous']);
+  }
+  if (settings.mode === 'PRVC') {
+    const dpIndex = tiles.findIndex(([label]) => label === 'ΔP');
+    if (dpIndex >= 0) tiles.splice(dpIndex + 1, 0, ['Pinsp', v(prvcDp), 'cmH2O PRVC ΔP above PEEP']);
   }
   const shown = hideBalloonTiles ? tiles.filter(([label]) => !BALLOON_TILES.has(label)) : tiles;
   return (

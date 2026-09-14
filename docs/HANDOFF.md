@@ -3,8 +3,9 @@
 Updated 2026-09-14 (M9 complete; post-M9 extensions done: Pes artifact fix, quiz extras, capstone,
 schematic SpO2, live EL/Ecw, quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout
 D-020, Cloudflare Workers hosting at `vent.nahass.ai` D-021; M10 complete: scenario authoring, My scenarios,
-help overlay D-025; M11 complete: SIMV, a shared `breath` event, stacked-mandatory double triggers D-022),
-for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
+help overlay D-025; M11 complete: SIMV, a shared `breath` event, stacked-mandatory double triggers D-022;
+M12 complete: PRVC, a breath-by-breath pressure regulator seeded by a VC test breath, the
+support-withdrawal truth pattern D-023), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
@@ -13,14 +14,16 @@ for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
    validation, §10 export, §12 milestones); `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`
    — the spec for SIMV/PRVC/APRV, scenario authoring and the help overlay (§2–§4 modes, §5–§7 M10 parts).
 3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers, the M9
-   definition-of-done walkthrough, the M10 entry, the M11 entry).
-4. `docs/DECISIONS.md` — D-001…D-022, D-025 (D-023…D-024 reserved for M12 PRVC / M13 APRV); D-012
+   definition-of-done walkthrough, the M10 entry, the M11 entry, the M12 entry).
+4. `docs/DECISIONS.md` — D-001…D-023, D-025 (D-024 reserved for M13 APRV); D-012
    is the detector's measurement basis, D-014 the M7 physics (recruited gas, R/I limits, CO2 loop gains, the
    settings-log bug), D-015 the education/export choices, D-016 the Pes cardiac artifact and cardiac-smoothed
    ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw, D-019 the quiz bedside view, locked link and templated
    debrief (+ follow-ups addendum), D-020 the mobile-responsive layout, D-021 Cloudflare hosting, D-025
    scenario authoring / My scenarios / help overlay, D-022 SIMV (the `breath` event and breath-kind judging,
    the end-of-period sync window and clock reset, stacked-mandatory double triggers, the "leave SIMV" fix
+   finding), D-023 PRVC (the VC test breath and breath-by-breath regulator, the floor/ceiling/step, the
+   support-withdrawal truth pattern and its report-only detector rule, the "treat the drive too" fix
    finding).
 5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-5; Q-1…Q-3 answered: keep the defaults).
 6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md`, `docs/SCENARIO_AUTHORING.md` — the user-facing docs.
@@ -37,26 +40,30 @@ for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 | Post-M9 | **done** (2026-09-11 → 2026-09-12): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) + follow-ups (masked picker, drive marks, attempts review); mobile-responsive layout (D-020); Cloudflare Workers Static Assets hosting at `vent.nahass.ai` as the primary home (D-021) |
 | M10 | **done** (2026-09-14): scenario authoring through the reader's own LLM, a field-level validator as the save/run gate, "My scenarios" persisted per-browser, a first-visit help overlay (D-025) — see "M10 as built" below |
 | M11 | **done** (2026-09-14): SIMV (mandatory VC or PC breaths with PS between them, end-of-period sync window), a shared `breath` event judging every mode by breath kind, stacked-mandatory double triggers, three SIMV scenarios, a reported (not gated) detector-in-SIMV table (D-022) — see "M11 as built" below |
+| M12 | **done** (2026-09-14): PRVC (a VC test breath seeds a breath-by-breath pressure regulator with a step, ceiling and floor), "volume not achieved", the `support-withdrawal` truth pattern and its report-only detector rule, three PRVC scenarios (D-023) — see "M12 as built" below |
 
-`npm test` → 254 passed, 41 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e
--- --reporter=line` → 51 total: 41 passed, 1 failed (`tests/e2e/a11y.spec.ts` main-page colour-contrast on
+`npm test` → 268 passed, 43 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e
+-- --reporter=line` → 53 total: 43 passed, 1 failed (`tests/e2e/a11y.spec.ts` main-page colour-contrast on
 `.chip-alarm` — re-ran that spec alone: 3/3 passed, the known one-off flake, not a regression), 9 skipped
-(screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. All numbers from this session's full
-verification run in the `m11-simv` worktree. Committed on the `worktree-m11-simv` branch; the controller
-merges and deploys separately (this session does not push or poll the live site — see "Hosting"). Note: the
-performance test (`≥ 50× real time`) is a wall-clock test; under a loaded machine it fails inside the
-parallel full run while passing alone (see PROGRESS post-M9); it also fails the same way on unrelated
-commits, so treat that as environment, not regression, and re-run it alone — it passed on the first try this
-session. `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts` colour-contrast check have each shown a one-off
-failure under a loaded full Playwright run in multiple past sessions (M10 Tasks 5–6, and the a11y check
-again this session); each has reproduced clean when re-run alone — same rule: re-run the spec alone, report
-both outcomes. Live-site check after a push: fetch the served `assets/index-*.js` and grep for a **literal**
-string of the change (template strings such as `mtab-${id}` are not literal in the bundle; `mobile-tabs` and
-`view-toggles` are) — but see the Cloudflare note under "Hosting": `vent.nahass.ai` answers a scripted fetch
-with a managed challenge regardless of user agent, so this check only works against the Netlify fallback; a
-real browser passes on both hosts. For M10 the literal string is `ventsim.custom.v1` (My scenarios' storage
-key); `ventsim.help.seen.v1` also works. For M11 the literal string is `simv-base-select` (the settings
-control's test id).
+(screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean (`dist/assets/index-*.js` 286.01 kB, gzip
+99.67 kB). All numbers from this session's full verification run in the `m12-prvc` worktree. Committed on
+the `worktree-m12-prvc` branch; the controller merges and deploys separately (this session does not push or
+poll the live site — see "Hosting"). Note: the performance test (`≥ 50× real time`) is a wall-clock test;
+under a loaded machine it fails inside the parallel full run while passing alone (see PROGRESS post-M9); it
+also fails the same way on unrelated commits, so treat that as environment, not regression, and re-run it
+alone — it passed on the first try this session. `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts`
+colour-contrast check have each shown a one-off failure under a loaded full Playwright run in multiple past
+sessions (M10 Tasks 5–6, the a11y check again in M11, and again this session); each has reproduced clean
+when re-run alone — same rule: re-run the spec alone, report both outcomes. Live-site check after a push:
+fetch the served `assets/index-*.js` and grep for a **literal** string of the change (template strings such
+as `mtab-${id}` or `setting-${f.key}` are not literal in the bundle; `mobile-tabs`, `view-toggles` and
+`simv-base-select` are, because those are written as literal string props) — but see the Cloudflare note
+under "Hosting": `vent.nahass.ai` answers a scripted fetch with a managed challenge regardless of user
+agent, so this check only works against the Netlify fallback; a real browser passes on both hosts. For M10
+the literal string is `ventsim.custom.v1` (My scenarios' storage key); `ventsim.help.seen.v1` also works.
+For M11 the literal string is `simv-base-select` (the settings control's test id). For M12 the literal
+string is `prvc-limit` (the volume-not-achieved alarm id, used as a runtime string in `ventilator.ts` and
+`waveform-draw.ts`, not a template).
 
 ## M7 as built (map of the code)
 
@@ -264,15 +271,88 @@ Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §2; pla
   `tests/scenarios/emergence.test.ts`, `tests/e2e/modes.spec.ts` (new, 2: mode/base select + tiles; stale
   hidden-draft-value drop), appended SIMV assertion in `tests/e2e/help.spec.ts`.
 
+## M12 as built (map of the code)
+
+Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §3; plan
+`docs/superpowers/plans/2026-09-14-m12-prvc.md` (five tasks); D-023.
+
+- **The PRVC regulator in the ventilator**: `src/sim/vent/ventilator.ts` — private fields `regulatedDp`
+  (ΔP above PEEP, null until seeded), `prvcTestPending`, `prvcShortCount`, `prvcCompliance` (the fallback
+  denominator below `PRVC_DP_EPSILON`), `breathIsBackup` (whether the breath being delivered is the apnea
+  backup's). `makePlan`'s `'PRVC'` case runs a square-flow VC test breath
+  (`vcPlan` with `vcTiming: 'ti'`, `flowPattern: 'square'`, `pause: k('PRVC_TEST_PAUSE')`) when
+  `regulatedDp === null` (the state `prvcTestPending` then marks, so the breath's plateau seeds the
+  estimate), otherwise a PC breath at PEEP + `regulatedDp`. `prvcRegulate(t, events, prevWasBackup)` runs at
+  every breath start in every mode (Spec 2026-09-14 §3, D-023): outside PRVC it clears `prvcShortCount` and
+  the `prvc-limit` alarm; entering a PRVC breath it steps `regulatedDp` from the previous breath's measured
+  Vti (`C_eff = Vti_prev/regulatedDp_prev`, or `prvcCompliance` below `PRVC_DP_EPSILON` or at/below
+  `PRVC_MIN_VTI_FOR_C`) by
+  `clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff, ±PRVC_STEP_MAX)`, then clamps to `[prvcMinDp, prvcCeiling(s)]`
+  where `prvcCeiling = highPpeak − PRVC_PMAX_MARGIN − PEEP`; two consecutive at-ceiling **PC** breaths under
+  `PRVC_LIMIT_VT_FRACTION` of the target set `prvc-limit` (both terms read on the breath that just ended,
+  before the step — the VC test breath never counts). A breath that followed the apnea backup is read as
+  "no previous breath". `prvcSeedFromTestBreath(m)` runs at every
+  inspiratory exit (not only after a completed test-breath pause) so an alarm-cycled test breath (no
+  plateau) still seeds `regulatedDp` from the end-inspiratory pressure — a modelling choice beyond the
+  plan's literal text (D-023) — and refuses to seed from a backup breath. `prvcResetIfRetargeted(prev)`
+  forces a new test breath on entering PRVC or changing `vt`, but not on a PEEP change; it runs when those
+  pending settings commit, at the next breath start (the identical call in `applySettings` is defensive
+  only — neither `mode` nor `vt` is an immediate key on that path).
+  `hasMandatoryRate` (`'VC-AC' | 'PC-AC' | 'SIMV' | 'PRVC'`) gates the mandatory-rate time trigger for PRVC
+  too, and `startInsp` now calls `exitBackup` when the committed mode has one, so a mode change out of an
+  apnea backup leaves the backup instead of repeating its PC plan for ever (D-023; pre-existing, VC-AC
+  showed the same). Public getter `Ventilator.prvcDp`.
+- **Settings and constants**: `src/sim/vent/settings.ts` `prvcMinDp` (in `SETTING_BOUNDS`, PRVC-only
+  field). `src/config/constants.ts`: `PRVC_STEP_MAX` (3), `PRVC_PMAX_MARGIN` (5), `PRVC_MIN_DP` (5),
+  `PRVC_TEST_PAUSE` (0.3), `PRVC_GAIN` (1.0), `PRVC_DP_EPSILON` (0.5), `PRVC_LIMIT_VT_FRACTION` (0.9),
+  `PRVC_MIN_VTI_FOR_C` (0.02 L), `PRVC_MIN_DP_FOR_C` (0.5 cmH2O),
+  `LABEL_SUPPORT_WITHDRAWAL_MARGIN` (1), `DET_SW_VT_EXCESS` (1.05).
+- **UI**: `src/ui/MonitorPanel.tsx` — `Props.prvcDp`, a `Pinsp` tile (`data-testid="mon-Pinsp"`, "cmH2O
+  PRVC ΔP above PEEP") spliced in next to `ΔP` when the mode is PRVC. `src/ui/SettingsPanel.tsx` —
+  `prvcMinDp` field ("PRVC floor above PEEP", `modes: ['PRVC']`, `data-testid="setting-prvcMinDp"`), a
+  high-pressure alarm label note "(PRVC ceiling = limit − 5)" shown in PRVC. `src/ui/HelpDialog.tsx` drops
+  the "(not in this version yet)" qualifier for PRVC. `src/app/controller.ts` `SessionStatus.prvcDp` reads
+  `Ventilator.prvcDp` each tick.
+- **Truth and detector**: `src/sim/truth/labeler.ts` — `support-withdrawal` fires on a PRVC `kind === 'pc'`
+  breath whose `pTarget − peep ≤ prvcMinDp + LABEL_SUPPORT_WITHDRAWAL_MARGIN` while `pmusPeak ≥ PMUS_HIGH`;
+  evidence `dpAboveFloor`. `DeviceContext.prvcMinDp`/`vt` (`src/detector/features.ts`) let the report-only
+  detector read the same settings. `src/detector/detector.ts`'s rule (D-023, supersedes the plan's
+  `earlySag` draft): floor test AND `triggerCause === 'patient'` AND `b.vti ≥ DET_SW_VT_EXCESS × (ctx.vt /
+  1000)`; evidence string cites ΔP, Vti and `f.earlySag` for the clinician reading it, but `earlySag` is not
+  a conjunct. `src/edu/cards/index.ts` — `support-withdrawal` card and its `caseEvidence` line (regulated
+  pressure, ΔP above the floor, peak Pmus). `src/ui/waveform-draw.ts` — badge code `SW`, colour `#7986cb`.
+  `tests/detector/prvc.test.ts` (new) covers the rule; the held-out detector grid and its scorer are
+  untouched (no PRVC breaths in it).
+- **Scenarios**: `src/edu/scenarios/{prvc-pressure-withdrawal,prvc-volume-not-achieved,
+  prvc-double-trigger}.json`. `prvc-pressure-withdrawal`'s fix is PSV (PS 12) with the drive also treated
+  (`ScenarioFix.drive`, rate 16, Pmax 8); `pendelluft` is not in its `targetPatterns` (the pattern needs the
+  two-compartment recruitable-recoil lung, which this phenotype does not use). `prvc-double-trigger`'s fix
+  lengthens Ti to 1.1 s against a 1.2 s neural Ti; `prvc-volume-not-achieved`'s fix removes the bronchospasm
+  injector and lengthens Ti to 1.3 s.
+- **Detector report**: `scripts/mode-detector-report.ts` extended — `IDS` gained the three PRVC scenario
+  ids, `PATTERNS` gained `support-withdrawal` and `high-resistance`; its table (SIMV and PRVC rows) is in
+  `docs/VALIDATION.md`'s "Detector in SIMV and PRVC" section. Reported, not gated.
+- **Fix-round findings, recorded in D-023**: the alarm-cycled test-breath seeding, `PRVC_DP_EPSILON`, and
+  `prvcRegulate`'s clear-on-mode-change are all deviations from the plan's literal text, found while
+  writing `tests/physics/prvc.test.ts`. The detector rule ruling (floor + patient trigger + Vti excess,
+  not `earlySag`) came from Task 3's tuning runs (separators: patient trigger 15/15 vs 0/11, Vti/Vt
+  1.10–1.18 vs 0.99–1.01). `prvc-pressure-withdrawal`'s fix needed widening to treat the drive after a full
+  PC-AC/PSV settings sweep at the unmodified drive could not clear the 10 % after-fix asynchrony gate (best
+  38.5 % / 42.1 %) — the M12 counterpart of D-022's "leave the mode" finding.
+- **Tests**: `tests/physics/prvc.test.ts` (new, 7), `tests/detector/prvc.test.ts` (new), appended blocks in
+  `tests/unit/labeler.test.ts` (the truth pattern), `tests/unit/scenarios.test.ts` and
+  `tests/scenarios/emergence.test.ts` (three PRVC rows), `tests/e2e/modes.spec.ts` (the regulated-pressure
+  tile and the floor field), `tests/e2e/help.spec.ts` (the dropped qualifier).
+
 ## What is left (post-M9)
 
 All spec milestones and the optional extensions listed in the previous handoff are built, and M10 (scenario
-authoring, My scenarios, help overlay, D-025) and M11 (SIMV, D-022) are also done — see "M10 as built" and
-"M11 as built" above. What is actually next is **M12 PRVC**, with its plan already written at
-`docs/superpowers/plans/2026-09-14-m12-prvc.md` (execute it with subagent-driven development in a fresh
-`EnterWorktree` worktree rebased onto local main; the rulings made while writing it are recorded in the
-plan text itself), then **M13 APRV** (spec §4; its plan still needs writing first), per
-`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §3–§4. See "Prompt for the next session"
+authoring, My scenarios, help overlay, D-025), M11 (SIMV, D-022) and M12 (PRVC, D-023) are also done — see
+"M10 as built", "M11 as built" and "M12 as built" above. What is actually next is **M13 APRV** (spec §4,
+D-024 reserved), whose plan still needs writing first, following the shape of
+`docs/superpowers/plans/2026-09-14-m11-simv.md` and `…-m12-prvc.md` (tests first per task, one commit per
+task, interfaces stated up front, a Global Constraints section pinning the held-out grid), per
+`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §4. See "Prompt for the next session"
 below. The rest of this section is the pre-M10 leftover list, still accurate:
 
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
@@ -394,55 +474,63 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 ## Prompt for the next session
 
 > Continue VentSim in this repo. Read docs/HANDOFF.md first, then PROGRESS.md (the M9 definition-of-done
-> walkthrough, the post-M9 entries, the M10 entry, and the M11 entry) and docs/DECISIONS.md (D-001…D-022,
-> D-025; D-023…D-024 are reserved for the milestones below). The goal and non-negotiables are in
+> walkthrough, the post-M9 entries, the M10 entry, the M11 entry, and the M12 entry) and docs/DECISIONS.md
+> (D-001…D-023, D-025; D-024 is reserved for APRV). The goal and non-negotiables are in
 > docs/FABLE_GOAL_PROMPT.md; the original spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md; the
-> spec for what comes next is docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md. The owner
-> has answered docs/QUESTIONS.md Q-1…Q-5: keep the defaults; do not reopen them.
+> spec for what comes next is docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md (§4 is
+> APRV). The owner has answered docs/QUESTIONS.md Q-1…Q-5: keep the defaults; do not reopen them.
 >
 > State: M0–M9, the post-M9 extensions (Pes artifact fix, quiz extras, capstone, schematic SpO2, live EL/Ecw,
 > quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout D-020, Cloudflare hosting
-> D-021), **M10 — scenario authoring, My scenarios, help overlay (D-025)**, and **M11 — SIMV, the shared
-> `breath` event, stacked-mandatory double triggers (D-022)** are done. Primary host
-> https://vent.nahass.ai (Cloudflare, D-021); fallback https://vent-sim.netlify.app/ — note `vent.nahass.ai`
-> answers a scripted fetch with a Cloudflare managed challenge (403, any user agent) regardless of the
-> request, so a served-bundle deploy check by curl/fetch only works against the Netlify fallback; a real
-> browser passes on both hosts (see "Hosting"). Vitest 254/254 across 41 files (held-out detector suite
-> un-gated; the performance test is wall-clock and must be re-run alone if the parallel run is under load),
-> lint clean, Playwright 41/41 (+ 9 screenshot tests behind `SCREENSHOTS=1`) across three projects (chromium,
-> mobile, tablet; `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts` colour-contrast check have each shown a
-> one-off flake under a loaded full run, most recently the a11y check this session — re-run the spec alone
-> and report both outcomes if it recurs), build clean. Do not revisit finished milestones except to fix a
-> bug; never tune the detector on the held-out grid (the seven held-out tp/fp/tn/fn lines are pinned in the
-> M11 plan's Global Constraints, `docs/superpowers/plans/2026-09-14-m11-simv.md`); regenerate
-> src/validation/snapshot.json after any scenario change and the MODEL.md constants table after any
-> constants change; keep the responsive CSS blocks at the end of theme.css; run Playwright in the foreground
-> with the plain Bash tool (never Monitor or background); the nested `.claude/worktrees` directory is
-> git- and eslint-ignored, so nothing inside it needs to lint or be committed from the parent checkout. The
-> M10 deploy check is the literal string `ventsim.custom.v1` in the served bundle; M11's is
-> `simv-base-select`.
+> D-021), **M10 — scenario authoring, My scenarios, help overlay (D-025)**, **M11 — SIMV, the shared
+> `breath` event, stacked-mandatory double triggers (D-022)**, and **M12 — PRVC, the VC-test-breath-seeded
+> pressure regulator, the support-withdrawal truth pattern and its report-only detector rule (D-023)** are
+> done. Primary host https://vent.nahass.ai (Cloudflare, D-021); fallback https://vent-sim.netlify.app/ —
+> note `vent.nahass.ai` answers a scripted fetch with a Cloudflare managed challenge (403, any user agent)
+> regardless of the request, so a served-bundle deploy check by curl/fetch only works against the Netlify
+> fallback; a real browser passes on both hosts (see "Hosting"). Vitest 268/268 across 43 files (held-out
+> detector suite un-gated; the performance test is wall-clock and must be re-run alone if the parallel run
+> is under load), lint clean, Playwright 43/43 (+ 9 screenshot tests behind `SCREENSHOTS=1`) across three
+> projects (chromium, mobile, tablet; `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts` colour-contrast check
+> have each shown a one-off flake under a loaded full run, most recently the a11y check again this session —
+> re-run the spec alone and report both outcomes if it recurs), build clean (`dist/assets/index-*.js` 286.01
+> kB, gzip 99.67 kB). Do not revisit finished milestones except to fix a bug; never tune the detector on the
+> held-out grid (the seven held-out tp/fp/tn/fn lines are pinned in the M11 plan's Global Constraints,
+> `docs/superpowers/plans/2026-09-14-m11-simv.md`, and confirmed unchanged again this session — cite them in
+> the M13 plan's Global Constraints too); regenerate src/validation/snapshot.json after any scenario change
+> and the MODEL.md constants table after any constants change (`npx tsx scripts/model-constants.ts`); keep
+> the responsive CSS blocks at the end of theme.css; run Playwright in the foreground with the plain Bash
+> tool (never Monitor or background); never read a dispatched subagent's transcript file directly — take its
+> final report; each mode removes its own "(not in this version yet)" qualifier from `src/ui/HelpDialog.tsx`
+> when it ships; the nested `.claude/worktrees` directory is git- and eslint-ignored, so nothing inside it
+> needs to lint or be committed from the parent checkout. The M10 deploy check is the literal string
+> `ventsim.custom.v1` in the served bundle; M11's is `simv-base-select`; M12's is `prvc-limit` (a runtime
+> string, not a template — `data-testid={...}` template strings like `setting-${f.key}` are never literal in
+> the bundle).
 >
-> Task — **M12 PRVC**, with its plan already written: docs/superpowers/plans/2026-09-14-m12-prvc.md (spec
-> §3, D-023 reserved). Execute it with subagent-driven development in a fresh `EnterWorktree` worktree
-> rebased onto local main (the rulings made while writing the plan — tuning ranges, controller decisions
-> already anticipated — live in the plan text itself, so read it in full before dispatching Task 1). Then
-> **M13 APRV** (spec §4, D-024 reserved) — its plan still needs writing first, following the shape of
-> docs/superpowers/plans/2026-09-14-m11-simv.md and …-m12-prvc.md: tests first per task, one commit per
-> task, interfaces stated up front, a Global Constraints section pinning the held-out grid. Both modes need:
-> the ventilator FSM/settings support, scenarios exercising it (the `'mode'` scenario category and
-> `scripts/mode-detector-report.ts`'s pattern are exactly for this — extend the script's `IDS`/`PATTERNS`
-> rather than writing a new one), and the new settings keys need entries in `SETTING_BOUNDS`
-> (`src/sim/vent/settings.ts`) with the mode string added to `IMPLEMENTED_MODES` (`src/sim/types.ts`) so
-> `scenario-schema.ts` and `authoring.ts` pick them up automatically (`MODE_NOTES` in `authoring.ts` already
-> has placeholder notes for PRVC/APRV settings keys — check they match what gets built). No change to the
-> authoring/help/My-scenarios code itself should be needed. Tests first for anything in
-> `src/sim`/`src/detector`/`src/edu`; regenerate the validation snapshot and the MODEL.md constants table if
-> scenarios or constants change; record each mode's design choices as D-023 (PRVC), D-024 (APRV). If a
-> scenario's after-fix asynchrony index resists tuning within the authorized ranges the way two of M11's
-> SIMV scenarios did, that is a legitimate outcome to report and record (D-022's "leave the mode" finding is
-> the precedent), not something to force by loosening a labeler rule or widening scope unauthorized. Confirm
-> the push/deploy policy for the session before pushing (the M10 and M11 sessions were told to commit only
-> and let a controller merge and deploy); check the live site with a literal string in the served bundle
-> once it is deployed (use the Netlify URL for a scripted check, or a real browser against
-> `vent.nahass.ai`). When you reach a good place around 50 % context, update docs/HANDOFF.md and write the
-> next prompt into it.
+> Task — **write, then execute, the M13 APRV plan**. No plan exists yet for APRV (unlike M12, which started
+> from an already-written plan); write `docs/superpowers/plans/2026-09-14-m13-aprv.md` first, in the shape
+> of `docs/superpowers/plans/2026-09-14-m11-simv.md` and `…-m12-prvc.md`: tests first per task, one commit
+> per task, interfaces stated up front, a Global Constraints section pinning the held-out grid (the seven
+> lines above) and the push/deploy policy for the session. Read spec §4 for APRV's mechanics (`phigh`,
+> `plow`, `thigh`, `tlow`, `tlowMode` "fixed" or "pefr" with `tlowPefr`) before writing the plan; `MODE_NOTES`
+> in `src/edu/authoring.ts` already has a placeholder note for these settings keys — check the plan's design
+> matches it, or update the note if the built settings differ. Then execute the plan with subagent-driven
+> development in a fresh `EnterWorktree` worktree rebased onto local main. APRV needs: the ventilator
+> FSM/settings support, the new settings keys added to `SETTING_BOUNDS` (`src/sim/vent/settings.ts`) with
+> `'APRV'` added to `IMPLEMENTED_MODES` (`src/sim/types.ts`, already has `'VC-AC' | 'PC-AC' | 'PSV' | 'CPAP'
+> | 'SIMV' | 'PRVC'`) so `scenario-schema.ts` and `authoring.ts` pick it up automatically (no change to the
+> authoring/help/My-scenarios code itself should be needed), scenarios exercising it (the `'mode'` scenario
+> category and `scripts/mode-detector-report.ts`'s pattern are exactly for this — extend the script's
+> `IDS`/`PATTERNS` rather than writing a new one, the way M11 and M12 each did), and a decision entry
+> D-024 recording APRV's design choices in the same register as D-022 and D-023 (prose paragraphs, numbers
+> cited, no bullet soup). Tests first for anything in `src/sim`/`src/detector`/`src/edu`; regenerate the
+> validation snapshot and the MODEL.md constants table if scenarios or constants change. If a scenario's
+> after-fix asynchrony index resists tuning within the authorized ranges the way two of M11's SIMV scenarios
+> and M12's `prvc-pressure-withdrawal` did, that is a legitimate outcome to report and record — D-022's
+> "leave the mode" finding and D-023's "treat the drive too" finding are the precedent — not something to
+> force by loosening a labeler rule or widening scope unauthorized. Confirm the push/deploy policy for the
+> session before pushing (the M10, M11 and M12 sessions were each told to commit only and let a controller
+> merge and deploy); check the live site with a literal string in the served bundle once it is deployed (use
+> the Netlify URL for a scripted check, or a real browser against `vent.nahass.ai`). When you reach a good
+> place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.

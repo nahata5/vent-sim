@@ -30,19 +30,20 @@ interface FieldDef {
 const FIELDS: FieldDef[] = [
   { key: 'peep', label: 'PEEP', unit: 'cmH2O', min: 0, max: 25, step: 1 },
   { key: 'fio2', label: 'FiO2', unit: '%', min: 21, max: 100, step: 5, toDisplay: (v) => Math.round(v * 100), fromDisplay: (v) => v / 100 },
-  { key: 'vt', label: 'Tidal volume', unit: 'mL', min: 100, max: 1200, step: 10, modes: ['VC-AC', 'SIMV'] },
-  { key: 'rr', label: 'Rate', unit: '/min', min: 4, max: 60, step: 1, modes: ['VC-AC', 'PC-AC', 'SIMV'] },
+  { key: 'vt', label: 'Tidal volume', unit: 'mL', min: 100, max: 1200, step: 10, modes: ['VC-AC', 'SIMV', 'PRVC'] },
+  { key: 'rr', label: 'Rate', unit: '/min', min: 4, max: 60, step: 1, modes: ['VC-AC', 'PC-AC', 'SIMV', 'PRVC'] },
   { key: 'peakFlow', label: 'Peak flow', unit: 'L/min', min: 10, max: 120, step: 5, modes: ['VC-AC', 'SIMV'] },
   { key: 'pause', label: 'Insp. pause', unit: 's', min: 0, max: 2, step: 0.1, modes: ['VC-AC', 'SIMV'] },
   { key: 'pinsp', label: 'Pinsp above PEEP', unit: 'cmH2O', min: 0, max: 40, step: 1, modes: ['PC-AC', 'SIMV'] },
-  { key: 'ti', label: 'Ti', unit: 's', min: 0.2, max: 3, step: 0.1, modes: ['PC-AC', 'SIMV'] },
+  { key: 'ti', label: 'Ti', unit: 's', min: 0.2, max: 3, step: 0.1, modes: ['PC-AC', 'SIMV', 'PRVC'] },
   { key: 'ps', label: 'Pressure support', unit: 'cmH2O', min: 0, max: 40, step: 1, modes: ['PSV', 'SIMV'] },
   { key: 'ets', label: 'ETS (cycle-off)', unit: '% peak', min: 5, max: 80, step: 5, modes: ['PSV', 'SIMV'], toDisplay: (v) => Math.round(v * 100), fromDisplay: (v) => v / 100 },
   { key: 'tiMax', label: 'Ti max', unit: 's', min: 0.5, max: 4, step: 0.1, modes: ['PSV', 'SIMV'] },
-  { key: 'riseTime', label: 'Rise time', unit: 's', min: 0, max: 0.4, step: 0.05, modes: ['PC-AC', 'PSV', 'SIMV'] },
+  { key: 'riseTime', label: 'Rise time', unit: 's', min: 0, max: 0.4, step: 0.05, modes: ['PC-AC', 'PSV', 'SIMV', 'PRVC'] },
   { key: 'flowTrigger', label: 'Flow trigger', unit: 'L/min', min: 0.5, max: 10, step: 0.5 },
   { key: 'pressureTrigger', label: 'Pressure trigger', unit: 'cmH2O', min: 0.5, max: 5, step: 0.5 },
   { key: 'simvWindow', label: 'Sync window', unit: 'fraction of period', min: 0.05, max: 1, step: 0.05, modes: ['SIMV'] },
+  { key: 'prvcMinDp', label: 'PRVC floor above PEEP', unit: 'cmH2O', min: 0, max: 15, step: 1, modes: ['PRVC'] },
 ];
 
 type Draft = Partial<Pick<VentSettings, NumKey>> & {
@@ -213,7 +214,7 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
           ).map(([key, label, unit, min, max, step]) => (
             <label class={`field ${alarmDraft[key] !== undefined ? 'pending' : ''}`} key={key}>
               <span>
-                {label} <em class="muted">{unit}</em>
+                {key === 'highPpeak' && mode === 'PRVC' ? `${label} (PRVC ceiling = limit − 5)` : label} <em class="muted">{unit}</em>
               </span>
               <input
                 type="number"

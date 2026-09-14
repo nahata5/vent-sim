@@ -22,6 +22,7 @@ export type PatternId =
   | 'premature-cycling'
   | 'delayed-cycling'
   | 'flow-starvation'
+  | 'support-withdrawal'
   | 'overshoot'
   | 'auto-peep'
   | 'leak'
@@ -45,6 +46,7 @@ export const PATTERN_IDS: readonly PatternId[] = [
   'premature-cycling',
   'delayed-cycling',
   'flow-starvation',
+  'support-withdrawal',
   'overshoot',
   'auto-peep',
   'leak',
@@ -69,6 +71,8 @@ export interface LabelContext {
   /** Absolute inspiratory pressure target for pressure-targeted breaths (PEEP + Pinsp/PS). */
   pTarget: number;
   breathKind: BreathKind;
+  /** PRVC floor of the regulated pressure above PEEP, cmH2O. */
+  prvcMinDp: number;
   injectors: InjectorKind[];
   rScale: number;
   eScale: number;
@@ -399,6 +403,12 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
         if (pmusPeak > k('PMUS_HIGH')) patterns.push('high-effort');
         else if (pmusPeak < k('PMUS_LOW')) patterns.push('low-effort');
       }
+      // Support withdrawal (PRVC): the regulator has stepped its pressure down to the floor because the
+      // patient's own effort supplies the volume, so a low driving pressure hides a high work of breathing.
+      if (ctx.mode === 'PRVC' && kind === 'pc' && Number.isFinite(pTarget) && pTarget - ctx.peep <= ctx.prvcMinDp + k('LABEL_SUPPORT_WITHDRAWAL_MARGIN') && pmusPeak >= k('PMUS_HIGH')) {
+        patterns.push('support-withdrawal');
+        ev.dpAboveFloor = pTarget - ctx.peep - ctx.prvcMinDp;
+      }
     }
     // Leak and injector-derived findings.
     if (b.vtiTrue > 0.05) {
@@ -494,6 +504,7 @@ export function contextFromSettings(s: VentSettings, inj: InjectorLogEntry | und
     peep: s.peep,
     pTarget: s.peep + above,
     breathKind: breathKindFromMode(s),
+    prvcMinDp: s.prvcMinDp,
     injectors: inj?.kinds ?? [],
     rScale,
     eScale,

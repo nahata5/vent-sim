@@ -105,12 +105,18 @@ import capstone from './capstone.json';
 import simvLowSupport from './simv-low-support.json';
 import simvMixedBreaths from './simv-mixed-breaths.json';
 import simvStacking from './simv-stacking.json';
+import prvcPressureWithdrawal from './prvc-pressure-withdrawal.json';
+import prvcVolumeNotAchieved from './prvc-volume-not-achieved.json';
+import prvcDoubleTrigger from './prvc-double-trigger.json';
 
 const RAW: unknown[] = [
   capstone,
   simvLowSupport,
   simvMixedBreaths,
   simvStacking,
+  prvcPressureWithdrawal,
+  prvcVolumeNotAchieved,
+  prvcDoubleTrigger,
   peepTrialRecruiter,
   peepTrialNonRecruiter,
   co2OverAssist,

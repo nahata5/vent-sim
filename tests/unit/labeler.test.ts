@@ -8,6 +8,7 @@ import { defaultSettings } from '@sim/vent/settings';
 import { presetPatient, recruitableRecoil } from '@sim/patient/presets';
 import { defaultDriveParams } from '@sim/patient/neural-drive';
 import { resolveScenario, scenarioById } from '@/edu/scenarios';
+import { k } from '@config/constants';
 import { asynchronyIndex, contextFromSettings, labelBreaths, labelRun, PATTERN_IDS, type PatternId } from '@sim/truth/labeler';
 import type { SimEngine } from '@sim/engine';
 import type { VentEvent } from '@sim/types';
@@ -233,5 +234,24 @@ describe('SIMV truth rules', () => {
     expect(spont.length).toBeGreaterThan(10);
     expect(mand.filter((b) => b.patterns.includes('flow-starvation')).length / mand.length).toBeGreaterThan(0.3);
     expect(spont.some((b) => b.patterns.includes('flow-starvation'))).toBe(false);
+  });
+});
+
+describe('PRVC truth rules', () => {
+  it('PRVC support withdrawal: pressure at the floor while the effort is strong', () => {
+    const patient = presetPatient('ards-pulmonary');
+    patient.drive = { ...defaultDriveParams(), rate: 22, ti: 1.0, pmax: 16, cvRate: 0.05, cvTi: 0.05, cvPmax: 0.05 };
+    const res = runHeadless({ patient, settings: { ...defaultSettings('PRVC'), vt: 360, rr: 18, ti: 0.9, peep: 10, flowTrigger: 2 }, seed: 4, duration: 60 });
+    const out = labelRun(res).breaths.filter((b) => b.tStart > 20);
+    const sw = out.filter((b) => b.patterns.includes('support-withdrawal'));
+    expect(sw.length / Math.max(1, out.length)).toBeGreaterThan(0.4);
+    expect(sw.every((b) => (b.evidence.pmusPeak ?? 0) >= k('PMUS_HIGH'))).toBe(true);
+    const pc = runHeadless({ ...resolveScenario(scenarioById('ards-pulmonary')), duration: 30 });
+    expect(labelRun(pc).breaths.some((b) => b.patterns.includes('support-withdrawal'))).toBe(false);
+    // Same mode and settings with a modest drive: the effort gate, not only the mode gate, keeps it silent.
+    const weak = presetPatient('ards-pulmonary');
+    weak.drive = { ...defaultDriveParams(), rate: 14, ti: 0.9, pmax: 5, cvRate: 0.05, cvTi: 0.05, cvPmax: 0.05 };
+    const calm = runHeadless({ patient: weak, settings: { ...defaultSettings('PRVC'), vt: 360, rr: 18, ti: 0.9, peep: 10, flowTrigger: 2 }, seed: 4, duration: 60 });
+    expect(labelRun(calm).breaths.some((b) => b.patterns.includes('support-withdrawal'))).toBe(false);
   });
 });

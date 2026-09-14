@@ -1,0 +1,18 @@
+{
+  "id": "prvc-double-trigger",
+  "order": 412,
+  "category": "mode",
+  "title": "PRVC with a short Ti: double triggers and a regulator that cuts pressure",
+  "summary": "ARDS with a strong, long effort on PRVC with Ti 0.7 s. The effort outlasts the breath and triggers a second one; the stacked volume overshoots the target, so the regulator lowers the pressure for the next breath and the effort grows. Two problems feeding each other.",
+  "phenotype": "ards-pulmonary",
+  "drive": { "rate": 22, "ti": 1.2, "pmax": 14, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.1 },
+  "settings": { "mode": "PRVC", "vt": 380, "rr": 16, "ti": 0.7, "peep": 10, "refractory": 0.2 },
+  "seed": 43,
+  "objectives": [
+    "Recognize double triggering in a volume-targeted pressure mode and see how the stacked volume drives the regulator down.",
+    "Fix by lengthening the ventilator Ti toward the neural Ti (1.1 s against a 1.2 s effort)."
+  ],
+  "targetPatterns": ["double-trigger"],
+  "fix": { "at": 60, "note": "Ti 1.1 s: one breath per effort; the regulator settles.", "settings": { "ti": 1.1 } },
+  "criteria": { "minFraction": 0.2, "aiAfter": 10 }
+}

@@ -60,12 +60,13 @@ FORMAT (top-level keys, all others are ignored): "id", "order", "category", "tit
   "pneumothorax": defaults {"eScale":1.8,"ppl":6}
   "mainstem": defaults {"eScale":2,"rScale":1.5}
   "bronchospasm": defaults {"rScale":3,"rampSeconds":20}
-  settings (required): { "mode": one of "VC-AC", "PC-AC", "PSV", "CPAP", "SIMV", …numbers }. Unspecified settings take the mode defaults. Alarms merge into defaults.
+  settings (required): { "mode": one of "VC-AC", "PC-AC", "PSV", "CPAP", "SIMV", "PRVC", …numbers }. Unspecified settings take the mode defaults. Alarms merge into defaults.
     "VC-AC": volume control, assist-control: vt, rr, peakFlow or ti (vcTiming), flowPattern, pause
     "PC-AC": pressure control, assist-control: pinsp (above PEEP), ti, rr, riseTime
     "PSV": pressure support: ps (above PEEP), ets (cycle-off fraction), tiMax, riseTime
     "CPAP": CPAP: peep only (ps 0)
     "SIMV": SIMV: simvBase "VC" or "PC" for the mandatory breaths (their VC/PC settings and rr) plus ps/ets for spontaneous breaths
+    "PRVC": pressure-regulated volume control: vt (target), rr, ti, riseTime; the pressure adapts breath by breath
     numeric settings and bounds:
   peep: 0–25 cmH2O (default 5)
   fio2: 0.21–1 fraction (default 0.4)
@@ -86,12 +87,13 @@ FORMAT (top-level keys, all others are ignored): "id", "order", "category", "tit
   apneaTime: 5–60 s (default 20)
   refractory: 0–0.5 s (default 0.2)
   simvWindow: 0.05–1 fraction of the period (default 0.25)
+  prvcMinDp: 0–15 cmH2O above PEEP (default 5)
     other: triggerType "flow"|"pressure", vcTiming "peakFlow"|"ti", flowPattern "square"|"ramp", leakCompensation true|false,
       alarms { highPpeak, lowVte, highVe, lowVe, highRR, lowPeep, highLeak, highPeepi }
   seed: integer or string (reproducible variability)
   objectives: array of strings
   targetPatterns: array of pattern ids the learner must find, from
-    "ineffective-effort", "auto-trigger", "delayed-trigger", "double-trigger", "reverse-trigger", "premature-cycling", "delayed-cycling", "flow-starvation", "overshoot", "auto-peep", "leak", "secretions", "water", "high-resistance", "low-compliance", "cough", "pendelluft", "overdistension", "tidal-recruitment", "high-effort", "low-effort"
+    "ineffective-effort", "auto-trigger", "delayed-trigger", "double-trigger", "reverse-trigger", "premature-cycling", "delayed-cycling", "flow-starvation", "support-withdrawal", "overshoot", "auto-peep", "leak", "secretions", "water", "high-resistance", "low-compliance", "cough", "pendelluft", "overdistension", "tidal-recruitment", "high-effort", "low-effort"
   fix: { "at": seconds, "note": string, "settings": {…partial settings}, "drive": {…partial drive}, "injectors": { "<kind>": {…} or null to remove } }
   criteria: { "minFraction": 0–1, "aiAfter": 0–100, "extra": [ { "metric": "peepiTrue", "max": number } ], "over": "all" | "mandatory" (which breaths the fractions count; "mandatory" for lessons about SIMV's mandatory breaths) }
   quizExtras: array of { "metric": one of "plEE", "plEI", "dPL", "dPes", "pmusPeak", "min"?: number, "max"?: number, "label"?: string }

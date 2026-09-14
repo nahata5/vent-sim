@@ -42,14 +42,17 @@ Totals (2026-09-11): Vitest 180 tests in 30 files; Playwright 25 tests (+ 6 scre
 | Balloon occlusion test 0.8–1.2 when well placed; 0.5 mL fill and gastric placement fail | pass |
 | PMI rises with effort | pass |
 
-## §9.4 Emergence matrix — `tests/scenarios/emergence.test.ts` (15)
+## §9.4 Emergence matrix — `tests/scenarios/emergence.test.ts` (22)
 
 Every scenario with target patterns: the target present in ≥ the scenario's minimum fraction of breaths
 (efforts for ineffective effort) between 10 s and the fix at 60 s, AI < 10 % within 60 s after the scripted
-fix, no pattern on the passive baseline. Rows on the Validation page. Scenarios: double-trigger,
-flow-starvation, ineffective-effort, reverse-trigger, auto-trigger, leak-psv, premature-cycling,
-copd-auto-peep, secretions, bronchospasm, pneumothorax, mainstem, co2-under-assist, capstone (five coexisting
-patterns: ineffective effort, delayed cycling, auto-PEEP, leak, secretions) (+ the passive baseline).
+fix, no pattern on the passive baseline. Rows on the Validation page. 31 scenarios ship in the library; 20
+of them carry target patterns and get an emergence row each: double-trigger, flow-starvation,
+ineffective-effort, reverse-trigger, auto-trigger, leak-psv, premature-cycling, copd-auto-peep, secretions,
+bronchospasm, pneumothorax, mainstem, co2-under-assist, capstone (five coexisting patterns: ineffective
+effort, delayed cycling, auto-PEEP, leak, secretions), simv-low-support, simv-mixed-breaths, simv-stacking
+(D-022), prvc-pressure-withdrawal, prvc-volume-not-achieved, prvc-double-trigger (D-023) (+ the passive
+baseline).
 
 ## §9.5 Detector on the held-out grid — `tests/detector/heldout.test.ts` (9)
 
@@ -109,16 +112,38 @@ identification grading (Jaccard), fix grading (limits, unverified plateau, extra
 progress survives a throwing storage and corrupt JSON; CSV shape with and without truth; JSON schema
 `ventsim-session/1`; batch grid + zip round trip with a manifest.
 
-## Detector in SIMV (reported, not gated; D-022)
+## Detector in SIMV and PRVC (reported, not gated; D-022, D-023)
 
-`npx tsx scripts/mode-detector-report.ts` runs the three SIMV scenarios' pre-fix (dyssynchronous) 60 s
-segment and compares the signal-only detector's per-breath patterns against the truth labeler's, breath by
-breath (first 10 s excluded as settling time). These numbers are informative only — the gated targets
-remain the held-out grid in §9.5, which contains no SIMV breaths.
+`npx tsx scripts/mode-detector-report.ts` (`tests/physics/prvc.test.ts` covers the regulator itself;
+`tests/detector/prvc.test.ts` covers the detector rule below) runs each scenario's pre-fix (dyssynchronous)
+60 s segment and compares the signal-only detector's per-breath patterns against the truth labeler's,
+breath by breath (first 10 s excluded as settling time). These numbers are informative only — the gated
+targets remain the held-out grid in §9.5, which contains no SIMV or PRVC breaths.
 
 The stacked-mandatory truth rule (a time-triggered breath starting inside a neural inspiration that already
 triggered the previous breath) is exercised only by the synthetic `labelBreaths` test in
 `tests/unit/labeler.test.ts`; no shipped scenario produces it — see D-022 for why.
+
+The PRVC detector rule for `support-withdrawal` (D-023) is: the regulated pressure is within
+`LABEL_SUPPORT_WITHDRAWAL_MARGIN` (1 cmH2O) of the floor, the breath is patient-triggered, and the measured
+Vti is ≥ `DET_SW_VT_EXCESS` (1.05) × the set target — the floor, the trigger cause and the volume excess,
+not the Paw ramp shape (the drafted `earlySag` conjunct never separated the case; see D-023). By
+construction this rule also misses time- or reverse-triggered support-withdrawal breaths, since it requires
+a patient trigger; the truth labeler still scores those breaths (it judges the regulated pressure and effort
+only).
+
+`prvc-pressure-withdrawal`'s sensitivity below is 0.20, and the trigger cause is **not** why. Measured on
+the shipped scenario (60 s, breaths after 10 s): all 15 truth support-withdrawal breaths are
+patient-triggered; the 12 misses fail the volume conjunct, with measured Vti/Vt of 0.96–1.05 (full range
+over the 15 breaths 0.96–1.22; only 3 reach 1.05). The finding is a **transfer problem in the threshold**:
+`DET_SW_VT_EXCESS` was tuned on runs at a drive Pmax of 16, where the same scenario's support-withdrawal
+breaths sit at Vti/Vt 1.10–1.18 (re-measured now at Pmax 16: 1.01–1.37, 9 of 14 breaths at or above 1.05),
+while the shipped scenario runs at Pmax 12, where the regulator pinned at its floor delivers about the
+target rather than over it (Pmax 12: 3 of 15; Pmax 14: 7 of 16). The threshold is deliberately **not**
+retuned against this scenario — the reported scenario is not a tuning set, and lowering the conjunct to
+≈ 0.96 would make it fire on any floor-pinned passive breath (a passive lung at the floor delivers
+Vti/Vt 0.99–1.01, D-023). What the number means is that a volume-excess rule is a poor separator once the
+regulator reaches its floor: the excess is what drove the pressure down, so at the floor it is spent.
 
 | Scenario | Pattern | tp | fp | tn | fn | Sens | Spec |
 |---|---|---|---|---|---|---|---|
@@ -126,11 +151,35 @@ triggered the previous breath) is exercised only by the synthetic `labelBreaths`
 | simv-low-support | double-trigger | 0 | 0 | 12 | 0 | NaN | 1.00 |
 | simv-low-support | flow-starvation | 0 | 6 | 6 | 0 | NaN | 0.50 |
 | simv-low-support | auto-peep | 1 | 0 | 0 | 11 | 0.08 | NaN |
+| simv-low-support | support-withdrawal | 0 | 0 | 12 | 0 | NaN | 1.00 |
+| simv-low-support | high-resistance | 0 | 0 | 12 | 0 | NaN | 1.00 |
 | simv-mixed-breaths | ineffective-effort | 0 | 0 | 29 | 0 | NaN | 1.00 |
 | simv-mixed-breaths | double-trigger | 3 | 5 | 21 | 0 | 1.00 | 0.81 |
 | simv-mixed-breaths | flow-starvation | 3 | 1 | 25 | 0 | 1.00 | 0.96 |
 | simv-mixed-breaths | auto-peep | 15 | 8 | 0 | 6 | 0.71 | 0.00 |
+| simv-mixed-breaths | support-withdrawal | 0 | 0 | 29 | 0 | NaN | 1.00 |
+| simv-mixed-breaths | high-resistance | 0 | 0 | 29 | 0 | NaN | 1.00 |
 | simv-stacking | ineffective-effort | 0 | 0 | 27 | 0 | NaN | 1.00 |
 | simv-stacking | double-trigger | 4 | 1 | 20 | 2 | 0.67 | 0.95 |
 | simv-stacking | flow-starvation | 0 | 0 | 27 | 0 | NaN | 1.00 |
 | simv-stacking | auto-peep | 16 | 0 | 0 | 11 | 0.59 | NaN |
+| simv-stacking | support-withdrawal | 0 | 0 | 27 | 0 | NaN | 1.00 |
+| simv-stacking | high-resistance | 0 | 0 | 27 | 0 | NaN | 1.00 |
+| prvc-pressure-withdrawal | ineffective-effort | 0 | 0 | 21 | 0 | NaN | 1.00 |
+| prvc-pressure-withdrawal | double-trigger | 0 | 0 | 21 | 0 | NaN | 1.00 |
+| prvc-pressure-withdrawal | flow-starvation | 0 | 0 | 21 | 0 | NaN | 1.00 |
+| prvc-pressure-withdrawal | auto-peep | 16 | 4 | 1 | 0 | 1.00 | 0.20 |
+| prvc-pressure-withdrawal | support-withdrawal | 3 | 0 | 6 | 12 | 0.20 | 1.00 |
+| prvc-pressure-withdrawal | high-resistance | 0 | 0 | 21 | 0 | NaN | 1.00 |
+| prvc-volume-not-achieved | ineffective-effort | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| prvc-volume-not-achieved | double-trigger | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| prvc-volume-not-achieved | flow-starvation | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| prvc-volume-not-achieved | auto-peep | 9 | 0 | 0 | 1 | 0.90 | NaN |
+| prvc-volume-not-achieved | support-withdrawal | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| prvc-volume-not-achieved | high-resistance | 0 | 0 | 4 | 6 | 0.00 | 1.00 |
+| prvc-double-trigger | ineffective-effort | 0 | 0 | 23 | 0 | NaN | 1.00 |
+| prvc-double-trigger | double-trigger | 7 | 0 | 16 | 0 | 1.00 | 1.00 |
+| prvc-double-trigger | flow-starvation | 0 | 0 | 23 | 0 | NaN | 1.00 |
+| prvc-double-trigger | auto-peep | 8 | 11 | 0 | 4 | 0.67 | 0.00 |
+| prvc-double-trigger | support-withdrawal | 0 | 0 | 23 | 0 | NaN | 1.00 |
+| prvc-double-trigger | high-resistance | 0 | 0 | 23 | 0 | NaN | 1.00 |

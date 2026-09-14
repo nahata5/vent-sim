@@ -257,6 +257,22 @@ export function detect(inp: DetectorInput): DetectorOutput {
     }
     // ── Overshoot.
     if (isPressure && f.overshoot > k('DET_OVERSHOOT_MARGIN')) add('overshoot', `Paw ${f1(f.overshoot)} above target in the first 200 ms (> ${k('DET_OVERSHOOT_MARGIN')})`);
+    // ── Support withdrawal (PRVC, report only): the regulated pressure sits at its floor, the patient starts
+    // every breath and the volume still overshoots the target — the effort the regulator reads as excess
+    // volume. The airway pressure itself barely deforms in PRVC (the ventilator lowers the target instead),
+    // so the sag is evidence, not a gate.
+    if (
+      ctx.mode === 'PRVC' &&
+      ctx.breathKind === 'pc' &&
+      ctx.pTarget - ctx.peep <= ctx.prvcMinDp + k('LABEL_SUPPORT_WITHDRAWAL_MARGIN') &&
+      b.triggerCause === 'patient' &&
+      b.vti >= k('DET_SW_VT_EXCESS') * (ctx.vt / 1000)
+    ) {
+      add(
+        'support-withdrawal',
+        `ΔP ${f1(ctx.pTarget - ctx.peep)} within ${k('LABEL_SUPPORT_WITHDRAWAL_MARGIN')} of the floor ${ctx.prvcMinDp}; patient-triggered, Vti ${Math.round(b.vti * 1000)} mL ≥ ${k('DET_SW_VT_EXCESS')} × ${ctx.vt}; Paw sag ${f1(f.earlySag)}`,
+      );
+    }
     // ── Inspiratory IE on a pressure-targeted spontaneous breath: a flow hump after the peak.
     if (spont && !sawtooth && b.triggerCause === 'patient' && f.inspHump >= k('DET_IE_HUMP') && f.inspHumpTime > 0.25) {
       const e = `inspiratory flow hump ${f1(f.inspHump)} L/min ≥ ${k('DET_IE_HUMP')} at ${f2(f.inspHumpTime)} s (effort during insufflation)`;

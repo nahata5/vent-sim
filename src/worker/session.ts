@@ -183,6 +183,7 @@ export class SimSession {
       peepManeuver: vent.peepManeuverActive,
       co2: this.engine.co2Now(),
       mechanics: { el: this.engine.patient.params.mechanics.el, ecw: this.engine.patient.params.mechanics.ecw },
+      prvcDp: vent.prvcDp,
     };
   }
 

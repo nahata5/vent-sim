@@ -35,7 +35,8 @@ export type AlarmId =
   | 'disconnect'
   | 'high-leak'
   | 'ti-max'
-  | 'high-peepi';
+  | 'high-peepi'
+  | 'prvc-limit';
 
 interface BreathPlan {
   ti: number;
@@ -135,6 +136,16 @@ export class Ventilator {
   /** Estimated expiratory leak baseline for optional leak compensation (L/s). */
   private leakBaseline = 0;
   private lastPeepTotal: number | null = null;
+  /** PRVC: regulated pressure above PEEP, null until the test breath has estimated compliance. */
+  private regulatedDp: number | null = null;
+  /** PRVC: the breath now being delivered is the VC test breath whose plateau seeds `regulatedDp`. */
+  private prvcTestPending = false;
+  /** PRVC: consecutive breaths at the pressure ceiling that fell short of the volume target. */
+  private prvcShortCount = 0;
+  /** PRVC: compliance measured by the last test breath (L/cmH2O), the fallback when ΔP is too small to divide by. */
+  private prvcCompliance = NaN;
+  /** Whether the breath now being delivered is an apnea-backup breath (its volume says nothing about the mode's own plan). */
+  private breathIsBackup = false;
   /** Settings actually in effect over time (initial + each commit), for the labeler and exports. */
   readonly settingsLog: Array<{ t: number; settings: VentSettings }> = [];
 
@@ -181,7 +192,12 @@ export class Ventilator {
         delete pend[key];
       }
     }
+    const prev = this.settings;
     this.settings = clampSettings(target as unknown as VentSettings);
+    // Defensive: `mode` and `vt` are not immediate keys, so on this path the reset is a no-op today. It
+    // stays so that making either immediate cannot silently leave a stale regulator (the real reset runs
+    // from `commitPending`, at the next breath start).
+    this.prvcResetIfRetargeted(prev);
     this.plan.peep = this.settings.peep;
     if (this.pending && Object.keys(this.pending).length === 0) this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
@@ -189,7 +205,9 @@ export class Ventilator {
 
   private commitPending(): void {
     if (!this.pending) return;
+    const prev = this.settings;
     this.settings = clampSettings({ ...this.settings, ...this.pending });
+    this.prvcResetIfRetargeted(prev);
     this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
   }
@@ -300,8 +318,10 @@ export class Ventilator {
       case 'SIMV':
         return kind === 'ps' ? this.psPlan(s) : s.simvBase === 'PC' ? this.pcPlan(s, s.pinsp) : this.vcPlan(s);
       case 'PRVC':
-        // M12 replaces this with the pressure-regulated volume-control controller.
-        return this.pcPlan(s, s.pinsp);
+        // Until compliance is known, a square-flow VC test breath over the set Ti with a short pause.
+        return this.regulatedDp === null
+          ? this.vcPlan({ ...s, vcTiming: 'ti', flowPattern: 'square', pause: k('PRVC_TEST_PAUSE') })
+          : this.pcPlan(s, this.regulatedDp);
     }
   }
 
@@ -403,7 +423,8 @@ export class Ventilator {
   }
 
   private get hasMandatoryRate(): boolean {
-    return this.settings.mode === 'VC-AC' || this.settings.mode === 'PC-AC' || this.settings.mode === 'SIMV';
+    const mode = this.settings.mode;
+    return mode === 'VC-AC' || mode === 'PC-AC' || mode === 'SIMV' || mode === 'PRVC';
   }
 
   private get isSpontMode(): boolean {
@@ -509,6 +530,14 @@ export class Ventilator {
     this.pendingKind = undefined;
     this.evaluateBreathAlarms(t, events);
     this.commitPending();
+    // Apnea backup only exists for a mode without a mandatory rate. If the committed mode has one (a mode
+    // change into VC-AC/PC-AC/SIMV/PRVC while the backup was running), the backup ends here: this breath is
+    // the mode's own plan and the apnea alarm clears. Without this the backup PC plan would repeat forever
+    // (cause 'backup', alarm latched, and in PRVC no VC test breath would ever run).
+    if (this.backupActive && this.hasMandatoryRate) this.exitBackup(t, events);
+    const wasBackup = this.breathIsBackup;
+    this.breathIsBackup = this.backupActive;
+    this.prvcRegulate(t, events, wasBackup);
     this.plan = this.makePlan(this.settings, this.backupActive, resolvedKind);
     if (!this.plan.spontaneous) this.tLastMandatory = t;
     this.breathIndex += 1;
@@ -577,6 +606,8 @@ export class Ventilator {
         this.phase = 'pause';
         this.tPhaseStart = t;
       } else {
+        // A test breath cut short (alarm cycle) has no plateau: seed from the end-inspiratory pressure.
+        this.prvcSeedFromTestBreath(m);
         this.enterExp(t, events, 'insp');
       }
     }
@@ -597,6 +628,7 @@ export class Ventilator {
         events.push({ type: 'hold-end', t, kind: 'insp' });
         events.push({ type: 'maneuver', t, result });
         this.hold = null;
+        this.prvcSeedFromTestBreath(m);
         this.enterExp(t, events, 'pause');
         if (this.peepManeuver) {
           const done = this.peepManeuver.onHold({ t, pplat: m.paw, vti: m.vti, pes: m.pes, ppeak: this.peakPawThisBreath, rr: this.settings.rr });
@@ -608,7 +640,10 @@ export class Ventilator {
       }
       return;
     }
-    if (t - this.tPhaseStart >= this.plan.pause) this.enterExp(t, events, 'pause');
+    if (t - this.tPhaseStart >= this.plan.pause) {
+      this.prvcSeedFromTestBreath(m);
+      this.enterExp(t, events, 'pause');
+    }
   }
 
   private controlExpHold(m: VentMeasured, events: VentEvent[]): void {
@@ -787,6 +822,92 @@ export class Ventilator {
     this.psrc = this.lastPaw;
   }
 
+  // ───────────────────────── PRVC regulator (Spec 2026-09-14 §3, D-023) ─────────────────────────
+
+  /** Highest regulated ΔP above PEEP: the pressure alarm limit less a safety margin, never below the floor. */
+  private prvcCeiling(s: VentSettings): number {
+    return Math.max(s.prvcMinDp, s.alarms.highPpeak - k('PRVC_PMAX_MARGIN') - s.peep);
+  }
+
+  /**
+   * At the start of a PRVC breath: adapt ΔP toward the volume target from the volume the previous breath
+   * actually delivered (its effective compliance Vti/ΔP), limited to PRVC_STEP_MAX per breath and to the
+   * floor/ceiling band. Two consecutive short PC breaths at the ceiling raise the volume-not-achieved alarm.
+   * `prevWasBackup` marks the breath that just ended as an apnea-backup breath, whose volume was produced by
+   * the backup plan rather than by the regulator: it is read like "no previous breath".
+   */
+  private prvcRegulate(t: number, events: VentEvent[], prevWasBackup = false): void {
+    const s = this.settings;
+    if (s.mode !== 'PRVC') {
+      // Another mode has no regulated pressure: the volume-not-achieved condition has ended.
+      this.prvcShortCount = 0;
+      this.setAlarm('prvc-limit', false, t, events);
+      return;
+    }
+    if (this.regulatedDp === null) {
+      // No compliance estimate yet: the plan built next is the VC test breath.
+      this.prvcTestPending = true;
+      this.prvcShortCount = 0;
+      this.setAlarm('prvc-limit', false, t, events);
+      return;
+    }
+    if (prevWasBackup) {
+      // The breath that just ended was the apnea backup's own PC plan, not a regulated one: nothing to
+      // learn from its volume, and it cannot count toward the volume-not-achieved alarm.
+      this.prvcShortCount = 0;
+      this.setAlarm('prvc-limit', false, t, events);
+      return;
+    }
+    const m = this.lastMeasured;
+    if (!m || this.breathIndex < 0) return;
+    // The volume sensor resets on the next breath start (engine.onInspStart), so this is still the
+    // inspired volume of the breath that just ended.
+    const vtiPrev = m.vti;
+    const target = s.vt / 1000;
+    // Effective compliance of the previous breath. Once ΔP has been withdrawn to (nearly) nothing the
+    // delivered volume is the patient's effort, not the pressure's effect, and Vti/ΔP diverges; the test
+    // breath's compliance takes over, so a regulator parked at a floor of 0 can still step back up.
+    const cEff =
+      this.regulatedDp > k('PRVC_DP_EPSILON') && vtiPrev > k('PRVC_MIN_VTI_FOR_C') ? vtiPrev / this.regulatedDp : this.prvcCompliance;
+    // The alarm judges the breath that just ended, so both of its terms are read before the step: the ΔP
+    // that breath was delivered at, and whether that breath was a regulated PC breath at all (the VC test
+    // breath is a measurement, not an attempt at the target, and never counts).
+    const atCeiling = this.regulatedDp >= this.prvcCeiling(s) - 1e-9;
+    const prevWasPc = this.plan.kind === 'pc';
+    if (Number.isFinite(cEff) && cEff > 0) {
+      const step = clamp((k('PRVC_GAIN') * (target - vtiPrev)) / cEff, -k('PRVC_STEP_MAX'), k('PRVC_STEP_MAX'));
+      this.regulatedDp = clamp(this.regulatedDp + step, s.prvcMinDp, this.prvcCeiling(s));
+    }
+    const short = vtiPrev < k('PRVC_LIMIT_VT_FRACTION') * target;
+    this.prvcShortCount = prevWasPc && atCeiling && short ? this.prvcShortCount + 1 : 0;
+    this.setAlarm('prvc-limit', this.prvcShortCount >= 2, t, events);
+  }
+
+  /**
+   * End of the PRVC test breath: compliance from the measured plateau (Paw at the end of the pause, or the
+   * end-inspiratory pressure when the breath was cut short) and the measured inspired volume, L/cmH2O.
+   */
+  private prvcSeedFromTestBreath(m: VentMeasured): void {
+    if (!this.prvcTestPending) return;
+    // An apnea-backup breath is the backup plan at PEEP + backupPinsp, not the test breath: it cannot seed
+    // the estimate. `prvcTestPending` stays set so the next breath is a real test breath.
+    if (this.breathIsBackup) return;
+    const s = this.settings;
+    const cEst = m.vti / Math.max(k('PRVC_MIN_DP_FOR_C'), m.paw - s.peep);
+    this.prvcCompliance = cEst;
+    this.regulatedDp = clamp(s.vt / 1000 / Math.max(1e-3, cEst), s.prvcMinDp, this.prvcCeiling(s));
+    this.prvcTestPending = false;
+  }
+
+  /** Entering PRVC or changing the volume target invalidates the estimate: the next breath is a test breath. */
+  private prvcResetIfRetargeted(prev: VentSettings): void {
+    const s = this.settings;
+    if (s.mode !== 'PRVC' || (prev.mode === 'PRVC' && prev.vt === s.vt)) return;
+    this.regulatedDp = null;
+    this.prvcShortCount = 0;
+    this.prvcCompliance = NaN;
+  }
+
   // ───────────────────────── Alarms (Brief 1 §2.6) ─────────────────────────
 
   private setAlarm(id: AlarmId, active: boolean, t: number, events: VentEvent[]): void {
@@ -837,6 +958,11 @@ export class Ventilator {
   /** Time since the last cycle-off (for refractory logic). */
   get sinceCycle(): number {
     return this.tNow - this.tLastCycle;
+  }
+
+  /** PRVC: the regulated pressure above PEEP, null before the test breath has run. */
+  get prvcDp(): number | null {
+    return this.regulatedDp;
   }
 
   /** Last measured total PEEP from an expiratory hold, if any. */
