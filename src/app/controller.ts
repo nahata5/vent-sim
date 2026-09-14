@@ -590,10 +590,16 @@ export class SessionController {
     const breaths = [...this.labels.values()].map((l) => l.truth).filter((l): l is BreathLabel => l !== null && l.tStart >= t0);
     const efforts = this.efforts.filter((e) => e.tOnset >= t0);
     const ai = asynchronyIndex({ breaths, efforts }, t0, t1).ai;
-    const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
-    const newSevereAlarms = this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm);
+    const newSevereAlarms = [...new Set(this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm))];
     const extras = extrasFromTruth(this.scenario?.quizExtras ?? [], this.truthLog.filter((x) => x.tStart >= t0).map((x) => x.m));
-    return { ai, breaths: mon, newSevereAlarms: [...new Set(newSevereAlarms)], extras };
+    const s = this.settings;
+    // APRV has no plateau hold: Phigh and Phigh − Plow stand in for the plateau and driving-pressure checks (spec §4.5).
+    if (s?.mode === 'APRV') {
+      const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: s.phigh - s.plow, pplat: s.phigh, vtPerKg: m.vtPerKg }));
+      return { ai, breaths: mon, newSevereAlarms, extras, labels: { dp: 'Phigh − Plow', pplat: 'Phigh' } };
+    }
+    const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
+    return { ai, breaths: mon, newSevereAlarms, extras };
   }
 
   evaluateQuiz(): void {

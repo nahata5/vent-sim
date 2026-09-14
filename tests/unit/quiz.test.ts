@@ -89,6 +89,13 @@ describe('quiz: fix grading and score', () => {
     expect(r.checks.find((c) => c.id === 'plEE')?.ok).toBe(false);
   });
 
+  it('custom check labels (APRV): the ΔP and plateau checks carry the names the caller gives them', () => {
+    const r = gradeFix({ ...baseFix({ breaths: [{ dp: 28, pplat: 28, vtPerKg: 6 }] }), labels: { dp: 'Phigh − Plow', pplat: 'Phigh' } });
+    expect(r.checks.find((c) => c.id === 'dp')?.label).toMatch(/^Phigh − Plow/);
+    expect(r.checks.find((c) => c.id === 'pplat')?.label).toMatch(/^Phigh/);
+    expect(r.checks.find((c) => c.id === 'dp')?.ok).toBe(false);
+  });
+
   it('composite score: full marks for a perfect fast fix with one change; decays with time and changes; zero without a pass', () => {
     const perfect = quizScore({ identification: 1, fixPassed: true, seconds: 30, changes: 1 });
     expect(perfect).toBe(100);

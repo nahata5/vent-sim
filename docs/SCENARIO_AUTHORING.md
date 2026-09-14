@@ -95,11 +95,11 @@ FORMAT (top-level keys, all others are ignored): "id", "order", "category", "tit
   tlow: 0.2–3 s (default 0.5)
   tlowPefr: 0.25–0.9 fraction of PEFR (default 0.75)
     other: triggerType "flow"|"pressure", vcTiming "peakFlow"|"ti", flowPattern "square"|"ramp", leakCompensation true|false,
-      alarms { highPpeak, lowVte, highVe, lowVe, highRR, lowPeep, highLeak, highPeepi }
+      tlowMode "fixed" or "pefr", alarms { highPpeak, lowVte, highVe, lowVe, highRR, lowPeep, highLeak, highPeepi }
   seed: integer or string (reproducible variability)
   objectives: array of strings
   targetPatterns: array of pattern ids the learner must find, from
-    "ineffective-effort", "auto-trigger", "delayed-trigger", "double-trigger", "reverse-trigger", "premature-cycling", "delayed-cycling", "flow-starvation", "support-withdrawal", "overshoot", "auto-peep", "leak", "secretions", "water", "high-resistance", "low-compliance", "cough", "pendelluft", "overdistension", "tidal-recruitment", "high-effort", "low-effort"
+    "ineffective-effort", "auto-trigger", "delayed-trigger", "double-trigger", "reverse-trigger", "premature-cycling", "delayed-cycling", "flow-starvation", "support-withdrawal", "release-collision", "overshoot", "auto-peep", "leak", "secretions", "water", "high-resistance", "low-compliance", "cough", "pendelluft", "overdistension", "tidal-recruitment", "high-effort", "low-effort"
   fix: { "at": seconds, "note": string, "settings": {…partial settings}, "drive": {…partial drive}, "injectors": { "<kind>": {…} or null to remove } }
   criteria: { "minFraction": 0–1, "aiAfter": 0–100, "extra": [ { "metric": "peepiTrue", "max": number } ], "over": "all" | "mandatory" (which breaths the fractions count; "mandatory" for lessons about SIMV's mandatory breaths) }
   quizExtras: array of { "metric": one of "plEE", "plEI", "dPL", "dPes", "pmusPeak", "min"?: number, "max"?: number, "label"?: string }

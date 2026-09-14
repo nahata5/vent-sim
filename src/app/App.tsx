@@ -287,6 +287,7 @@ export function App() {
               hideBalloonTiles={hidePes || hideDerived}
               simv={settings?.mode === 'SIMV' ? ctl.simvRates() : null}
               prvcDp={status?.prvcDp ?? null}
+              aprv={status?.aprv ?? null}
             />
           )}
           {settings && !hideDerived && (

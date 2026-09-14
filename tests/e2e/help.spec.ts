@@ -10,10 +10,13 @@ test('help: opens once on first visit, closes, stays closed on reload, reopens f
   const dialog = page.getByTestId('help-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('How to use VentSim');
-  await expect(dialog).toContainText('APRV (not in this version yet)');
+  await expect(dialog).toContainText('APRV');
+  await expect(dialog).not.toContainText('not in this version yet');
   await expect(dialog).toContainText('SIMV');
   await expect(dialog).toContainText('PRVC');
   await expect(dialog).toContainText('authoring prompt');
+  expect(await page.getByTestId('help-dialog').locator('.help-body').evaluate((el) => el.scrollTop)).toBe(0);
+  await expect(page.locator('#help-title')).toBeFocused();
   await page.getByTestId('help-close').click();
   await expect(dialog).toBeHidden();
   await page.reload();

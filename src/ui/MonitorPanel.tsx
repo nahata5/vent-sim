@@ -23,6 +23,8 @@ interface Props {
   simv: { mandatory: number; spontaneous: number } | null;
   /** PRVC regulated ΔP above PEEP (M12); null outside PRVC or before the VC test breath. */
   prvcDp: number | null;
+  /** APRV last-release Tlow and end-release PEFR fraction (M13); null outside APRV or before the first release. */
+  aprv: { tlowUsed: number; pefrFraction: number } | null;
 }
 
 /** Tiles that need the esophageal balloon. */
@@ -32,7 +34,7 @@ function v(x: number | null | undefined, digits = 1): string {
   return x === null || x === undefined || !Number.isFinite(x) ? '—' : x.toFixed(digits);
 }
 
-export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false, simv, prvcDp }: Props) {
+export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false, simv, prvcDp, aprv }: Props) {
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
@@ -70,7 +72,19 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
     const dpIndex = tiles.findIndex(([label]) => label === 'ΔP');
     if (dpIndex >= 0) tiles.splice(dpIndex + 1, 0, ['Pinsp', v(prvcDp), 'cmH2O PRVC ΔP above PEEP']);
   }
+  if (settings.mode === 'APRV') {
+    const vteIndex = tiles.findIndex(([label]) => label === 'Vte');
+    if (vteIndex >= 0)
+      tiles.splice(
+        vteIndex + 1,
+        0,
+        ['VtRel', v(m?.vte, 0), 'mL per release'],
+        ['Tlow', v(aprv?.tlowUsed, 2), 's achieved'],
+        ['PEFR', v(aprv ? 100 * aprv.pefrFraction : null, 0), '% of PEFR at release end'],
+      );
+  }
   const shown = hideBalloonTiles ? tiles.filter(([label]) => !BALLOON_TILES.has(label)) : tiles;
+  const noManeuvers = settings.mode === 'APRV';
   return (
     <section class="panel monitor" aria-label="Monitored values" data-testid="monitor-panel">
       <h2>
@@ -101,35 +115,35 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
       </div>
       <div class="maneuvers">
         <span class="muted small">Maneuvers</span>
-        <button type="button" disabled={busy} onClick={() => ctl.maneuver('insp')} title="Inspiratory hold 1 s: Pplat (P2), P1">
+        <button type="button" disabled={busy || noManeuvers} onClick={() => ctl.maneuver('insp')} title={noManeuvers ? 'not available in APRV' : 'Inspiratory hold 1 s: Pplat (P2), P1'}>
           Insp hold
         </button>
-        <button type="button" disabled={busy} onClick={() => ctl.maneuver('exp')} title="Expiratory hold 3 s: total PEEP">
+        <button type="button" disabled={busy || noManeuvers} onClick={() => ctl.maneuver('exp')} title={noManeuvers ? 'not available in APRV' : 'Expiratory hold 3 s: total PEEP'}>
           Exp hold
         </button>
-        <button type="button" disabled={busy} onClick={() => ctl.maneuver('p01')} title="Occlude 100 ms at the next effort">
+        <button type="button" disabled={busy || noManeuvers} onClick={() => ctl.maneuver('p01')} title={noManeuvers ? 'not available in APRV' : 'Occlude 100 ms at the next effort'}>
           P0.1
         </button>
-        <button type="button" disabled={busy} onClick={() => ctl.maneuver('pocc')} title="Occlude one whole effort: ΔPocc">
+        <button type="button" disabled={busy || noManeuvers} onClick={() => ctl.maneuver('pocc')} title={noManeuvers ? 'not available in APRV' : 'Occlude one whole effort: ΔPocc'}>
           ΔPocc
         </button>
-        <button type="button" disabled={busy || !settings.esophagealBalloon} onClick={() => ctl.maneuver('occlusion-test')} title="Baydur occlusion test (needs the balloon)">
+        <button type="button" disabled={busy || noManeuvers || !settings.esophagealBalloon} onClick={() => ctl.maneuver('occlusion-test')} title={noManeuvers ? 'not available in APRV' : 'Baydur occlusion test (needs the balloon)'}>
           Occl. test
         </button>
         <button
           type="button"
-          disabled={busy || peepBusy !== null}
+          disabled={busy || noManeuvers || peepBusy !== null}
           onClick={() => ctl.maneuver('ri')}
-          title={`R/I (Chen 2020): one-breath PEEP release from the set PEEP (set 15 first) to ${k('RI_PEEP_LOW')}, then ${k('RI_LOW_BREATHS')} breaths at low PEEP and a hold for Crs,low`}
+          title={noManeuvers ? 'not available in APRV' : `R/I (Chen 2020): one-breath PEEP release from the set PEEP (set 15 first) to ${k('RI_PEEP_LOW')}, then ${k('RI_LOW_BREATHS')} breaths at low PEEP and a hold for Crs,low`}
           data-testid="maneuver-ri"
         >
           {peepBusy === 'ri' ? 'R/I…' : 'R/I'}
         </button>
         <button
           type="button"
-          disabled={busy || peepBusy !== null}
+          disabled={busy || noManeuvers || peepBusy !== null}
           onClick={() => ctl.maneuver('peep-trial')}
-          title={`Decremental PEEP trial: from ${k('PEEP_TRIAL_START')} down by ${k('PEEP_TRIAL_STEP')} every ${k('PEEP_TRIAL_BREATHS')} breaths to ${k('PEEP_TRIAL_END')}, a hold per step; PEEP restored at the end`}
+          title={noManeuvers ? 'not available in APRV' : `Decremental PEEP trial: from ${k('PEEP_TRIAL_START')} down by ${k('PEEP_TRIAL_STEP')} every ${k('PEEP_TRIAL_BREATHS')} breaths to ${k('PEEP_TRIAL_END')}, a hold per step; PEEP restored at the end`}
           data-testid="maneuver-peep-trial"
         >
           {peepBusy === 'peep-trial' ? 'PEEP trial…' : 'PEEP trial'}

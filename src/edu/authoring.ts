@@ -96,7 +96,7 @@ ${IMPLEMENTED_MODES.map((m) => `    "${m}": ${MODE_NOTES[m] ?? ''}`).join('\n')}
     numeric settings and bounds:
 ${settingsLines()}
     other: triggerType "flow"|"pressure", vcTiming "peakFlow"|"ti", flowPattern "square"|"ramp", leakCompensation true|false,
-      alarms { highPpeak, lowVte, highVe, lowVe, highRR, lowPeep, highLeak, highPeepi }
+      tlowMode "fixed" or "pefr", alarms { highPpeak, lowVte, highVe, lowVe, highRR, lowPeep, highLeak, highPeepi }
   seed: integer or string (reproducible variability)
   objectives: array of strings
   targetPatterns: array of pattern ids the learner must find, from

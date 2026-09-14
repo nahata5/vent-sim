@@ -85,3 +85,29 @@ test('PRVC: the regulated pressure tile appears and moves, and the floor field i
   expect(dp).not.toBeNull();
   expect(dp ?? 0).toBeGreaterThan(0);
 });
+
+test('APRV: fields, the release-mode select, the release tiles, and maneuvers disabled', async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.goto('/#ards-pulmonary');
+  await ready(page);
+  await page.getByTestId('mode-select').selectOption('APRV');
+  await expect(page.getByTestId('aprv-tlow-mode')).toBeVisible();
+  await expect(page.getByTestId('setting-phigh')).toBeVisible();
+  await expect(page.getByTestId('setting-thigh')).toBeVisible();
+  await expect(page.getByTestId('setting-peep')).toHaveCount(0);
+  await expect(page.getByTestId('setting-tlowPefr')).toHaveCount(0);
+  await page.getByTestId('aprv-tlow-mode').selectOption('pefr');
+  await expect(page.getByTestId('setting-tlowPefr')).toBeVisible();
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'APRV', undefined, { timeout: 10_000 });
+  const t = await page.evaluate(() => window.__ventsim?.ctl.store.tLatest ?? 0);
+  await waitForSim(page, t + 25);
+  await expect(page.getByTestId('mon-Tlow')).not.toContainText('—');
+  await expect(page.getByTestId('mon-PEFR')).not.toContainText('—');
+  await expect(page.getByTestId('mon-VtRel')).not.toContainText('—');
+  await expect(page.getByTestId('maneuver-ri')).toBeDisabled();
+  await expect(page.getByTestId('maneuver-peep-trial')).toBeDisabled();
+  const st = await page.evaluate(() => window.__ventsim?.ctl.status?.aprv ?? null);
+  expect(st).not.toBeNull();
+  expect(st?.tlowUsed ?? 0).toBeGreaterThan(0);
+});

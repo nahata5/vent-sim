@@ -56,6 +56,8 @@ export interface SessionStatus {
   mechanics: { el: number; ecw: number };
   /** PRVC regulated ΔP above PEEP, or null before the VC test breath / outside PRVC. */
   prvcDp: number | null;
+  /** APRV: the last completed release (achieved Tlow, s; end-release flow as a fraction of that release's PEFR); null outside APRV or before the first release. */
+  aprv: { tlowUsed: number; pefrFraction: number } | null;
 }
 
 export interface PatientSummary {
