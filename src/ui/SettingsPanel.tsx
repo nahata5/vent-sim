@@ -82,6 +82,11 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
     .filter((f) => (f.key === 'flowTrigger' ? triggerType === 'flow' : f.key === 'pressureTrigger' ? triggerType === 'pressure' : true))
     .filter((f) => mode !== 'SIMV' || (base === 'PC' ? !['vt', 'peakFlow', 'pause'].includes(f.key) : !['pinsp', 'ti'].includes(f.key)));
 
+  /** Drop draft values for fields that become hidden under a mode, so a stale draft can't apply to the wrong mode. */
+  const dropHiddenForMode = (next: Draft, forMode: Mode): void => {
+    for (const f of FIELDS) if (f.modes && !f.modes.includes(forMode)) delete next[f.key];
+  };
+
   return (
     <section class="panel settings" aria-label="Ventilator settings" data-testid="settings-panel">
       <h2>Settings</h2>
@@ -90,7 +95,12 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
         <select
           value={mode}
           data-testid="mode-select"
-          onChange={(e) => setDraft({ ...draft, mode: (e.currentTarget).value as Mode })}
+          onChange={(e) => {
+            const value = (e.currentTarget).value as Mode;
+            const next: Draft = { ...draft, mode: value };
+            dropHiddenForMode(next, value);
+            setDraft(next);
+          }}
           class={draft.mode !== undefined && draft.mode !== settings.mode ? 'pending' : ''}
         >
           {IMPLEMENTED_MODES.map((m) => (
@@ -107,7 +117,13 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
             value={base}
             data-testid="simv-base-select"
             class={draft.simvBase !== undefined && draft.simvBase !== settings.simvBase ? 'pending' : ''}
-            onChange={(e) => setDraft({ ...draft, simvBase: (e.currentTarget).value as VentSettings['simvBase'] })}
+            onChange={(e) => {
+              const value = (e.currentTarget).value as VentSettings['simvBase'];
+              const next: Draft = { ...draft, simvBase: value };
+              const dropKeys: NumKey[] = value === 'PC' ? ['vt', 'peakFlow', 'pause'] : ['pinsp', 'ti'];
+              for (const k of dropKeys) delete next[k];
+              setDraft(next);
+            }}
           >
             <option value="VC">Volume control</option>
             <option value="PC">Pressure control</option>

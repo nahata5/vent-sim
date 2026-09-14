@@ -797,15 +797,23 @@ export class SessionController {
     return this.status?.settings ?? null;
   }
 
-  /** SIMV: mandatory and spontaneous breaths per minute over the last minute of the scrollback (from the breath events). */
+  /** SIMV: mandatory and spontaneous breaths per minute over the last minute of the scrollback (from the breath events), but never earlier than when SIMV was last engaged. */
   simvRates(): { mandatory: number; spontaneous: number } {
     const tLatest = this.store.tLatest;
-    const span = Math.min(60, tLatest - this.store.tOldest);
+    const span0 = Math.min(60, tLatest - this.store.tOldest);
+    let tSimvSince = tLatest;
+    for (let i = this.settingsLog.length - 1; i >= 0; i--) {
+      const entry = this.settingsLog[i];
+      if (!entry || entry.settings.mode !== 'SIMV') break;
+      tSimvSince = entry.t;
+    }
+    const start = Math.max(tLatest - span0, tSimvSince);
+    const span = tLatest - start;
     if (!(span > 5)) return { mandatory: 0, spontaneous: 0 };
     let mandatory = 0;
     let spontaneous = 0;
     for (const e of this.store.events) {
-      if (e.type !== 'breath' || e.t < tLatest - span) continue;
+      if (e.type !== 'breath' || e.t < start) continue;
       if (e.mandatory) mandatory += 1;
       else spontaneous += 1;
     }
