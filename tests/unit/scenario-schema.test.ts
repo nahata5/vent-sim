@@ -103,4 +103,11 @@ describe('validateScenario', () => {
     const r = validateScenario({ ...good, mechanics: { el: 0 } });
     expect(r.errors.join('\n')).toMatch(/mechanics\.el/);
   });
+
+  it('accepts SIMV settings and rejects a bad simvBase', () => {
+    const ok = validateScenario({ ...good, settings: { mode: 'SIMV', simvBase: 'PC', pinsp: 12, ps: 8, simvWindow: 0.3 } });
+    expect(ok.errors).toEqual([]);
+    const bad = validateScenario({ ...good, settings: { mode: 'SIMV', simvBase: 'VS' } });
+    expect(bad.errors.join('\n')).toMatch(/settings\.simvBase/);
+  });
 });

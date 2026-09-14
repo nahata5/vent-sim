@@ -796,4 +796,19 @@ export class SessionController {
   get settings(): VentSettings | null {
     return this.status?.settings ?? null;
   }
+
+  /** SIMV: mandatory and spontaneous breaths per minute over the last minute of the scrollback (from the breath events). */
+  simvRates(): { mandatory: number; spontaneous: number } {
+    const tLatest = this.store.tLatest;
+    const span = Math.min(60, tLatest - this.store.tOldest);
+    if (!(span > 5)) return { mandatory: 0, spontaneous: 0 };
+    let mandatory = 0;
+    let spontaneous = 0;
+    for (const e of this.store.events) {
+      if (e.type !== 'breath' || e.t < tLatest - span) continue;
+      if (e.mandatory) mandatory += 1;
+      else spontaneous += 1;
+    }
+    return { mandatory: (60 * mandatory) / span, spontaneous: (60 * spontaneous) / span };
+  }
 }
