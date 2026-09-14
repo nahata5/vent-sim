@@ -290,7 +290,7 @@ export function InstructorPanel({ ctl }: Props) {
                   const def = validate();
                   if (def) {
                     ctl.loadScenarioDef(def);
-                    setMsg(`running "${def.title}" (not saved)`);
+                    setMsg(`loaded "${def.title}" (not saved)`);
                   }
                 }}
                 data-testid="instr-load"
