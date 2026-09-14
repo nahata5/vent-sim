@@ -74,7 +74,7 @@ export function App() {
     const unsub = ctl.subscribe(() => setTick((n) => n + 1));
     const fromHash = () => {
       const hash = hashPage();
-      return SCENARIOS.some((s) => s.id === hash) ? hash : DEFAULT_SCENARIO;
+      return ctl.hasScenario(hash) ? hash : DEFAULT_SCENARIO;
     };
     // A quiz link (`#<id>?quiz=…`, D-019) applies its hide set and locks the session.
     const applyQuizLink = () => {
@@ -162,7 +162,7 @@ export function App() {
       <header class="app-header">
         <h1>VentSim</h1>
         {!phone && <span class="muted small">v{APP_VERSION}</span>}
-        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} disabled={locked} mask={hideScenario} />
+        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} custom={ctl.customScenarios.all()} disabled={locked} mask={hideScenario} />
         {!phone && toggles}
         {!phone && !hideDerived && (
           <a class="small muted" href="#validation" data-testid="validation-link">
