@@ -702,3 +702,69 @@ Task 5's fix rounds, unchanged by this docs-only task; 28 scenarios, 17 emergenc
 rows `pass: true`: `simv-low-support` aiBefore 88.2 % aiAfter 0 %, `simv-mixed-breaths` aiBefore 20.0 %
 aiAfter 4.0 %, `simv-stacking` aiBefore 42.9 % aiAfter 0 %. Per the controller's ruling this session does
 not push or poll the live site; the branch is merged and deployed separately.
+
+## M12 · PRVC (2026-09-14)
+
+D-023, spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §3, plan
+`docs/superpowers/plans/2026-09-14-m12-prvc.md` (five tasks, tests first, one commit per task plus fix
+rounds). PRVC joins VC-AC, PC-AC, PSV, CPAP and SIMV: the first breath after entering PRVC or changing the
+volume target is a square-flow VC test breath over the set Ti (`PRVC_TEST_PAUSE` 0.3 s pause) that
+estimates compliance from its plateau (C = Vti/(Pplat − PEEP)) and seeds an initial ΔP = Vt/C; every later
+breath is PC at PEEP + ΔP, time-cycled, with the regulator correcting ΔP from the previous breath's
+delivered volume each breath start (`clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff, ±PRVC_STEP_MAX)`, bounded to
+[`prvcMinDp`, highPpeak − `PRVC_PMAX_MARGIN` − PEEP]); "volume not achieved" (`prvc-limit`) fires after two
+consecutive at-ceiling breaths under `PRVC_LIMIT_VT_FRACTION` (0.9) of the target. UI: `mon-Pinsp` tile
+(regulated ΔP above PEEP), `setting-prvcMinDp` (the floor), a high-pressure alarm note in PRVC ("ceiling =
+limit − 5"), help qualifier dropped. A new truth pattern `support-withdrawal` (the "PRVC paradox": ΔP at
+the floor while peak Pmus stays high — a low driving pressure and a target volume that look reassuring
+while the patient does the work), a report-only detector rule for it, an explain card, and three scenarios
+(`prvc-pressure-withdrawal`, `prvc-volume-not-achieved`, `prvc-double-trigger`). All recorded as D-023.
+
+**The fix-round story**: three regulator fixes beyond the plan's literal text. (1) When the VC test breath
+itself alarm-cycles (high Ppeak on a stiff lung, so there is no pause or plateau), the regulator seeds ΔP
+from the end-inspiratory pressure instead of never leaving the test breath (`prvcSeedFromTestBreath` runs
+at every inspiratory exit) — a modelling choice, not in the spec. (2) `PRVC_DP_EPSILON` (0.5 cmH2O): below
+that regulated ΔP the delivered volume is effort, not pressure, so `Vti/ΔP` is not a compliance; the stored
+test-breath compliance (`prvcCompliance`) is used as the denominator instead — without it a regulator
+driven to ΔP ≈ 0 by a strong effort against a floor of 0 could never step back up (measured: 2 mL/breath
+for the rest of the run). (3) `prvcRegulate` now runs at every breath start in every mode and clears
+`prvc-limit` when the mode leaves PRVC (the alarm previously survived a mode change). Then two rulings on
+top of the ventilator work: the detector's `support-withdrawal` rule was ruled to be **floor test AND
+`triggerCause === 'patient'` AND measured Vti ≥ `DET_SW_VT_EXCESS` (1.05) × set Vt**, superseding the
+plan's `earlySag` conjunct, which never fired during tuning (PRVC withdraws support by lowering the
+*target*, not by letting Paw sag, so `earlySag` stays inside the servo's normal 0.8–1.2 cmH2O band against
+a drafted 2 cmH2O threshold); by construction the rule misses time- or reverse-triggered support-withdrawal
+breaths (the truth labeler still scores them). And `prvc-pressure-withdrawal`'s scripted fix needed
+widening from the plan's PC-AC draft (which left AI at 31.8 % after the fix, and a full PC-AC/PSV sweep at
+the unmodified drive could not clear the 10 % gate — best 38.5 % and 42.1 %, blocked by ineffective efforts
+and auto-PEEP from a 24/min drive no mode absorbs alone) to **PSV, PS 12, with the drive also treated**
+(rate 16, Pmax 8): AI 0 % → 0 % after the fix, ΔPes 4.75 cmH2O. This is the M12 counterpart of D-022's
+"leave the mode" finding — the bedside fix for a regulator racing a rising drive is a fixed, patient-cycled
+pressure *and* treating the drive, not either alone.
+
+Tests first: `tests/physics/prvc.test.ts` (7: test-breath compliance and seeding, breath-by-breath
+regulation and its clamp, the ceiling/floor band, the alarm-cycled test-breath seeding fix, the
+`PRVC_DP_EPSILON` fix, `prvc-limit` firing and clearing on mode change), `tests/detector/prvc.test.ts`
+(the report-only `support-withdrawal` rule), appended blocks in `tests/unit/labeler.test.ts` (the truth
+pattern), `tests/unit/scenarios.test.ts` and `tests/scenarios/emergence.test.ts` (the three PRVC scenario
+rows), `tests/e2e/modes.spec.ts` (the regulated-pressure tile and the floor field), `tests/e2e/help.spec.ts`
+(the dropped qualifier). `scripts/mode-detector-report.ts` extended with the three PRVC ids and the
+`support-withdrawal`/`high-resistance` patterns; its table is in `docs/VALIDATION.md`.
+
+Full verification (this session, worktree `m12-prvc`, all four foreground): `npm test` → **268 passed, 43
+files**, 21.5 s, no re-run needed (the wall-clock performance test passed on the first try). `npm run lint`
+(eslint + `tsc --noEmit`) → clean. `npm run test:e2e -- --reporter=line` → **53 total: 43 passed, 1 failed,
+9 skipped** (screenshot tests, gated behind `SCREENSHOTS=1`), 1.3 min; the one failure was
+`tests/e2e/a11y.spec.ts`'s main-page colour-contrast check on `.chip-alarm` — the known one-off flake under
+a loaded full Playwright run (documented in HANDOFF); re-ran `tests/e2e/a11y.spec.ts` alone: **3/3 passed**,
+confirming the flake, not a regression. `npm run build` → clean (`dist/assets/index-*.js` 286.01 kB, gzip
+99.67 kB). Held-out grid unchanged throughout every task and fix round (identical to M11): ineffective-effort
+tp 37/fp 6/tn 784/fn 3 (sens 0.925, spec 0.992), double-trigger 136/1/767/2 (0.986/0.999), auto-trigger
+72/11/821/2 (0.973/0.987), premature-cycling 114/11/775/6 (0.950/0.986), delayed-cycling 95/16/777/18
+(0.841/0.980), flow-starvation 49/9/571/5 (0.907/0.984), reverse-trigger 40/1/858/7 (0.851/0.999) —
+PRVC breaths never entered the held-out grid. `src/validation/snapshot.json` (regenerated during Tasks 1–4;
+unchanged by this docs-only task; 31 scenarios, 20 emergence rows) has all three PRVC rows `pass: true`:
+`prvc-pressure-withdrawal` aiBefore 0.0 % aiAfter 0.0 % (support-withdrawal 0.73, high-effort 0.77),
+`prvc-volume-not-achieved` aiBefore 0.0 % aiAfter 0.0 % (high-resistance 1.00), `prvc-double-trigger`
+aiBefore 100.0 % aiAfter 0.0 % (double-trigger 0.29). Per the controller's ruling this session does not
+push or poll the live site; the branch is merged and deployed separately.

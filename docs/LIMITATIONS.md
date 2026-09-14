@@ -56,6 +56,20 @@ entry names the decision or milestone that introduced it. Newest additions last 
   from `scripts/mode-detector-report.ts` against the three SIMV scenarios' own truth labels, not the
   held-out grid (which has no SIMV breaths and is never tuned against); the numbers are informative, not
   a gated target.
+- **PRVC's step, ceiling, floor, test breath and epsilon are all vendor-specific** (D-023):
+  `PRVC_STEP_MAX` (3 cmH2O/breath), `PRVC_PMAX_MARGIN` (the 5 cmH2O ceiling margin below the high-pressure
+  alarm), `prvcMinDp` (the floor, Servo-i convention PEEP + 5, exposed as a setting because vendors
+  differ), the VC test breath used to seed compliance, and `PRVC_DP_EPSILON` (0.5 cmH2O, below which the
+  regulator falls back to the test-breath compliance because a small ΔP's delivered volume is effort, not
+  pressure) all follow one vendor family's ranges from Brief 1 §2.5, not any specific ventilator's firmware.
+- **The PRVC regulator reads the ventilator's own measured Vti**, so a leak fools it exactly as it would
+  fool a real PRVC controller: a leaking breath looks under-delivered and the regulator steps its pressure
+  up to compensate, the same failure mode as the trigger and cycling logic elsewhere in the model.
+- **The PRVC detector rule (D-023) is reported only and is blind to non-patient-triggered support
+  withdrawal**: `support-withdrawal` requires `triggerCause === 'patient'` (the floor test and the volume
+  excess alone do not separate the pattern from a passive breath sitting at the floor), so a time- or
+  reverse-triggered support-withdrawal breath is missed by the detector even though the truth labeler still
+  scores it; see `docs/VALIDATION.md`'s "Detector in SIMV and PRVC" section for the measured gap.
 
 ## Education layer and export
 
@@ -81,6 +95,13 @@ entry names the decision or milestone that introduced it. Newest additions last 
   authorized tuning ranges brought either scenario's after-fix asynchrony index under the 10 % gate (a
   finding recorded in D-022, not a bug). `simv-mixed-breaths` stays in SIMV (base switched to PC) because
   its target pattern needs a mandatory clock to demonstrate.
+- **`prvc-pressure-withdrawal`'s fix treats the drive, not just the ventilator** (D-023): a full sweep of
+  PC-AC and PSV settings at the scenario's unmodified drive could not clear the 10 % after-fix asynchrony
+  gate (best 38.5 % and 42.1 % respectively), because the residual events were ineffective efforts and
+  auto-PEEP driven by a 24/min neural rate that no mode or support level absorbs on its own. The scripted
+  fix is PSV, PS 12, with the drive also treated (rate 16, Pmax 8; `ScenarioFix.drive`) — the M12
+  counterpart of D-022's "leave the mode" finding: the bedside fix for a regulator racing a rising drive is
+  a fixed, patient-cycled pressure *and* treating the drive, not either alone.
 
 ## Detector (what the bedside signals cannot show)
 

@@ -148,6 +148,13 @@ signals (D-002), actuators run at 1 ms:
   `SIMV_SYNC_WINDOW` of the period delivers the mandatory breath (VC or PC plan per `simvBase`) early;
   earlier efforts get pressure-supported breaths (the PSV plan with `ps`, `ets`, `tiMax`). Every
   inspiration start emits a `breath` event with its kind, mandatory flag and pressure target.
+- **PRVC** (D-023): the first breath after entering PRVC or changing `vt` is a square-flow VC test breath
+  over the set Ti (`PRVC_TEST_PAUSE` pause) → C = Vti/(Pplat − PEEP) → ΔP0 = Vt/C; every later breath is
+  PC at PEEP + ΔP, time-cycled, with ΔP += `clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff, ±PRVC_STEP_MAX)` each
+  breath start (`C_eff = Vti_prev/ΔP_prev`, or the stored test-breath compliance below `PRVC_DP_EPSILON`,
+  where Vti/ΔP is no longer a compliance), bounded to [`prvcMinDp`, highPpeak − `PRVC_PMAX_MARGIN` − PEEP].
+  A test breath that alarm-cycles (no pause) seeds ΔP from the end-inspiratory pressure instead. Alarm
+  `prvc-limit` after two consecutive at-ceiling breaths under `PRVC_LIMIT_VT_FRACTION` of the target.
 - **Alarms** (Brief 1 §2.6): high Ppeak (cycles the breath), low Vte, high/low Ve and high RR on a rolling
   minute, apnea, disconnect (Paw < PEEP − 3 for 0.5 s), high leak, Ti max, high PEEPi after an expiratory hold.
 - **Sensor chain**: first-order low-pass (15 ms), transport delay (20 ms), band-limited noise (Paw 0.15
@@ -219,7 +226,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (263 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (272 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -337,6 +344,13 @@ Generated from `src/config/constants.ts` (263 constants). Confidence: V = verifi
 | `APNEA_TIME_DEFAULT` | 20 | s | L | Brief 1 §2.6: apnea alarm default 20 s |
 | `RISE_TIME_DEFAULT` | 0.15 | s | L | Brief 1 §2.3: rise time ≈ 0.05–0.4 s |
 | `HIGH_PPEAK_ALARM_DEFAULT` | 40 | cmH2O | L | Brief 1 §2.6: Ppeak + 10, max 50 |
+| `PRVC_STEP_MAX` | 3 | cmH2O per breath | M | Brief 1 §2.5: ΔPmax about 3 cmH2O per breath [vendor-specific, uncertain] |
+| `PRVC_PMAX_MARGIN` | 5 | cmH2O | M | Brief 1 §2.5: ceiling of Pmax_alarm − 5 [vendor-specific, uncertain] |
+| `PRVC_MIN_DP` | 5 | cmH2O above PEEP | M | Vendor floor of the regulated pressure (Servo-i: PEEP + 5) [M] |
+| `PRVC_TEST_PAUSE` | 0.3 | s | M | Test-breath pause for the compliance estimate (Servo-i: 10 % pause) [M] |
+| `PRVC_GAIN` | 1 | fraction | M | Fraction of the computed pressure correction applied per breath [M] |
+| `PRVC_DP_EPSILON` | 0.5 | cmH2O | M | Below this regulated ΔP the breath's volume is effort, not pressure, so Vti/ΔP is no longer a compliance: the test-breath estimate takes over (without it a regulator driven to ΔP 0 could never step back up) [M] |
+| `PRVC_LIMIT_VT_FRACTION` | 0.9 | fraction of the target | M | Volume-not-achieved alarm: two consecutive breaths under 90 % of the target at the ceiling [M] |
 | `INSP_HOLD_P1_DELAY` | 0.05 | s | M | Brief 2 §5: P1 read after the fast resistive drop (Paw → P1 "quickly"), before the slow P2 decay |
 | `INSP_HOLD_MIN` | 0.3 | s | L | Brief 1 §2.7: Pplat at the end of a ≥ 0.3–0.5 s no-flow pause |
 | `EXP_HOLD_DEFAULT` | 3 | s | L | Spec §5: expiratory hold 2–4 s |
@@ -376,6 +390,7 @@ Generated from `src/config/constants.ts` (263 constants). Confidence: V = verifi
 | `LABEL_FLOW_STARVATION_PTP` | 1 | cmH2O·s | M | Spec §7: Pmus active during VC inspiration above a threshold pressure–time product [M] |
 | `LABEL_FLOW_STARVATION_PMUS` | 3 | cmH2O | M | Minimum peak Pmus during VC inspiration for flow starvation (below this the ramp stays convex) [M] |
 | `LABEL_FLOW_STARVATION_RISE` | 0.5 | cmH2O | M | Pmus must still rise by this much after the insufflation starts: demand ahead of delivered flow. A breath triggered so late that Pmus is already relaxing is a delayed trigger, not flow starvation (D-012) [M] |
+| `LABEL_SUPPORT_WITHDRAWAL_MARGIN` | 1 | cmH2O | M | PRVC ΔP within 1 cmH2O of the floor counts as "at the floor" [M] |
 | `LABEL_OVERSHOOT_MARGIN` | 3 | cmH2O | L | Spec §7 / Brief 1 §3.9: Paw > target + 3 in the first 200 ms |
 | `LABEL_OVERSHOOT_WINDOW` | 0.2 | s | L | Brief 1 §3.9: overshoot judged in the first 100–200 ms |
 | `LABEL_AUTO_PEEP` | 1 | cmH2O | L | Spec §7: true end-expiratory Palv > PEEP + 1 |
@@ -424,6 +439,7 @@ Generated from `src/config/constants.ts` (263 constants). Confidence: V = verifi
 | `DET_HIGH_R_EEF` | 5 | L/min | M | The inspiratory resistive step is trusted for the resistance estimate when the end-expiratory flow before the breath is above −5 L/min (a 5 L/min residual flow across R 30 adds ≈ 2.5 cmH2O, ≤ 4 cmH2O/(L/s) of apparent R at 0.6 L/s) [M] |
 | `DET_DC_TI_RATIO` | 2 | ratio | L | Brief 1 §3.7 Thille: prolonged cycle = Ti > 2× mean Ti |
 | `DET_OVERSHOOT_MARGIN` | 3 | cmH2O | L | Brief 1 §3.9: Paw in the first 200 ms > target + 2–3 [heuristic] |
+| `DET_SW_VT_EXCESS` | 1.05 | fraction of the set target | M | Detector: a PRVC breath at the floor that is patient-triggered and still over-delivers the target by 5 % marks the effort the regulator is reading as excess volume (report only); set on the tuning runs (support withdrawal 1.10–1.18 vs passive 0.99–1.01), never on the held-out grid [M] |
 | `DET_AUTOPEEP_FLOW` | 3 | L/min | L | Brief 1 §3.10: end-expiratory flow magnitude > 2–5 L/min at the trigger point [heuristic] |
 | `DET_LEAK_RATIO` | 0.85 | fraction | L | Spec §7: Vte/Vti < 0.85–0.9 [heuristic]; summed over 8 breaths so stacked pairs cancel |
 | `DET_SECRETIONS_HP_RMS` | 2.2 | L/min | M | Second-difference RMS of expiratory flow at the device rate (5–20 Hz energy proxy); band-limited sensor noise alone gives ≈ 0.55 [M, tuned] |

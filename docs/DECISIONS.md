@@ -638,3 +638,74 @@ rather than the plan's original `triggerCause === 'time' && mandatory && mandato
 assert a code path the library never exercises. Also from tuning during this review: `simv-low-support`
 ships `peakFlow` 35 (the original plan called for 50) — the lower flow was needed to keep the after-fix
 asynchrony index under the scenario gate.
+
+## D-023 · PRVC: VC test breath, breath-by-breath regulation with a 3 cmH2O step, a ceiling of limit − 5 and a floor of PEEP + 5; "volume not achieved"; the support-withdrawal truth pattern (2026-09-14)
+
+Brief 1 §2.5 gives the regulator as `Pinsp_next = Pinsp + clamp(k·(Vt_target − Vte)/C_est, ±ΔPmax)` with
+ΔPmax ≈ 3 and a ceiling of Pmax_alarm − 5, all vendor-specific. Built as: the first breath after entering
+PRVC or changing the volume target is a square-flow VC breath over the set Ti with a `PRVC_TEST_PAUSE`
+(0.3 s) pause; compliance is C = Vti/(Pplat − PEEP) measured at the end of that pause, and the initial ΔP
+is Vt/C. Every later breath is PC at PEEP + ΔP, time-cycled; at each breath start the regulator corrects
+ΔP from the previous breath's measured inspired volume — `step = clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff,
+±PRVC_STEP_MAX)` with `C_eff = Vti_prev/ΔP_prev` (gain 1.0, step clamped to ±3) — then clamps the result to
+[`prvcMinDp` (5), highPpeak − `PRVC_PMAX_MARGIN` (5) − PEEP]. The floor is the Servo-i convention (PEEP +
+5); it is a setting (`prvcMinDp`) because vendors differ. "Volume not achieved" (`prvc-limit`) fires after
+two consecutive breaths at the ceiling delivering under `PRVC_LIMIT_VT_FRACTION` (0.9) of the target. The
+regulator reads the ventilator's own Vti, so a leak fools it as at the bedside; entering PRVC or changing
+`vt` (both the `applySettings` and `commitPending` paths) forces a new test breath, but a PEEP change does
+not.
+
+Two deviations from the plan. First, a ruling on the VC test breath itself: when it alarm-cycles (high
+Ppeak on a stiff lung, so there is no pause and no plateau), the regulator seeds ΔP from the
+end-inspiratory pressure instead of never leaving the test breath — `prvcSeedFromTestBreath` runs at
+every inspiratory exit, not only after a completed pause. This is not in the spec; record it as a
+modelling choice. Second, a fix-round finding: `PRVC_DP_EPSILON` (0.5 cmH2O). Below that regulated ΔP the
+delivered volume is effort, not pressure, so `Vti/ΔP` is no longer a compliance; below the epsilon the
+stored test-breath compliance (`prvcCompliance`) is used as the denominator instead. Without it, a
+regulator driven to ΔP ≈ 0 by a strong effort against a floor setting of 0 could never step back up
+(measured: 2 mL/breath for the rest of the run — the volume the effort alone produces, with no pressure
+left for the step formula to divide by). A third fix-round change is bookkeeping, not physics:
+`prvcRegulate` now runs at every breath start in every mode and clears `prvc-limit` when the mode is not
+PRVC, since the alarm previously survived a mode change.
+
+Truth pattern `support-withdrawal`: a PRVC breath (`kind === 'pc'`) whose ΔP is within
+`LABEL_SUPPORT_WITHDRAWAL_MARGIN` (1 cmH2O) of the floor while the peak Pmus is ≥ `PMUS_HIGH` — the "PRVC
+paradox" the brief names, where a low driving pressure and a volume at target look reassuring on the
+screen while the patient is doing the work.
+
+The report-only detector rule supersedes the brief's draft (`earlySag ≥ DET_SW_SAG`), which never fired
+during tuning: **floor test AND `triggerCause === 'patient'` AND measured Vti ≥ `DET_SW_VT_EXCESS` (1.05)
+× set Vt**. `earlySag` is sampled after the pressure ramp, where the servo is already holding its (lowered)
+target — measured 0.8–1.2 cmH2O against the drafted 2 cmH2O threshold — because PRVC withdraws support by
+lowering the *target* pressure, not by letting Paw sag under a fixed one; `inspHump`/`midInspDip` do not
+separate the case either, since in support withdrawal the effort itself is what triggers the breath, so
+there is no second flow rise to detect. The measured separators on the tuning runs: patient trigger 15/15
+of support-withdrawal breaths vs 0/11 of the passive comparison, Vti/Vt 1.10–1.18 vs 0.99–1.01 (a passive,
+compliant lung sitting at the floor still delivers close to the set target, never over it). `DET_SW_SAG`
+does not exist in the constants table; `earlySag` appears only in the evidence string, for the clinician
+reading it, not as a detector conjunct. By construction the detector misses time- or reverse-triggered
+support-withdrawal breaths (truth still labels them, since the regulator's math does not care why the
+breath started) — a limitation, not a bug, recorded in `docs/LIMITATIONS.md`.
+
+`prvc-pressure-withdrawal`'s scripted fix needed two rulings to clear the 10 % after-fix asynchrony gate.
+The brief's fix (PC-AC, Pinsp 14, Ti 0.9) left AI at 31.8 % after the fix; a full sweep of PC-AC (Ti
+1.0–1.3 × Pinsp 12–16, best 38.5 %) and PSV (PS 12–16, best 42.1 %) at the scenario's unmodified drive
+could not clear the gate either, because the post-fix events were ineffective efforts and auto-PEEP labels
+driven by a 24/min neural rate that no mode or support level absorbs on its own. The fix was therefore
+widened to treat the drive as well as the ventilator (`ScenarioFix.drive`, which the spec's APRV table
+already uses and which the explain card already lists as a fix), landing on **PSV, PS 12, with the drive
+also treated (rate 16, Pmax 8)**. Result: AI 0 % → 0 % after the fix (support-withdrawal 0.73,
+high-effort 0.77 before it), ΔPes after the fix 4.75 cmH2O (the scenario's quiz extra, ≤ 10, is met with
+margin). No PC-AC-plus-treated-drive combination cleared the gate before PSV was chosen. This is the M12
+counterpart of D-022's "leave the mode" finding, recorded the same way: not a workaround, but the
+pedagogic point that the bedside fix for a regulator racing a rising drive is a fixed, patient-cycled
+pressure *and* treating the drive, not either alone. `pendelluft` was dropped from
+`prvc-pressure-withdrawal`'s `targetPatterns` (brief-authorized): the pattern needs the two-compartment
+recruitable-recoil lung's regional recoil difference, which this phenotype does not use, so it stays out
+of the scenario's summary.
+
+Tuned drive values, both inside the plan's authorized ranges: `prvc-double-trigger`'s drive `ti` is 1.2 s
+(plan draft 1.3, range 1.2–1.5) so the double-trigger fraction clears the 0.2 target;
+`prvc-pressure-withdrawal`'s drive `pmax` is 12 (plan draft 14, range 12–18). Constants as built: `PRVC_STEP_MAX` 3,
+`PRVC_PMAX_MARGIN` 5, `PRVC_MIN_DP` 5, `PRVC_TEST_PAUSE` 0.3, `PRVC_GAIN` 1.0, `PRVC_DP_EPSILON` 0.5,
+`PRVC_LIMIT_VT_FRACTION` 0.9 (all `M`).

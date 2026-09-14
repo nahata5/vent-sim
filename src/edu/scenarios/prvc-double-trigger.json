@@ -10,7 +10,7 @@
   "seed": 43,
   "objectives": [
     "Recognize double triggering in a volume-targeted pressure mode and see how the stacked volume drives the regulator down.",
-    "Fix by matching Ti to the neural Ti (1.1 s)."
+    "Fix by lengthening the ventilator Ti toward the neural Ti (1.1 s against a 1.2 s effort)."
   ],
   "targetPatterns": ["double-trigger"],
   "fix": { "at": 60, "note": "Ti 1.1 s: one breath per effort; the regulator settles.", "settings": { "ti": 1.1 } },
