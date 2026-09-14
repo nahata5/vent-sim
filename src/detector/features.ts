@@ -36,6 +36,8 @@ export interface DeviceContext {
   peep: number;
   pTarget: number;
   breathKind: BreathKind;
+  /** PRVC floor of the regulated pressure above PEEP, cmH2O (a setting, so the detector may read it). */
+  prvcMinDp: number;
   riseTime: number;
   ets: number;
   flowTrigger: number; // L/min
@@ -874,6 +876,7 @@ export function deviceContext(s: VentSettings): DeviceContext {
     peep: s.peep,
     pTarget: s.peep + above,
     breathKind: breathKindFromMode(s),
+    prvcMinDp: s.prvcMinDp,
     riseTime: s.riseTime,
     ets: s.ets,
     flowTrigger: s.flowTrigger,

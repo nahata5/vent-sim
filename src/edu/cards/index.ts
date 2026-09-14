@@ -126,6 +126,17 @@ export const CARDS: Record<PatternId, ExplainCard> = {
     pitfalls: ['A higher flow shortens Ti and can trade flow starvation for premature cycling and double triggering', 'The Pmus-time product during the insufflation is what the truth measures; the bedside sees only the scooped ramp'],
     citations: [`${B1}.8`, SOTTILE],
   },
+  'support-withdrawal': {
+    id: 'support-withdrawal',
+    title: 'Support withdrawal (PRVC)',
+    definition: 'In pressure-regulated volume control the ventilator lowers its pressure breath by breath because the delivered volume exceeded the target — while the patient, not the ventilator, is producing that volume.',
+    mechanism: 'The regulator only sees volume. A strong effort adds volume, the regulator reads "too much" and cuts pressure by up to 3 cmH2O a breath down to its floor; the patient now does most of the work, drive rises further, and the numbers on the screen (low pressure, target volume) look reassuring.',
+    signature: 'Inspiratory pressure stepping down breath by breath toward PEEP + floor while the volume stays at target; a growing Paw sag below the set pressure early in inspiration; with a balloon, a growing ΔPes and ΔPL,dyn.',
+    causes: ['Strong drive in PRVC (pain, hypercapnia, acidosis, agitation)', 'A volume target set low for the demand'],
+    fixes: ['Switch to a fixed-pressure mode (PC-AC or PSV) and set the pressure to the demand', 'Raise the volume target if the driving pressure allows', 'Treat the drive: analgesia, sedation, correct the acidosis'],
+    pitfalls: ['A low driving pressure in PRVC is not reassurance when the patient is doing the work', 'The alarm you get is none: the ventilator is meeting its target'],
+    citations: ['Brief 1 §2.5', 'Spec 2026-09-14 §3.4'],
+  },
   overshoot: {
     id: 'overshoot',
     title: 'Pressure overshoot / excess flow',
@@ -316,6 +327,9 @@ export function caseEvidence(ctx: EvidenceContext): string[] {
         break;
       case 'flow-starvation':
         out.push(`Effort during the insufflation: Pmus–time product ${f2(ev.ptpInsp ?? 0)} cmH2O·s (limit ${k('LABEL_FLOW_STARVATION_PTP')}), peak Pmus ${f1(ev.pmusPeak ?? 0)} cmH2O${ev.pmusRiseInsp !== undefined ? `, still rising by ${f1(ev.pmusRiseInsp)} cmH2O after the breath began` : ''}; set flow ${settings.peakFlow} L/min.`);
+        break;
+      case 'support-withdrawal':
+        out.push(`Regulated pressure ${f1(settings.peep + (ev.dpAboveFloor ?? 0) + settings.prvcMinDp)} cmH2O, ΔP ${f1((ev.dpAboveFloor ?? 0) + settings.prvcMinDp)} above PEEP — ${f1(ev.dpAboveFloor ?? 0)} above the floor of ${settings.prvcMinDp} (within ${k('LABEL_SUPPORT_WITHDRAWAL_MARGIN')}), while peak Pmus is ${f1(ev.pmusPeak ?? 0)} cmH2O (≥ ${k('PMUS_HIGH')}).`);
         break;
       case 'overshoot':
         out.push(`Paw ${f1(ev.overshoot ?? 0)} cmH2O above the target in the first ${k('LABEL_OVERSHOOT_WINDOW') * 1000} ms (limit ${k('LABEL_OVERSHOOT_MARGIN')}); rise time ${settings.riseTime} s.`);

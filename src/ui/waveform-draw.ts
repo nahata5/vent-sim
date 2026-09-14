@@ -79,6 +79,7 @@ export const PATTERN_CODES: Record<string, { code: string; color: string; name: 
   'premature-cycling': { code: 'PC', color: '#ffb74d', name: 'premature cycling' },
   'delayed-cycling': { code: 'DC', color: '#4fc3f7', name: 'delayed cycling' },
   'flow-starvation': { code: 'FS', color: '#f06292', name: 'flow starvation' },
+  'support-withdrawal': { code: 'SW', color: '#7986cb', name: 'support withdrawal' },
   'reverse-trigger': { code: 'RT', color: '#9575cd', name: 'reverse trigger' },
   overshoot: { code: 'OV', color: '#ffee58', name: 'overshoot' },
   'auto-peep': { code: 'AP', color: '#a1887f', name: 'auto-PEEP' },
