@@ -160,6 +160,16 @@ signals (D-002), actuators run at 1 ms:
   backup breath never seeds it and is never read as the previous breath. Alarm `prvc-limit` after two
   consecutive at-ceiling **PC** breaths (the VC test breath does not count) under
   `PRVC_LIMIT_VT_FRACTION` of the target, both terms read on the breath that just ended.
+- **APRV** (D-024): high phase `insp` at `phigh` for `thigh` (plan kind `aprv`, cycled by time), bidirectional
+  servo at Phigh (`qMin −∞`, exhalation valve active) so spontaneous breaths at Phigh produce flow without
+  events; release `exp` at `plow` for `tlow`, or in `pefr` mode until |flow| has decayed to `tlowPefr`·|PEFR|
+  of this release's own peak (gated on that peak exceeding the reused `PSV_CYCLE_MIN_PEAK_FLOW`, not before
+  `APRV_TLOW_MIN`, capped at `tlow`) — a spontaneous inspiration during a pefr release ends it at once
+  (read as flow fraction 0), a de-facto synchronization the flow rule produces as a side effect; the next
+  high phase is a time trigger. No patient trigger, no backup, no holds/occlusions/PEEP maneuvers; the
+  disconnect alarm judges Paw against Plow; one breath record per Phigh + release. The report-only detector
+  rule (`release-collision`) reads the mean measured flow over the first 30 ms after cycle-off, not the
+  brief's notch/PEFR-delay draft — see D-024 and `docs/VALIDATION.md`.
 - **Alarms** (Brief 1 §2.6): high Ppeak (cycles the breath), low Vte, high/low Ve and high RR on a rolling
   minute, apnea, disconnect (Paw < PEEP − 3 for 0.5 s), high leak, Ti max, high PEEPi after an expiratory hold.
 - **Sensor chain**: first-order low-pass (15 ms), transport delay (20 ms), band-limited noise (Paw 0.15
@@ -231,7 +241,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (274 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (283 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -358,6 +368,12 @@ Generated from `src/config/constants.ts` (274 constants). Confidence: V = verifi
 | `PRVC_LIMIT_VT_FRACTION` | 0.9 | fraction of the target | M | Volume-not-achieved alarm: two consecutive breaths under 90 % of the target at the ceiling [M] |
 | `PRVC_MIN_VTI_FOR_C` | 0.02 | L | M | Measured inspired volume below which Vti/ΔP is not a usable compliance [M]: 20 mL is under any adult tidal volume, so a breath at or below it (a disconnect, an alarm cycle, a breath cut off in its first moments) would divide noise by pressure; the stored test-breath compliance is used instead |
 | `PRVC_MIN_DP_FOR_C` | 0.5 | cmH2O | M | Plateau − PEEP floor for the test-breath compliance estimate [M]: below this the measured driving pressure is at the resolution of the pressure signal and C = Vti/(Pplat − PEEP) would blow up |
+| `APRV_PHIGH_DEFAULT` | 28 | cmH2O | M | Habashi 2005 (Crit Care Med 33:S228): typical adult Phigh 20–35 [M] |
+| `APRV_PLOW_DEFAULT` | 0 | cmH2O | M | Habashi 2005: Plow 0 in TCAV; the release flow sets the trapped PEEP [M] |
+| `APRV_THIGH_DEFAULT` | 4.5 | s | M | Habashi 2005: Thigh 4–6 s [M] |
+| `APRV_TLOW_DEFAULT` | 0.5 | s | M | Habashi 2005: Tlow 0.4–0.8 s (fixed) or the cap of the flow-terminated release [M] |
+| `APRV_TLOW_PEFR_DEFAULT` | 0.75 | fraction of PEFR | L | Habashi 2005 (Crit Care Med 33:S228), TCAV: end the release when expiratory flow has decayed to 75 % of its peak |
+| `APRV_TLOW_MIN` | 0.2 | s | M | Shortest release the flow rule may end (the exhalation valve must open and the flow peak be measured) [M] |
 | `INSP_HOLD_P1_DELAY` | 0.05 | s | M | Brief 2 §5: P1 read after the fast resistive drop (Paw → P1 "quickly"), before the slow P2 decay |
 | `INSP_HOLD_MIN` | 0.3 | s | L | Brief 1 §2.7: Pplat at the end of a ≥ 0.3–0.5 s no-flow pause |
 | `EXP_HOLD_DEFAULT` | 3 | s | L | Spec §5: expiratory hold 2–4 s |
@@ -390,6 +406,7 @@ Generated from `src/config/constants.ts` (274 constants). Confidence: V = verifi
 | `LABEL_TRIGGER_DELAY` | 0.25 | s | V | Brief 1 §3 van Diepen / Mojoli: trigger delay > 250 ms is delayed triggering |
 | `LABEL_EARLY_CYCLING` | -0.1 | s | V | Brief 1 §3 van Diepen: cycling delay < −100 ms is early (premature) cycling |
 | `LABEL_LATE_CYCLING` | 0.3 | s | V | Brief 1 §3 van Diepen: cycling delay > 300 ms is late (delayed) cycling |
+| `LABEL_RELEASE_COLLISION` | 0.1 | s | M | A release that begins ≥ 100 ms before the neural offset collides with the effort (mirrors LABEL_EARLY_CYCLING) [M] |
 | `LABEL_EFFORT_LEAD` | 0.05 | s | M | A trigger this long before the recorded neural onset still counts as caused by the effort (parabolic onset is gradual) [M] |
 | `LABEL_EFFORT_TAIL` | 0.4 | s | M | Relaxation window after neural Ti during which a trigger is still attributed to the same effort (τ_relax 0.2 s → 2τ) [M] |
 | `LABEL_RT_MAX_DELAY` | 1 | s | M | Brief 1 §3.5: entrained onset delay d = 0.2–0.8 s after the machine breath start; onsets beyond 1 s are not reverse triggers [M] |
@@ -447,6 +464,8 @@ Generated from `src/config/constants.ts` (274 constants). Confidence: V = verifi
 | `DET_DC_TI_RATIO` | 2 | ratio | L | Brief 1 §3.7 Thille: prolonged cycle = Ti > 2× mean Ti |
 | `DET_OVERSHOOT_MARGIN` | 3 | cmH2O | L | Brief 1 §3.9: Paw in the first 200 ms > target + 2–3 [heuristic] |
 | `DET_SW_VT_EXCESS` | 1.05 | fraction of the set target | M | Detector: a PRVC breath at the floor that is patient-triggered and still over-delivers the target by 5 % marks the effort the regulator is reading as excess volume (report only); set on the tuning runs (support withdrawal 1.10–1.18 vs passive 0.99–1.01), never on the held-out grid [M] |
+| `DET_RC_FLOW_WINDOW` | 0.03 | s | M | Detector (report only): window after the release start over which the mean measured flow is read [M] |
+| `DET_RC_FLOW` | 2 | L/min | M | Detector (report only): inspiratory (positive) flow still present when the release begins marks a collision with an effort — collisions +5.4…+8.0 vs ≤ −2.7 L/min on the tuning runs; set on the tuning runs, never the held-out grid [M] |
 | `DET_AUTOPEEP_FLOW` | 3 | L/min | L | Brief 1 §3.10: end-expiratory flow magnitude > 2–5 L/min at the trigger point [heuristic] |
 | `DET_LEAK_RATIO` | 0.85 | fraction | L | Spec §7: Vte/Vti < 0.85–0.9 [heuristic]; summed over 8 breaths so stacked pairs cancel |
 | `DET_SECRETIONS_HP_RMS` | 2.2 | L/min | M | Second-difference RMS of expiratory flow at the device rate (5–20 Hz energy proxy); band-limited sensor noise alone gives ≈ 0.55 [M, tuned] |

@@ -747,3 +747,106 @@ Tuned drive values, both inside the plan's authorized ranges: `prvc-double-trigg
 `prvc-pressure-withdrawal`'s drive `pmax` is 12 (plan draft 14, range 12–18). Constants as built: `PRVC_STEP_MAX` 3,
 `PRVC_PMAX_MARGIN` 5, `PRVC_MIN_DP` 5, `PRVC_TEST_PAUSE` 0.3, `PRVC_GAIN` 1.0, `PRVC_DP_EPSILON` 0.5,
 `PRVC_LIMIT_VT_FRACTION` 0.9 (all `M`).
+
+## D-024 · APRV: no synchronization (TCAV), a bidirectional servo at Phigh, one breath record per Phigh + release, the labeler skips trigger and cycle rules, auto-PEEP kept, `release-collision`, maneuvers disabled, quiz substitutes (2026-09-14)
+
+APRV is built as Habashi's TCAV (Crit Care Med 33:S228, 2005): a high phase at `phigh` for `thigh`, a
+release to `plow` for `tlow` (fixed) or until expiratory flow has decayed to `tlowPefr` (0.75) of this
+release's own peak, no synchronization of either transition to the patient, and no pressure support at
+Phigh. The high phase is `aprvPlan` — the state machine's `insp` with plan kind `'aprv'` (`ti = thigh`,
+`pTarget = phigh`, `peep = plow`, not spontaneous), time-cycled by Thigh; the release is `exp` with the
+servo already targeting Plow. `controlExp` hands APRV to the new `controlRelease` right after the
+leak-baseline update: fixed mode schedules the next time trigger at `tlow`; `pefr` mode schedules it once
+elapsed time is ≥ `APRV_TLOW_MIN` (0.2 s, the shortest release the flow rule may end) and the measured
+flow has decayed to `tlowPefr` of `pefrThisRelease` (this release's own peak expiratory flow, reset in
+`enterExp`, gated on that peak exceeding `PSV_CYCLE_MIN_PEAK_FLOW` — 0.05 L/s, reused from PSV's cycling
+guard so a vanishing peak cannot arm the rule), capped at `tlow` either way; the achieved `tlowUsed` and
+`pefrFraction` are published as `aprvStatus` before the next `scheduleInsp(t, 'time', events)`. Because the
+pefr rule reads inspiratory flow during the release as fraction 0, a spontaneous inspiratory effort ends a
+`pefr` release at once — a modelling consequence of the flow rule, not a design goal, and the model's only
+de-facto synchronization anywhere in APRV. The servo at Phigh is bidirectional
+(`servoTo(target, EXH_VALVE_R, −∞, MAX_SERVO_FLOW)`, with the usual rise-time ramp from Plow): an
+inspiratory effort draws gas from the source and an expiratory effort pushes gas out through the
+exhalation valve, so the patient breathes at Phigh without any triggered event. Holds, occlusions, R/I and
+the PEEP trial (`requestHold`/`requestOcclusion`/`requestPeepManeuver`) return at once in APRV and their UI
+buttons are disabled; a request latched immediately before a switch into APRV is still consumed at the
+first APRV cycle, or survives to fire only after APRV is left, and a PEEP maneuver already running when
+APRV starts is stranded — both deferred as modelling gaps, not fixed here. The disconnect alarm judges Paw
+against Plow rather than the set PEEP; with the shipped defaults (Plow 0, `lowPeep` 3) that makes the
+disconnect alarm unreachable in APRV (Paw would have to read below −3). One breath record spans a Phigh
+plus its release (`tStart` = Phigh start, `tInspEnd` = release start, `tEnd` = next Phigh start); its
+inspired volume includes whatever spontaneous breaths the patient took at Phigh.
+
+Truth: every trigger- and cycle-based rule is skipped for `aprv` breaths — `kindOf`/`isAprv`/
+`aprvBreathAt` gate the trigger-side chain and the cycling block with `if (kind !== 'aprv')`, and the
+reverse-trigger and assisted-breath maps skip `aprv` breaths outright — because there is no patient
+trigger and no flow cycle to judge; an effort inside an APRV breath (or anywhere in APRV mode) is an
+expected unsupported breath, never ineffective, never assisted. `contextFromSettings` reads `peep = plow`
+and `pTarget = phigh` in APRV, so `auto-peep` is unchanged and fires on nearly every release (a fix-round
+correction made its evidence cite Plow rather than the unused PEEP setting): in TCAV the trapped
+end-release pressure *is* the PEEP, and the card says so as its first pitfall. The new pattern
+`release-collision` (evidence `releaseLead`) fires when a release begins ≥ `LABEL_RELEASE_COLLISION`
+(0.1 s) before the neural offset — mirrors `LABEL_EARLY_CYCLING` — and counts as an asynchronous event:
+`release-collision` is in `AI_EVENT_PATTERNS`, so the asynchrony-index denominator in a breathing APRV run
+is release cycles, not patient breaths, and a non-zero AI there is expected by design, not a defect.
+
+The detector skips the identical rules for `aprv` breaths (`deviceContext` mirrors the truth-side
+`peep`/`pTarget`), and reports `release-collision` from a rule that supersedes the plan's draft. The plan
+called for an expiratory-flow notch within a window, or a PEFR delay past a threshold; neither separates a
+collision from a normal release in this build. A 0.5 s TCAV release from Phigh 28 is a single monotone
+decay toward Plow — a notch requires the deflection to *fall back* after a crest, and nothing ever falls
+back inside a monotone release, so zero notches formed over the 42 tuning breaths in every class (truth
+collisions, non-collisions, passive). The peak-expiratory-flow delay is set by the exhalation-valve/
+driving-pressure transient, not by the patient: 0.12–0.14 s identically in truth collisions, non-collisions
+and passive releases. The separator that does exist, measured on the same runs, is the **mean measured
+flow over the first 30 ms after cycle-off** (`BreathFeatures.releaseStartFlow`, L/min) — positive means the
+patient is still inhaling when the release opens. Truth collisions read +5.4…+8.0 L/min, other releases on
+the same run ≤ −2.7, and the passive run −3.0…−2.5 — an 8 L/min gap. The shipped rule is `aprv &&
+releaseStartFlow ≥ DET_RC_FLOW` (2 L/min, read over `DET_RC_FLOW_WINDOW` 0.03 s), both constants set on
+the tuning runs, never the held-out grid: 3/3 found on the test pair, precision 1.00, zero passive
+positives; across nine breathing runs varying seed, drive, Tlow mode and Thigh, recall 0.67–1.00 and
+precision 0.67–1.00, with zero positives on both passive runs and the one weak point an honest miss (a
+4 cmH2O effort against a 28 cmH2O release leaves almost no flow signature — 1/4 found). `DET_RC_WINDOW` and
+`DET_RC_PEFR_DELAY` do not exist in the constants table; the notch-timing feature (`peakExpFlowTime`) was
+removed as dead code under this ruling. As with the SIMV and PRVC detector rules (D-022, D-023), this is
+report-only — `docs/VALIDATION.md`'s mode table, not the held-out grid in §9.5, is the target, and the
+scenario library is never tuned against it.
+
+The quiz substitutes Phigh for the plateau and Phigh − Plow for ΔP (labelled "Phigh" and "Phigh − Plow" so
+the reader is not misled into thinking a hold was taken), because no inspiratory hold exists in APRV.
+`recruitedGain` — mean end-expiratory aerated FRC after the scripted fix minus before, in L — is a new
+`ScenarioCriteria.extra` metric with `min` semantics, alongside the existing `peepiTrue` `max`.
+
+Three scenario findings round out D-024, each a pedagogic result rather than a bug, the APRV counterpart of
+D-022's and D-023's. `aprv-tlow-too-long` teaches derecruitment on an over-long release, but
+`ards-pulmonary`'s phenotype cannot show it at a protective Phigh: its recruitable population opens on the
+recoil axis at `RECRUIT_PULMONARY_TOP` (34 ± 3 cmH2O), while instrumenting the truth channels directly
+across the whole authorized `tlow`/`thigh` range put the non-dependent compartment's plateau at ≈ 24.6
+cmH2O and the dependent compartment's at ≈ 26.7 — 2–4 cmH2O short of the ≈ 28.8 cmH2O even the
+lowest-quantile recruitable unit needs, at every authorized setting; `tidal-recruitment` measured 0
+everywhere in that space. The scenario ships on `ards-extrapulmonary` instead (recoil kept `recruitable`,
+shunt 0.2 per its own preset): its recruitable top (`RECRUIT_EXTRAPULMONARY_TOP` ≈ 9.5 cmH2O) is reachable
+at a protective Phigh, which is also the clinical teaching — extrapulmonary ARDS, not consolidated
+pulmonary ARDS, is the recruitable form. At Phigh 28 / Tlow 1.2 / Thigh 4.5 / a passive patient the
+scenario now measures `tidal-recruitment` 1.0/0.5, `auto-peep` 1.0/0.5 and `recruitedGain` +0.191 L
+(min 0) — all pass.
+
+`aprv-release-collision` and `aprv-high-effort` both hit the same structural wall: in an unsynchronized
+mode, a release beginning while the patient is still inspiring is not a tuning failure to be tuned away but
+close to a law of the mode — the collision probability per release is ≈ (Ti − 0.1)/period regardless of
+how Thigh is set, since nothing links the release clock to the neural clock. `aprv-release-collision`'s
+brief fix (Thigh 8.0, Tlow cap 0.6, both range maxima, drive unchanged) left the after-fix AI at 33 %,
+confirming Thigh alone cannot clear it; adding the drive to the fix (rate 14, Pmax 6 — both authorized
+maxima) cleared it to 0 % on 6 post-fix release cycles, none colliding. This is the APRV counterpart of
+D-023's "treat the drive too" finding for `prvc-pressure-withdrawal`: fewer, gentler efforts mean fewer
+collisions, and no ventilator-only combination substitutes for slowing the drive. `aprv-high-effort`'s own
+scripted fix (Pmax 8, rate 16, Thigh 5.0 unchanged, from the brief) produced the identical mechanism in
+reverse — a 20–30 % post-fix AI from the fix's own release cadence colliding with its own drive, immune to
+every pre-fix parameter the brief authorized (drive rate 20–26, Phigh 26–32, drive Pmax 12–20 all swept,
+none clearing 10 %). Authorized to sweep the fix's own drive and Thigh and to prefer the mildest
+combination, the shipped fix is rate 14 / Pmax 8 / Thigh 8.0 s: 0 % AI on 5/5 post-fix cycles, mean ΔPL
+14.12 cmH2O and mean ΔPes 7.89 cmH2O — both inside the scenario's own quiz extras (≤ 15, ≤ 10). An earlier
+candidate (rate 14 / Pmax 8 / Thigh 6.0) cleared the AI gate at 0 % but left mean ΔPL 15.90, 0.9 over its
+own ceiling; the ruling that a scripted fix must clear its own quiz extras, not just the AI gate, picked
+the milder Thigh 8.0 alternative instead. `pendelluft` and `high-effort` both stayed in
+`aprv-high-effort`'s targets at 1.0/0.3 throughout; neither needed dropping.

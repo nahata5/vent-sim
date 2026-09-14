@@ -5,9 +5,10 @@ schematic SpO2, live EL/Ecw, quiz bedside view + debrief D-019 with its follow-u
 D-020, Cloudflare Workers hosting at `vent.nahass.ai` D-021; M10 complete: scenario authoring, My scenarios,
 help overlay D-025; M11 complete: SIMV, a shared `breath` event, stacked-mandatory double triggers D-022;
 M12 complete: PRVC, a breath-by-breath pressure regulator seeded by a VC test breath, the
-support-withdrawal truth pattern D-023; **M13 APRV in progress** — plan committed, Tasks 1–2 of six done on
-branch `worktree-m13-aprv`, Task 3 in flight, see "M13 in progress" and the prompt at the end), for a fresh
-session continuing from `docs/FABLE_GOAL_PROMPT.md`.
+support-withdrawal truth pattern D-023; **M13 complete: APRV** — Habashi's TCAV, a bidirectional servo at
+Phigh, the report-only `release-collision` detector rule and three scenarios, D-024 (six tasks, all
+reviewed clean, docs and full verification done this session) — see "M13 as built" below; all seven modes
+in the spec's build order are now built), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
@@ -16,8 +17,8 @@ session continuing from `docs/FABLE_GOAL_PROMPT.md`.
    validation, §10 export, §12 milestones); `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`
    — the spec for SIMV/PRVC/APRV, scenario authoring and the help overlay (§2–§4 modes, §5–§7 M10 parts).
 3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers, the M9
-   definition-of-done walkthrough, the M10 entry, the M11 entry, the M12 entry).
-4. `docs/DECISIONS.md` — D-001…D-023, D-025 (D-024 reserved for M13 APRV); D-012
+   definition-of-done walkthrough, the M10 entry, the M11 entry, the M12 entry, the M13 entry).
+4. `docs/DECISIONS.md` — D-001…D-025 (all present, no gaps); D-012
    is the detector's measurement basis, D-014 the M7 physics (recruited gas, R/I limits, CO2 loop gains, the
    settings-log bug), D-015 the education/export choices, D-016 the Pes cardiac artifact and cardiac-smoothed
    ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw, D-019 the quiz bedside view, locked link and templated
@@ -26,7 +27,9 @@ session continuing from `docs/FABLE_GOAL_PROMPT.md`.
    the end-of-period sync window and clock reset, stacked-mandatory double triggers, the "leave SIMV" fix
    finding), D-023 PRVC (the VC test breath and breath-by-breath regulator, the floor/ceiling/step, the
    support-withdrawal truth pattern and its report-only detector rule, the "treat the drive too" fix
-   finding).
+   finding), D-024 APRV (TCAV, the bidirectional servo, the ruled `release-collision` detector rule, the
+   "treat the drive too" fix findings for two of the three scenarios and the phenotype-switch finding for
+   the third).
 5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-5; Q-1…Q-3 answered: keep the defaults).
 6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md`, `docs/SCENARIO_AUTHORING.md` — the user-facing docs.
 7. This file's "What is left" before touching anything.
@@ -43,30 +46,32 @@ session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 | M10 | **done** (2026-09-14): scenario authoring through the reader's own LLM, a field-level validator as the save/run gate, "My scenarios" persisted per-browser, a first-visit help overlay (D-025) — see "M10 as built" below |
 | M11 | **done** (2026-09-14): SIMV (mandatory VC or PC breaths with PS between them, end-of-period sync window), a shared `breath` event judging every mode by breath kind, stacked-mandatory double triggers, three SIMV scenarios, a reported (not gated) detector-in-SIMV table (D-022) — see "M11 as built" below |
 | M12 | **done** (2026-09-14): PRVC (a VC test breath seeds a breath-by-breath pressure regulator with a step, ceiling and floor), "volume not achieved", the `support-withdrawal` truth pattern and its report-only detector rule, three PRVC scenarios (D-023) — merged to main (e3d7b81) and pushed — see "M12 as built" below |
-| M13 | **in progress** (2026-09-14): APRV — plan `docs/superpowers/plans/2026-09-14-m13-aprv.md` (six tasks) on branch `worktree-m13-aprv` in `.claude/worktrees/m13-aprv` (base e3d7b81). Task 1 (ventilator: bidirectional servo at Phigh, fixed/pefr releases, maneuvers refused; 3b8de21) and Task 2 (truth: APRV skips, `release-collision`, cards; f6be726 + c46ca2b) reviewed clean; Task 3 (detector) dispatched; Tasks 4 (UI/status/quiz/help — includes the help-dialog scroll fix), 5 (scenarios + `recruitedGain`), 6 (docs, D-024) to go — see "M13 in progress" below |
+| M13 | **done** (2026-09-14): APRV (Habashi's TCAV, a bidirectional servo at Phigh, fixed/pefr release termination, maneuvers refused), the `release-collision` truth pattern and its ruled report-only detector rule, three APRV scenarios and the `recruitedGain` criterion (D-024) — Tasks 1–6 on branch `worktree-m13-aprv`, all reviewed clean, docs and full verification done this session — see "M13 as built" below |
 
-`npm test` → 268 passed, 43 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e
--- --reporter=line` → 53 total: 43 passed, 1 failed (`tests/e2e/a11y.spec.ts` main-page colour-contrast on
+`npm test` → 293 passed, 45 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e
+-- --reporter=line` → 54 total: 44 passed, 1 failed (`tests/e2e/a11y.spec.ts` main-page colour-contrast on
 `.chip-alarm` — re-ran that spec alone: 3/3 passed, the known one-off flake, not a regression), 9 skipped
-(screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean (`dist/assets/index-*.js` 286.01 kB, gzip
-99.67 kB). All numbers from this session's full verification run in the `m12-prvc` worktree. Committed on
-the `worktree-m12-prvc` branch; the controller merges and deploys separately (this session does not push or
-poll the live site — see "Hosting"). Note: the performance test (`≥ 50× real time`) is a wall-clock test;
+(screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean (`dist/assets/index-D4LrRMw_.js` 299.63 kB,
+gzip 104.04 kB). All numbers from this session's full verification run in the `m13-aprv` worktree. Committed
+on the `worktree-m13-aprv` branch; the controller merges and deploys separately (this session does not push
+or poll the live site — see "Hosting"). Note: the performance test (`≥ 50× real time`) is a wall-clock test;
 under a loaded machine it fails inside the parallel full run while passing alone (see PROGRESS post-M9); it
 also fails the same way on unrelated commits, so treat that as environment, not regression, and re-run it
 alone — it passed on the first try this session. `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts`
 colour-contrast check have each shown a one-off failure under a loaded full Playwright run in multiple past
-sessions (M10 Tasks 5–6, the a11y check again in M11, and again this session); each has reproduced clean
-when re-run alone — same rule: re-run the spec alone, report both outcomes. Live-site check after a push:
-fetch the served `assets/index-*.js` and grep for a **literal** string of the change (template strings such
-as `mtab-${id}` or `setting-${f.key}` are not literal in the bundle; `mobile-tabs`, `view-toggles` and
-`simv-base-select` are, because those are written as literal string props) — but see the Cloudflare note
-under "Hosting": `vent.nahass.ai` answers a scripted fetch with a managed challenge regardless of user
-agent, so this check only works against the Netlify fallback; a real browser passes on both hosts. For M10
-the literal string is `ventsim.custom.v1` (My scenarios' storage key); `ventsim.help.seen.v1` also works.
-For M11 the literal string is `simv-base-select` (the settings control's test id). For M12 the literal
-string is `prvc-limit` (the volume-not-achieved alarm id, used as a runtime string in `ventilator.ts` and
-`waveform-draw.ts`, not a template).
+sessions (M10 Tasks 5–6, the a11y check again in M11, again in M12, and again this session); each has
+reproduced clean when re-run alone — same rule: re-run the spec alone, report both outcomes. Live-site check
+after a push: fetch the served `assets/index-*.js` and grep for a **literal** string of the change (template
+strings such as `mtab-${id}` or `setting-${f.key}` are not literal in the bundle; `mobile-tabs`,
+`view-toggles` and `simv-base-select` are, because those are written as literal string props) — but see the
+Cloudflare note under "Hosting": `vent.nahass.ai` answers a scripted fetch with a managed challenge
+regardless of user agent, so this check only works against the Netlify fallback; a real browser passes on
+both hosts. For M10 the literal string is `ventsim.custom.v1` (My scenarios' storage key);
+`ventsim.help.seen.v1` also works. For M11 the literal string is `simv-base-select` (the settings control's
+test id). For M12 the literal string is `prvc-limit` (the volume-not-achieved alarm id, used as a runtime
+string in `ventilator.ts` and
+`waveform-draw.ts`, not a template). For M13 the literal string is `aprv-tlow-mode` (the release-mode
+select's test id, a literal prop).
 
 ## M7 as built (map of the code)
 
@@ -347,48 +352,118 @@ Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §3; pla
   `tests/scenarios/emergence.test.ts` (three PRVC rows), `tests/e2e/modes.spec.ts` (the regulated-pressure
   tile and the floor field), `tests/e2e/help.spec.ts` (the dropped qualifier).
 
-## M13 in progress (2026-09-14)
+## M13 as built (map of the code)
 
-The M13 APRV plan is committed (`docs/superpowers/plans/2026-09-14-m13-aprv.md`; amended once for the
-validator's `tlowMode` enum) and is being executed by subagent-driven development in the worktree
-`.claude/worktrees/m13-aprv` (branch `worktree-m13-aprv`, base e3d7b81 = main after the M12 merge). The
-SDD ledger lives inside that worktree at `.superpowers/sdd/2026-09-14-m13-aprv/progress.md` (git-ignored;
-its first line names the plan; a task with a `Task N: complete` line is done, a task whose last line is a
-fix round is mid-loop; the task briefs are already extracted next to it). Done: **Task 1** (3b8de21 —
-`aprvPlan`, the bidirectional `servoTo(target, EXH_VALVE_R, −∞, MAX_SERVO_FLOW)` at Phigh, `controlRelease`
-with fixed/pefr termination and `aprvStatus`, refusals in `requestHold`/`requestOcclusion`/
-`requestPeepManeuver`, disconnect against Plow, backup exit extended to APRV, `ENUM_KEYS.tlowMode`,
-`tests/physics/aprv.test.ts` 7 tests) and **Task 2** (f6be726 + fix c46ca2b — labeler `kindOf`/`isAprv`/
-`aprvBreathAt`, trigger/cycle rules wrapped in `if (kind !== 'aprv')`, efforts inside APRV never
-ineffective, `release-collision` (in `AI_EVENT_PATTERNS`, evidence `releaseLead`), `LabelContext.peep =
-plow`, card + badge `RC` + `caseEvidence`, the `auto-peep` card's APRV pitfall, a `baseline()` helper so
-auto-PEEP evidence cites Plow in APRV, the M12 carry-over on the support-withdrawal card). Both reviewed
-clean; held-out grid byte-identical throughout. **Task 3** (detector skips + report-only `release-collision`
-rule, `scripts/mode-detector-report.ts` extended) was in flight when this handoff was written, under a
-ruling that replaced the plan's rule: the brief's expiratory-flow notch never forms in a monotone release
-and the peak-flow delay is valve-dominated (0.12–0.14 s in every class), while the **mean measured flow
-over the first 30 ms after cycle-off** separates collisions (+5.4…+8.0 L/min) from non-collisions
-(≤ −2.7) and passive releases (−3.1…−2.5) — so the rule is `releaseStartFlow ≥ DET_RC_FLOW` (2 L/min,
-window `DET_RC_FLOW_WINDOW` 0.03 s), constants set on the tuning runs; `DET_RC_WINDOW`/`DET_RC_PEFR_DELAY`
-do not exist. Check `git log` on the branch: if a Task 3 commit exists but the ledger has no `Task 3:
-complete` line, dispatch its task review over `4b53627..<head>` (the reviewer must judge the ruled rule,
-not the plan's) before moving on; D-024 and MODEL.md (Task 6) must describe the ruled rule. Deferred minors so far are in the ledger (`minor (deferred)` lines): latched hold/occlusion
-requests and a running PEEP maneuver survive a switch into APRV; the pefr rule ends a release at once on an
-inspiratory flow (a de-facto synchronization to document in D-024); the engine primes the lung at
-`settings.peep` so APRV starts with a t = 0 transient; with Plow 0 the disconnect alarm is unreachable;
-`ventilator.ts` is ~1040 lines. Owner-reported bug folded into Task 4: the first-visit help dialog opens
-scrolled to the bottom (`showModal()` focuses the bottom-most focusable element; fix and e2e assertion are
-written into the plan's Task 4).
+Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §4; plan
+`docs/superpowers/plans/2026-09-14-m13-aprv.md` (six tasks); D-024. Built on branch `worktree-m13-aprv` in
+`.claude/worktrees/m13-aprv` (base e3d7b81 = main after the M12 merge); the SDD ledger and per-task
+briefs/reports are inside that worktree at `.superpowers/sdd/2026-09-14-m13-aprv/` (git-ignored).
+
+- **The release controller in the ventilator**: `src/sim/vent/ventilator.ts` — `aprvPlan` next to `psPlan`
+  (`ti = thigh`, `pTarget = phigh`, `peep = plow`, `spontaneous: false`, kind `'aprv'`), `case 'APRV'` in
+  `makePlan`. `actuate`'s `insp` case for an `aprv` plan is `servoTo(target, EXH_VALVE_R, −∞, MAX_SERVO_FLOW)`
+  — the bidirectional servo, the only `actuate` change (the `exp` case is untouched since the plan's `peep`
+  is already Plow). `controlExp` hands APRV to the new `controlRelease` right after the leak-baseline
+  update: fixed mode schedules the next time trigger at `tlow`; `pefr` mode schedules it once elapsed time
+  is ≥ `APRV_TLOW_MIN` (0.2 s) and the measured flow has decayed to `tlowPefr` of `pefrThisRelease` (this
+  release's own peak, reset in `enterExp`, gated on exceeding the reused `PSV_CYCLE_MIN_PEAK_FLOW`), capped
+  at `tlow` either way; records `aprvLast`/public getter `aprvStatus` (`{tlowUsed, pefrFraction}`) before
+  `scheduleInsp(t, 'time', events)`. `requestHold`/`requestOcclusion`/`requestPeepManeuver` refuse at once
+  in APRV (first line of each); `checkDisconnect` reads Plow in APRV; `applySettings`'s immediate-PEEP line
+  is guarded so it cannot overwrite an APRV plan's Plow baseline; the M12 backup-exit line in `startInsp` is
+  extended to `this.hasMandatoryRate || this.settings.mode === 'APRV'`.
+- **Settings and constants**: `src/sim/vent/settings.ts` — `phigh` 5–45 (default 28), `plow` 0–20 (0),
+  `thigh` 0.5–15 (4.5), `tlow` 0.2–3 (0.5), `tlowMode` `'fixed' | 'pefr'` (fixed), `tlowPefr` 0.25–0.9
+  (0.75), all in `SETTING_BOUNDS`. `src/config/constants.ts`: `APRV_PHIGH_DEFAULT` (28), `APRV_PLOW_DEFAULT`
+  (0), `APRV_THIGH_DEFAULT` (4.5), `APRV_TLOW_DEFAULT` (0.5), `APRV_TLOW_PEFR_DEFAULT` (0.75),
+  `APRV_TLOW_MIN` (0.2, all `M`, Habashi 2005 citations), `LABEL_RELEASE_COLLISION` (0.1),
+  `DET_RC_FLOW_WINDOW` (0.03), `DET_RC_FLOW` (2). `src/edu/scenario-schema.ts`'s `ENUM_KEYS.tlowMode =
+  ['fixed', 'pefr']` (a pre-flight ruling — without it a scenario setting `tlowMode` was rejected as "must
+  be a number"). `src/sim/vent/breath-kind.ts`: `case 'APRV': return 'aprv'` and `case 'APRV': return
+  s.phigh` in the two exhaustive switches. `Mode`/`IMPLEMENTED_MODES` (`src/sim/types.ts`) gain `'APRV'`
+  last — all seven modes in the spec's build order are now implemented.
+- **UI and status**: `SessionStatus.aprv: {tlowUsed, pefrFraction} | null` (`src/worker/protocol.ts`, set
+  from `vent.aprvStatus` only in APRV mode by `src/worker/session.ts`); `MonitorPanel` (`src/ui/
+  MonitorPanel.tsx`) gets the `aprv` prop and three tiles spliced after `Vte` (`data-testid="mon-VtRel"`,
+  `"mon-Tlow"`, `"mon-PEFR"`); `noManeuvers = settings.mode === 'APRV'` disables all seven maneuver buttons
+  with a "not available in APRV" tooltip. `src/ui/SettingsPanel.tsx` — `peep`/`flowTrigger`/`pressureTrigger`
+  gain `modes` lists excluding APRV, `riseTime` gains `'APRV'`, new FIELDS for `phigh`/`plow`/`thigh`/`tlow`/
+  `tlowPefr` (the last shown only when the draft-or-applied `tlowMode` is `pefr`), `Draft.tlowMode`, the
+  `aprv-tlow-mode` select (`data-testid="aprv-tlow-mode"`, `fixed`/`pefr`, mirroring `simv-base-select`) whose
+  `onChange` sets `draft.tlowMode` and prunes now-hidden keys, `hiddenKeys(mode, base, tlowMode)` (a third
+  arg) called from all three onChange sites. Quiz: `FixInput.labels?: {dp?, pplat?}` (`src/edu/quiz.ts`),
+  `gradeFix` uses them when present; `src/app/controller.ts`'s `quizFixInput()` builds `breaths` from
+  `s.phigh − s.plow` / `s.phigh` and returns `labels: {dp: 'Phigh − Plow', pplat: 'Phigh'}` in APRV. Help:
+  `src/ui/HelpDialog.tsx` drops the "(not in this version yet)" qualifier for APRV and fixes an
+  owner-reported bug (first-visit dialog opened scrolled to the bottom because `showModal()` focused the
+  bottom-most focusable element): `#help-title` gets `tabIndex={-1}`, the post-`showModal()` effect focuses
+  it with `{preventScroll: true}` and resets `.help-body`'s `scrollTop` to 0.
+- **Truth**: `src/sim/truth/labeler.ts` — `kindOf`/`isAprv`/`aprvBreathAt` helpers; the reverse-trigger and
+  assisted-breath maps skip `aprv` breaths; the trigger-side chain and the cycling block wrapped in
+  `if (kind !== 'aprv')`; the new release rule pushes `release-collision` (evidence `releaseLead`) when a
+  release starts ≥ `LABEL_RELEASE_COLLISION` before the neural offset; `PatternId`/`PATTERN_IDS`/
+  `AI_EVENT_PATTERNS` gain `'release-collision'`; the high/low-effort gate extended to `aprv` breaths with a
+  contained effort; `contextFromSettings` reads `peep = plow`, `pTarget = phigh` in APRV. `src/edu/
+  cards/index.ts` — the `release-collision` card, the `auto-peep` card's APRV pitfall, the `caseEvidence`
+  case, and a `baseline(s)` helper (`{value, name}` = Plow/"Plow" in APRV else the set PEEP/"set PEEP") that
+  the `auto-peep` and `delayed-trigger` evidence lines now read instead of always printing `settings.peep`
+  (a fix-round correction — the pre-fix evidence under-reported the trapped pressure by exactly
+  `peep − plow`). `src/ui/waveform-draw.ts`'s `PATTERN_CODES` gains badge `RC` (`#64b5f6`, "release
+  collision"). `src/edu/debrief.ts`'s `KEY_META` gains labelled entries for `phigh`, `plow`, `thigh`,
+  `tlow`, `tlowMode`, `tlowPefr` (the last as `% of PEFR`, `scale: 100`).
+- **Detector**: `src/detector/features.ts` — `deviceContext` mirrors the truth side (`peep = plow`,
+  `pTarget = phigh` in APRV); `BreathFeatures.releaseStartFlow` = mean measured `flow` over the first
+  `DET_RC_FLOW_WINDOW` (0.03 s) after cycle-off, in L/min, computed for every breath (cheap; only the APRV
+  rule reads it). `src/detector/detector.ts` — `const aprv = ctx.breathKind === 'aprv'`; the trigger side,
+  the cycling block, the flow-starvation rule and both ineffective-effort rules are wrapped in
+  `if (!aprv) { … }` (pure re-indents, no logic moved); the rule `if (aprv && f.releaseStartFlow ≥
+  k('DET_RC_FLOW')) add('release-collision', …)` — **ruled**, replacing the plan's expiratory-flow-notch/
+  PEFR-delay draft, which could not fire on the tuning runs (no notch ever forms in a monotone TCAV release;
+  the peak-flow delay is valve-dominated at 0.12–0.14 s in every class). Report-only: not part of the
+  held-out grid.
+- **Scenarios**: `src/edu/scenarios/{aprv-tlow-too-long,aprv-release-collision,aprv-high-effort}.json`.
+  `aprv-tlow-too-long` ships on `ards-extrapulmonary` (recoil `recruitable`, shunt 0.2), Phigh 28 / Tlow 1.2
+  / Thigh 4.5 / a passive patient (`drive: null`) — measured `tidal-recruitment` 1.0, `auto-peep` 1.0,
+  `recruitedGain` +0.191 L, AI 0 % → 0 %. `aprv-release-collision`'s fix is `{thigh: 8.0, tlow: 0.6}` plus
+  drive `{rate: 14, pmax: 6}` — measured `release-collision` 0.27 pre-fix, AI 27.3 % → 0 %.
+  `aprv-high-effort`'s fix is drive `{pmax: 8, rate: 14}` plus `{thigh: 8.0}` — measured `high-effort` 1.0,
+  `pendelluft` 1.0, AI 60 % → 0 %, mean post-fix ΔPL 14.12 / ΔPes 7.89 (both inside the scenario's own quiz
+  extras). `src/edu/scenarios/index.ts`'s `ScenarioCriteria.extra` union gains `recruitedGain` (`min`
+  semantics) alongside `peepiTrue` (`max`); `CRITERIA_EXTRA_METRICS`/the validator in `src/edu/
+  scenario-schema.ts`; `src/detector/validation.ts`'s `runEmergence` computes it (mean `frcAeratedEE` after
+  the fix window minus before) and `EmergenceRow.extra` carries `{max?, min?}`.
+- **Detector report**: `scripts/mode-detector-report.ts` — `IDS` gained the three APRV scenario ids,
+  `PATTERNS` gained `'release-collision'`; its full table (SIMV, PRVC and APRV rows) is in
+  `docs/VALIDATION.md`'s "Detector in SIMV, PRVC and APRV" section. Reported, not gated.
+- **Rulings, recorded in D-024**: the pre-flight `ENUM_KEYS.tlowMode` fix; Task 3's rule replacement
+  (`releaseStartFlow ≥ DET_RC_FLOW` over the plan's notch/PEFR-delay draft, which never fired); the
+  `aprv-tlow-too-long` phenotype switch (`ards-pulmonary` → `ards-extrapulmonary`, since the pulmonary
+  phenotype's recruitable population never opens at a protective Phigh 28); the `aprv-release-collision`
+  and `aprv-high-effort` "treat the drive too" fixes (collision probability per release ≈ (Ti − 0.1)/period
+  in an unsynchronized mode, so Thigh/Tlow alone cannot clear either gate); the quiz-extra ruling (a
+  scripted fix must clear the scenario's own quiz extras, not only the AI gate — picked `aprv-high-effort`'s
+  Thigh 8.0 variant over its Thigh 6.0 one for exactly this reason).
+- **Deferred (recorded in D-024/LIMITATIONS, not fixed)**: a hold/occlusion request latched immediately
+  before a switch into APRV is still consumed at the first APRV cycle or survives to fire after leaving; a
+  running PEEP maneuver survives the switch and cannot complete; the pefr rule's de-facto synchronization
+  (a spontaneous inspiration ends a pefr release at once); the engine's t = 0 transient from `settings.peep`;
+  the disconnect alarm unreachable at Plow 0; `ventilator.ts` ≈ 1040 lines (the mode-regulator extraction).
+- **Tests**: `tests/physics/aprv.test.ts` (7, new), `tests/detector/aprv.test.ts` (3, new), appended blocks
+  in `tests/unit/labeler.test.ts` (5), `tests/unit/cards.test.ts` (1), `tests/unit/quiz.test.ts` (1),
+  `tests/unit/scenarios.test.ts`, `tests/unit/scenario-schema.test.ts`, `tests/unit/debrief.test.ts`, three
+  new rows in `tests/scenarios/emergence.test.ts`, `tests/e2e/modes.spec.ts` (1, the release tiles and
+  maneuvers disabled), `tests/e2e/help.spec.ts` (edited, the scroll/focus fix).
 
 ## What is left (post-M9)
 
 All spec milestones and the optional extensions listed in the previous handoff are built, and M10 (scenario
-authoring, My scenarios, help overlay, D-025), M11 (SIMV, D-022) and M12 (PRVC, D-023) are also done — see
-"M10 as built", "M11 as built" and "M12 as built" above. **M13 APRV** is in progress (section above); after
-it lands, the spec's build order (`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`, items
-1–5) is complete and what remains is the optional list below plus the structural follow-up of extracting the
-mode regulators (PRVC, APRV) out of `ventilator.ts`. See "Prompt for the next session" below. The rest of
-this section is the pre-M10 leftover list, still accurate:
+authoring, My scenarios, help overlay, D-025), M11 (SIMV, D-022), M12 (PRVC, D-023) and M13 (APRV, D-024)
+are also done — see "M10 as built", "M11 as built", "M12 as built" and "M13 as built" above. **All seven
+modes in the spec's build order are now built** (`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`
+items 1–5 are complete), so what remains is the optional list below plus the structural follow-up of
+extracting the mode regulators (PRVC, APRV) out of `ventilator.ts` (≈ 1040 lines, noted since M13 Task 1).
+See "Prompt for the next session" below. The rest of this section is the pre-M10 leftover list, still
+accurate:
 
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
@@ -488,7 +563,7 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
   `contextFromSettings`); `sim/truth/lung-stress.ts`.
 - `monitor/monitor.ts` (measured only), `monitor/stress-index.ts`, `monitor/bands.ts` (bands + power),
   `monitor/spo2.ts` (schematic SpO2, display only).
-- `detector/` — see above. `edu/scenarios/` — 28 JSON (incl. `capstone.json` and the three SIMV scenarios) + `index.ts`.
+- `detector/` — see above. `edu/scenarios/` — 34 JSON (incl. `capstone.json`, the three SIMV, three PRVC and three APRV scenarios) + `index.ts`.
 - `worker/session.ts` (pure core), `worker/sim.worker.ts`, `worker/protocol.ts`, `worker/validation.worker.ts`.
 - `app/controller.ts`, `app/StreamStore.ts` (120 s ring buffers), `app/WorkerClient.ts`, `app/App.tsx`.
 - `ui/` — canvases, panels, `Co2Panel`, `ValidationPage`. `config/constants.ts` — every constant cited.
@@ -509,79 +584,64 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 ## Prompt for the next session
 
 > Continue VentSim in this repo. Read docs/HANDOFF.md first, then PROGRESS.md (the M9 definition-of-done
-> walkthrough, the post-M9 entries, the M10 entry, the M11 entry, and the M12 entry) and docs/DECISIONS.md
-> (D-001…D-023, D-025; D-024 is reserved for APRV). The goal and non-negotiables are in
-> docs/FABLE_GOAL_PROMPT.md; the original spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md; the
-> spec for what comes next is docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md (§4 is
-> APRV). The owner has answered docs/QUESTIONS.md Q-1…Q-5: keep the defaults; do not reopen them.
+> walkthrough, the post-M9 entries, and the M10/M11/M12/M13 entries) and docs/DECISIONS.md (D-001…D-025, all
+> present, no gaps). The goal is in docs/FABLE_GOAL_PROMPT.md; the original spec is
+> docs/superpowers/specs/2026-09-10-vent-sim-design.md; the spec for the seven-mode/authoring/help work is
+> docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md (its build order, items 1–5, is now
+> complete). The owner has answered docs/QUESTIONS.md Q-1…Q-5: keep the defaults; do not reopen them.
 >
 > State: M0–M9, the post-M9 extensions (Pes artifact fix, quiz extras, capstone, schematic SpO2, live EL/Ecw,
 > quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout D-020, Cloudflare hosting
 > D-021), **M10 — scenario authoring, My scenarios, help overlay (D-025)**, **M11 — SIMV, the shared
-> `breath` event, stacked-mandatory double triggers (D-022)**, and **M12 — PRVC, the VC-test-breath-seeded
-> pressure regulator, the support-withdrawal truth pattern and its report-only detector rule (D-023)** are
-> done. Primary host https://vent.nahass.ai (Cloudflare, D-021); fallback https://vent-sim.netlify.app/ —
-> note `vent.nahass.ai` answers a scripted fetch with a Cloudflare managed challenge (403, any user agent)
+> `breath` event, stacked-mandatory double triggers (D-022)**, **M12 — PRVC, the VC-test-breath-seeded
+> pressure regulator, the support-withdrawal truth pattern and its report-only detector rule (D-023)**, and
+> **M13 — APRV, Habashi's TCAV with a bidirectional servo at Phigh, the `release-collision` truth pattern
+> and its ruled report-only detector rule, three scenarios and the `recruitedGain` criterion (D-024)** are
+> all done — **all seven modes in the spec's build order are built**. Primary host
+> https://vent.nahass.ai (Cloudflare, D-021); fallback https://vent-sim.netlify.app/ — note
+> `vent.nahass.ai` answers a scripted fetch with a Cloudflare managed challenge (403, any user agent)
 > regardless of the request, so a served-bundle deploy check by curl/fetch only works against the Netlify
-> fallback; a real browser passes on both hosts (see "Hosting"). Vitest 268/268 across 43 files (held-out
+> fallback; a real browser passes on both hosts (see "Hosting"). Vitest 293/293 across 45 files (held-out
 > detector suite un-gated; the performance test is wall-clock and must be re-run alone if the parallel run
-> is under load), lint clean, Playwright 43/43 (+ 9 screenshot tests behind `SCREENSHOTS=1`) across three
-> projects (chromium, mobile, tablet; `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts` colour-contrast check
-> have each shown a one-off flake under a loaded full run, most recently the a11y check again this session —
-> re-run the spec alone and report both outcomes if it recurs), build clean (`dist/assets/index-*.js` 286.01
-> kB, gzip 99.67 kB). Do not revisit finished milestones except to fix a bug; never tune the detector on the
-> held-out grid (the seven held-out tp/fp/tn/fn lines are pinned in the M11 plan's Global Constraints,
-> `docs/superpowers/plans/2026-09-14-m11-simv.md`, and confirmed unchanged again this session — cite them in
-> the M13 plan's Global Constraints too); regenerate src/validation/snapshot.json after any scenario change
-> and the MODEL.md constants table after any constants change (`npx tsx scripts/model-constants.ts`); keep
-> the responsive CSS blocks at the end of theme.css; run Playwright in the foreground with the plain Bash
-> tool (never Monitor or background); never read a dispatched subagent's transcript file directly — take its
-> final report; each mode removes its own "(not in this version yet)" qualifier from `src/ui/HelpDialog.tsx`
-> when it ships; the nested `.claude/worktrees` directory is git- and eslint-ignored, so nothing inside it
-> needs to lint or be committed from the parent checkout. The M10 deploy check is the literal string
-> `ventsim.custom.v1` in the served bundle; M11's is `simv-base-select`; M12's is `prvc-limit` (a runtime
-> string, not a template — `data-testid={...}` template strings like `setting-${f.key}` are never literal in
-> the bundle).
+> is under load), lint clean, Playwright 44/44 (+ 9 screenshot tests behind `SCREENSHOTS=1`, 1 a11y flake
+> re-run alone) across three projects (chromium, mobile, tablet; `tests/e2e/quiz.spec.ts` and the
+> `a11y.spec.ts` colour-contrast check have each shown a one-off flake under a loaded full run in M10–M13 —
+> re-run the spec alone and report both outcomes if it recurs), build clean (`dist/assets/index-D4LrRMw_.js`
+> 299.63 kB, gzip 104.04 kB). All numbers from this session's full verification run in the `m13-aprv`
+> worktree, on branch `worktree-m13-aprv` (not yet merged to main — do that first if the owner confirms).
 >
-> Task — **finish executing the M13 APRV plan**, then integrate. The plan exists and is partly executed:
-> `docs/superpowers/plans/2026-09-14-m13-aprv.md` (six tasks, tests first, one commit per task, Global
-> Constraints pinning the seven held-out lines). Work is on branch `worktree-m13-aprv` in the existing
-> worktree `.claude/worktrees/m13-aprv` — enter it with `EnterWorktree` (`path:
-> .claude/worktrees/m13-aprv`), do not create a new one and do not rebase it (base e3d7b81 is main's tip).
-> Use superpowers:subagent-driven-development: its ledger is already there at
-> `.superpowers/sdd/2026-09-14-m13-aprv/progress.md` (first line names this plan; the six task briefs sit
-> next to it; every controller ruling is a `Ruling:` line and every deferred minor a `minor (deferred)`
-> line — read them all first). Resume at the first task without a `Task N: complete` line: Tasks 1 and 2 are
-> complete (commits 3b8de21, f6be726, c46ca2b, reviews clean); Task 3 (detector in APRV) was dispatched at
-> base c46ca2b when this handoff was written — if `git log` shows its commit but the ledger has no
-> completion line, run its task review (review-package over `c46ca2b..<head>`, opus reviewer, the seven
-> held-out lines as the binding constraint) before Task 4; if no commit exists, re-dispatch Task 3 from its
-> brief. Then Tasks 4 (status/UI/quiz/help — the brief now also carries the owner-reported help-dialog
-> scroll bug and its e2e assertion), 5 (three APRV scenarios + the `recruitedGain` criterion; expect the
-> `aprv-release-collision` after-fix AI gate to resist Thigh/Tlow tuning because collisions ≈ (Ti − 0.1)/
-> period in an unsynchronized mode — the brief authorizes, in order, longer Thigh, then treating the drive,
-> then leaving APRV for a synchronized mode, each recorded in D-024 like D-022/D-023) and 6 (docs, D-024,
-> the mode-detector table, full verification). Rules that bind: never tune on the held-out grid (the seven
-> lines are in the plan's Global Constraints); the detector reads only measured channels, events and
-> settings; every new number is a tagged constant; regenerate `src/validation/snapshot.json` after
-> scenario changes, the MODEL.md constants table (`npx tsx scripts/model-constants.ts`) after constants
-> changes, and `docs/SCENARIO_AUTHORING.md` (`npm run docs:authoring`) after `IMPLEMENTED_MODES` or the
-> authoring enum list changes (Task 1's regen left the "other:" enum line without `tlowMode` because
-> `src/edu/authoring.ts` hardcodes that list — fix it in Task 4 or 6); responsive CSS stays at the end of
-> `theme.css`; implementers run Playwright in the foreground with plain Bash; never read a subagent's
-> transcript; the harness refuses compound shell commands inside a worktree — one plain command per Bash
-> call; subagent reports that call a red suite a "known failure" must be checked (run the named test
-> yourself). Model plan that worked: opus for state-machine/labeler/detector tasks and their reviews, sonnet
-> for UI/scenario/docs tasks and scoped re-reviews, fable for the final whole-branch review; one fix wave
-> after the final review, then one scoped re-review, then adjudicate. Integration: run the
+> Standing rules that still bind: do not revisit finished milestones except to fix a bug; never tune the
+> detector on the held-out grid (the seven held-out tp/fp/tn/fn lines are pinned in the M11 plan's Global
+> Constraints, `docs/superpowers/plans/2026-09-14-m11-simv.md`, and confirmed unchanged again this session —
+> ineffective-effort 37/6/784/3, double-trigger 136/1/767/2, auto-trigger 72/11/821/2, premature-cycling
+> 114/11/775/6, delayed-cycling 95/16/777/18, flow-starvation 49/9/571/5, reverse-trigger 40/1/858/7); cite
+> them in any new plan's Global Constraints too; regenerate `src/validation/snapshot.json` after any
+> scenario change and the MODEL.md constants table after any constants change (`npx tsx
+> scripts/model-constants.ts`); keep the responsive CSS blocks at the end of theme.css; run Playwright in
+> the foreground with the plain Bash tool (never Monitor or background); never read a dispatched subagent's
+> transcript file directly — take its final report; the nested `.claude/worktrees` directory is git- and
+> eslint-ignored, so nothing inside it needs to lint or be committed from the parent checkout. Deploy
+> checks (literal strings in the served bundle): M10 `ventsim.custom.v1`; M11 `simv-base-select`; M12
+> `prvc-limit`; **M13 `aprv-tlow-mode`** (the release-mode select's test id, a literal prop —
+> `data-testid={...}` template strings like `setting-${f.key}` are never literal in the bundle).
+>
+> Task — **the owner decides the next goal**; there is no more required build order to execute (the spec's
+> seven modes are all in). Before picking a task, integrate M13 if it has not been already: run the
 > finishing-a-development-branch flow — full `npm test`, `npm run lint`, `npm run test:e2e --
 > --reporter=line` (the a11y `.chip-alarm` contrast check may flake under a loaded run; re-run the spec
 > alone and report both), `npm run build` — then ask the owner whether to merge to main and push (M10–M12
-> each merged locally and pushed: `ExitWorktree` keep → in the main checkout `git checkout main && git pull
-> --ff-only && git merge --no-ff worktree-m13-aprv` with the trailer lines → re-run the suite → `git push
-> origin main` → `git worktree remove .claude/worktrees/m13-aprv && git branch -d worktree-m13-aprv`; copy
-> the ledger out of the worktree first if you want to keep it). Every commit ends with the session's two
-> attribution trailer lines. The M13 deploy check is the literal string `aprv-tlow-mode` (the release-mode
-> select's test id, a literal prop). Before deleting the SDD workspace, list every `Ruling:` line from the
-> ledger in your final message for the owner. When you reach a good place around 50 % context, update
-> docs/HANDOFF.md and write the next prompt into it.
+> each merged locally and pushed the same way: `ExitWorktree` keep → in the main checkout `git checkout main
+> && git pull --ff-only && git merge --no-ff worktree-m13-aprv` with the trailer lines → re-run the suite →
+> `git push origin main` → `git worktree remove .claude/worktrees/m13-aprv && git branch -d
+> worktree-m13-aprv`; copy `.superpowers/sdd/2026-09-14-m13-aprv/` out of the worktree first if the owner
+> wants to keep the ledger). Every commit ends with the session's two attribution trailer lines.
+>
+> Open items to offer the owner, in place of a prescribed next milestone: (1) the structural follow-up of
+> extracting the mode regulators (PRVC's step/ceiling/floor, APRV's servo/release) out of
+> `src/sim/vent/ventilator.ts` (≈ 1040 lines); (2) the APRV modelling gaps recorded in D-024/LIMITATIONS —
+> latched hold/occlusion requests and a running PEEP maneuver surviving a switch into APRV, the pefr
+> release rule's de-facto synchronization, the t = 0 transient from `settings.peep`, the disconnect alarm
+> unreachable at Plow 0; (3) the "What is left" list above this section (the pre-M10 leftovers: the
+> `tomnahass.com/vent-sim/` alias fix, landscape-phone polish, light theme, i18n, more quiz extras, an
+> attempts-review export); (4) whatever the owner names fresh. When you reach a good place around 50 %
+> context, update docs/HANDOFF.md and write the next prompt into it.

@@ -101,7 +101,7 @@ FORMAT (top-level keys, all others are ignored): "id", "order", "category", "tit
   targetPatterns: array of pattern ids the learner must find, from
     "ineffective-effort", "auto-trigger", "delayed-trigger", "double-trigger", "reverse-trigger", "premature-cycling", "delayed-cycling", "flow-starvation", "support-withdrawal", "release-collision", "overshoot", "auto-peep", "leak", "secretions", "water", "high-resistance", "low-compliance", "cough", "pendelluft", "overdistension", "tidal-recruitment", "high-effort", "low-effort"
   fix: { "at": seconds, "note": string, "settings": {…partial settings}, "drive": {…partial drive}, "injectors": { "<kind>": {…} or null to remove } }
-  criteria: { "minFraction": 0–1, "aiAfter": 0–100, "extra": [ { "metric": "peepiTrue", "max": number } ], "over": "all" | "mandatory" (which breaths the fractions count; "mandatory" for lessons about SIMV's mandatory breaths) }
+  criteria: { "minFraction": 0–1, "aiAfter": 0–100, "extra": [ { "metric": "peepiTrue", "recruitedGain", "max": number } ], "over": "all" | "mandatory" (which breaths the fractions count; "mandatory" for lessons about SIMV's mandatory breaths) }
   quizExtras: array of { "metric": one of "plEE", "plEI", "dPL", "dPes", "pmusPeak", "min"?: number, "max"?: number, "label"?: string }
 
 UNITS: pressures cmH2O, volumes mL (settings) or L (mechanics), flows L/min (settings), times s, rates /min.

@@ -768,3 +768,84 @@ unchanged by this docs-only task; 31 scenarios, 20 emergence rows) has all three
 `prvc-volume-not-achieved` aiBefore 0.0 % aiAfter 0.0 % (high-resistance 1.00), `prvc-double-trigger`
 aiBefore 100.0 % aiAfter 0.0 % (double-trigger 0.29). Per the controller's ruling this session does not
 push or poll the live site; the branch is merged and deployed separately.
+
+## M13 · APRV (2026-09-14)
+
+D-024, spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §4, plan
+`docs/superpowers/plans/2026-09-14-m13-aprv.md` (six tasks, tests first, one commit per task plus fix
+rounds). APRV joins VC-AC, PC-AC, PSV, CPAP, SIMV and PRVC — the seventh and last mode in the spec's build
+order — built as Habashi's TCAV: a high phase at `phigh` for `thigh` (plan kind `aprv`, time-cycled), a
+release to `plow` for `tlow` (fixed) or until expiratory flow has decayed to `tlowPefr` (0.75) of this
+release's own peak (`pefr` mode, never before `APRV_TLOW_MIN` 0.2 s, gated on the reused
+`PSV_CYCLE_MIN_PEAK_FLOW`), and no synchronization of either transition to the patient. The high phase
+holds a bidirectional servo (`servoTo(target, EXH_VALVE_R, −∞, MAX_SERVO_FLOW)`) so a spontaneous effort at
+Phigh draws gas in or pushes it out without any triggered event; holds, occlusions, R/I and the PEEP trial
+are refused outright and their seven UI buttons are disabled; the disconnect alarm judges Paw against
+Plow. One breath record spans a Phigh plus its release. Truth and the detector both skip every trigger- and
+cycle-based rule for `aprv` breaths (there is no patient trigger and no flow cycle to judge) and instead
+label/report a new pattern, `release-collision` — a release beginning ≥ `LABEL_RELEASE_COLLISION` (0.1 s)
+before the neural offset — which is also in `AI_EVENT_PATTERNS`, so the asynchrony-index denominator in a
+breathing APRV run is release cycles. `auto-peep` is unchanged (against Plow) and fires on almost every
+release by construction — the trapped end-release pressure *is* the PEEP in TCAV. UI: three monitor tiles
+(`VtRel`/`Tlow`/`PEFR`), the `aprv-tlow-mode` release-termination select, five new settings fields, the
+quiz substituting Phigh for the plateau and Phigh − Plow for ΔP (labelled so, since no hold exists), and
+the dropped help-dialog qualifier. Three scenarios (`aprv-tlow-too-long`, `aprv-release-collision`,
+`aprv-high-effort`) and a new `recruitedGain` scenario criterion (mean end-expiratory aerated FRC gain,
+`min` semantics). All recorded as D-024.
+
+**The rulings story**: five decisions beyond the plan's literal text, three of them structural.
+(1) *Pre-flight*: the scenario-schema validator's `ENUM_KEYS` had no `tlowMode` entry, so a scenario
+setting it would be rejected as "must be a number" — fixed in Task 1 before any scenario needed it.
+(2) *Task 3's rule replacement*: the plan's detector rule for `release-collision` (an expiratory-flow notch
+within a window, or a delay to peak expiratory flow past a threshold) could not fire on the tuning runs — a
+0.5 s TCAV release is a single monotone decay, so zero notches formed over 42 tuning breaths in any class,
+and the peak-flow delay is valve-dominated (0.12–0.14 s identically everywhere). The ruled replacement reads
+the mean measured flow over the first 30 ms after cycle-off (`releaseStartFlow`): 3/3 found on the tuning
+pair, precision 1.00, zero passive positives; recall 0.67–1.00 and precision 0.67–1.00 across nine further
+tuning runs. (3) *`aprv-tlow-too-long`*: the brief's `ards-pulmonary` phenotype cannot show tidal
+recruitment at a protective Phigh 28 — its recruitable population opens 2–4 cmH2O above what that Phigh
+reaches anywhere in the authorized range (measured recoil-axis plateaus ≈ 24.6/26.7 cmH2O against a ≈ 28.8
+cmH2O requirement) — so the scenario ships on `ards-extrapulmonary` instead, whose recruitable top (≈ 9.5
+cmH2O) is reachable at a protective pressure and is also the clinical teaching (extrapulmonary, not
+consolidated pulmonary, ARDS is the recruitable form). (4) *`aprv-release-collision` and
+`aprv-high-effort`*: in an unsynchronized mode the collision probability per release is ≈ (Ti − 0.1)/period
+regardless of Thigh, so Thigh/Tlow alone could not clear either scenario's after-fix asynchrony gate; both
+needed the drive treated too (`aprv-release-collision`: rate 14, Pmax 6; `aprv-high-effort`: rate 14, Pmax
+8, Thigh 8.0 s) — the APRV counterpart of D-023's "treat the drive too" finding, met without ever leaving
+the mode. (5) *The quiz-extra ruling*: a scripted fix must clear the scenario's own quiz extras, not only
+the AI gate — `aprv-high-effort`'s first passing fix (Thigh 6.0) cleared AI at 0 % but left mean ΔPL 15.90,
+0.9 over its own 15 cmH2O ceiling; the shipped fix (Thigh 8.0) clears the AI gate and both quiz extras
+(ΔPL 14.12, ΔPes 7.89) together. A sixth, UI-only fix folded into Task 4: the owner-reported bug where the
+first-visit help dialog opened scrolled to the bottom (`showModal()` focusing the bottom-most focusable
+element) — fixed by focusing the heading with `tabIndex={-1}` and resetting `.help-body`'s scroll.
+
+Tests first: `tests/physics/aprv.test.ts` (7: the release controller, fixed and pefr termination, the
+bidirectional servo, maneuvers refused, the apnea-backup switch), `tests/detector/aprv.test.ts` (3: device
+context, trigger/cycle skips, the report-only rule), appended blocks in `tests/unit/labeler.test.ts` (5),
+`tests/unit/cards.test.ts` (1, the auto-PEEP-vs-Plow evidence), `tests/unit/quiz.test.ts` (1, the `gradeFix`
+label substitution), `tests/e2e/modes.spec.ts` (1, the three release tiles and maneuvers disabled),
+`tests/e2e/help.spec.ts` (edited, the scroll/focus fix), `tests/unit/scenarios.test.ts` and
+`tests/unit/scenario-schema.test.ts` (the three scenarios and the `recruitedGain` criterion),
+`tests/unit/debrief.test.ts` (the six APRV `KEY_META` labels), and three new rows in
+`tests/scenarios/emergence.test.ts`. `scripts/mode-detector-report.ts` extended — `IDS` gained the three
+APRV scenario ids, `PATTERNS` gained `release-collision`; its full table (SIMV, PRVC and APRV rows) is in
+`docs/VALIDATION.md`'s "Detector in SIMV, PRVC and APRV" section.
+
+Full verification (this session, worktree `m13-aprv`, all four foreground): `npm test` → **293 passed, 45
+files**, 21.8 s, no re-run needed (the wall-clock performance test passed on the first try). `npm run lint`
+(eslint + `tsc --noEmit`) → clean. `npm run test:e2e -- --reporter=line` → **54 total: 44 passed, 1 failed,
+9 skipped** (screenshot tests, gated behind `SCREENSHOTS=1`), 1.3 min; the one failure was
+`tests/e2e/a11y.spec.ts`'s main-page colour-contrast check on `.chip-alarm` — the known one-off flake under
+a loaded full Playwright run (documented in HANDOFF); re-ran `tests/e2e/a11y.spec.ts` alone: **3/3 passed**,
+confirming the flake, not a regression. `npm run build` → clean (`dist/assets/index-D4LrRMw_.js` 299.63 kB,
+gzip 104.04 kB). Held-out grid unchanged throughout every task and fix round (identical to M11/M12):
+ineffective-effort tp 37/fp 6/tn 784/fn 3 (sens 0.925, spec 0.992), double-trigger 136/1/767/2
+(0.986/0.999), auto-trigger 72/11/821/2 (0.973/0.987), premature-cycling 114/11/775/6 (0.950/0.986),
+delayed-cycling 95/16/777/18 (0.841/0.980), flow-starvation 49/9/571/5 (0.907/0.984), reverse-trigger
+40/1/858/7 (0.851/0.999) — APRV breaths never entered the held-out grid. `src/validation/snapshot.json`
+(regenerated during Tasks 1–5; unchanged by this docs-only task; 34 scenarios, 23 emergence rows) has all
+three APRV rows `pass: true`: `aprv-tlow-too-long` aiBefore 0.0 % aiAfter 0.0 % (tidal-recruitment 1.0,
+auto-peep 1.0, recruitedGain +0.191 L), `aprv-release-collision` aiBefore 27.3 % aiAfter 0.0 %
+(release-collision 0.27), `aprv-high-effort` aiBefore 60.0 % aiAfter 0.0 % (high-effort 1.0, pendelluft
+1.0). Per the controller's ruling this session does not push or poll the live site; the branch is merged
+and deployed separately.
