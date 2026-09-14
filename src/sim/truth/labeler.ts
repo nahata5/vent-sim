@@ -169,7 +169,7 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
   };
   const isAprv = (i: number): boolean => kindOf(i) === 'aprv';
   /** Index of the APRV breath (high phase + release) containing time t, or -1. */
-  const aprvBreathAt = (t: number): number => breaths.findIndex((x, i) => isAprv(i) && x.tStart <= t && (x.tEnd ?? Infinity) > t);
+  const aprvBreathAt = (t: number): number => breaths.findIndex((x, i) => x.tStart <= t && (x.tEnd ?? Infinity) > t && isAprv(i));
   const neural = inp.neural;
   const effortWindow = (j: number): [number, number] => {
     const e = neural[j];
@@ -256,14 +256,16 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     const rt = rtEffort.has(j);
     const assisted = assistedEffort.has(j);
     const assistedBreath = assisted ? [...assistedOf.entries()].find(([, nj2]) => nj2 === j)?.[0] ?? null : null;
-    // An effort inside an APRV breath is an expected unsupported spontaneous breath (the mode never
-    // supports it), so it is neither ineffective nor assisted by the machine.
-    const inAprv = aprvBreathAt(e.tOnset) >= 0;
+    // An effort under APRV is an expected unsupported spontaneous breath (the mode never supports one),
+    // so it is neither ineffective nor assisted by the machine — including an effort that falls in a gap
+    // between recorded breaths. The breath index still comes from containment, null when there is none.
+    const aprvIdx = aprvBreathAt(e.tOnset);
+    const inAprv = aprvIdx >= 0 || inp.ctxAt(e.tOnset).mode === 'APRV';
     efforts.push({
       neuralIndex: j,
       tOnset: e.tOnset,
       ti: e.ti,
-      breathIndex: trig ? trig.breathIndex : inAprv ? aprvBreathAt(e.tOnset) : assistedBreath,
+      breathIndex: trig ? trig.breathIndex : inAprv ? (aprvIdx >= 0 ? aprvIdx : null) : assistedBreath,
       ineffective: !inAprv && !trig && !rt && !assisted,
       phase: machineInspAt(e.tOnset) ? 'insp' : 'exp',
       reverseTriggered: rt,

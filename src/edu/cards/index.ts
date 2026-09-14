@@ -303,6 +303,14 @@ export interface EvidenceContext {
 const f1 = (x: number) => x.toFixed(1);
 const f2 = (x: number) => x.toFixed(2);
 
+/**
+ * Baseline the auto-PEEP rule measures the trapped pressure against — `LabelContext.peep`, which is Plow
+ * in APRV (absolute pressures; the PEEP setting is unused there) and the set PEEP in every other mode.
+ */
+function baseline(s: VentSettings): { value: number; name: string } {
+  return s.mode === 'APRV' ? { value: s.plow, name: 'Plow' } : { value: s.peep, name: 'set PEEP' };
+}
+
 function timing(ctx: EvidenceContext): string {
   const ev = ctx.label.evidence;
   const parts: string[] = [];
@@ -325,7 +333,7 @@ export function caseEvidence(ctx: EvidenceContext): string[] {
         out.push(`${t}${ev.pmusPeak !== undefined ? `; peak Pmus ${f1(ev.pmusPeak)} cmH2O` : ''} (limit ${p === 'delayed-cycling' ? `+${k('LABEL_LATE_CYCLING')}` : k('LABEL_EARLY_CYCLING')} s).`);
         break;
       case 'delayed-trigger':
-        out.push(`The effort began ${((label.triggerDelay ?? 0) * 1000).toFixed(0)} ms before the trigger (limit ${k('LABEL_TRIGGER_DELAY') * 1000} ms)${ev.palvEE !== undefined ? `; end-expiratory alveolar pressure ${f1(ev.palvEE)} vs PEEP ${settings.peep}` : ''}.`);
+        out.push(`The effort began ${((label.triggerDelay ?? 0) * 1000).toFixed(0)} ms before the trigger (limit ${k('LABEL_TRIGGER_DELAY') * 1000} ms)${ev.palvEE !== undefined ? `; end-expiratory alveolar pressure ${f1(ev.palvEE)} vs ${baseline(settings).name} ${baseline(settings).value}` : ''}.`);
         break;
       case 'double-trigger': {
         const stacked = ev.stackedVt !== undefined ? (ev.stackedVt * 1000) / pbw : null;
@@ -348,9 +356,11 @@ export function caseEvidence(ctx: EvidenceContext): string[] {
       case 'overshoot':
         out.push(`Paw ${f1(ev.overshoot ?? 0)} cmH2O above the target in the first ${k('LABEL_OVERSHOOT_WINDOW') * 1000} ms (limit ${k('LABEL_OVERSHOOT_MARGIN')}); rise time ${settings.riseTime} s.`);
         break;
-      case 'auto-peep':
-        out.push(`End-expiratory alveolar pressure ${f1(ev.palvEE ?? 0)} cmH2O vs set PEEP ${settings.peep} (auto-PEEP ${f1((ev.palvEE ?? 0) - settings.peep)}).`);
+      case 'auto-peep': {
+        const base = baseline(settings);
+        out.push(`End-expiratory alveolar pressure ${f1(ev.palvEE ?? 0)} cmH2O vs ${base.name} ${base.value} (auto-PEEP ${f1((ev.palvEE ?? 0) - base.value)}).`);
         break;
+      }
       case 'leak':
         out.push(`Leak ${((ev.leakFraction ?? 0) * 100).toFixed(0)} % of the inspired volume (limit ${k('LABEL_LEAK_FRACTION') * 100} %).`);
         break;
