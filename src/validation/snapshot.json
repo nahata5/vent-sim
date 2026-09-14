@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T15:55:57.291Z",
- "commit": "1a2baa7",
+ "generatedAt": "2026-09-14T16:00:52.898Z",
+ "commit": "277ef1c",
  "emergence": [
   {
    "id": "double-trigger",
@@ -273,10 +273,10 @@
     }
    ],
    "aiBefore": 88.23529411764706,
-   "aiAfter": 14.285714285714286,
+   "aiAfter": 0,
    "aiLimit": 10,
    "extra": [],
-   "pass": false
+   "pass": true
   },
   {
    "id": "simv-mixed-breaths",
