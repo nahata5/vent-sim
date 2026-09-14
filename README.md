@@ -57,8 +57,7 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
 - **Settings** (left): change, then **Confirm**; rate, volume and pressure changes take effect at the next
   breath (the alarm bar shows a "next breath" chip). **Injectors** and **Instructor** below. In SIMV, a
   **Mandatory breaths** select chooses the VC or PC base for the mandatory breath and the Monitor panel
-  splits the RR tile into separate **RRmand**/**RRspont** tiles so mandatory and spontaneous rates can be
-  read apart.
+  adds **RRmand**/**RRspont** tiles alongside RR so mandatory and spontaneous rates can be read apart.
 - **Waveforms** (centre): Paw, flow, volume (+ Pes with the balloon; + truth rows with the truth toggle).
   Pattern badges above the traces come from the signal-only detector; with the truth layer on, a second
   row shows the truth labels. Hover a badge for its evidence, click it for the explain card. Time controls:

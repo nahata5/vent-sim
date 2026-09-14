@@ -77,7 +77,7 @@ export const CARDS: Record<PatternId, ExplainCard> = {
     definition: 'Two cycles separated by an expiratory time shorter than half the mean inspiratory time, the first one patient-triggered (Thille). When the second breath arrives before the first is exhaled the volumes add: breath stacking.',
     mechanism: 'Neural Ti outlasts the ventilator Ti. Pmus is still active after cycling and pulls flow or Paw past the trigger threshold again; a short set Ti, a high flow, a low Vt with a high drive, or premature cycling in PSV set it up.',
     signature: 'Two back-to-back inspirations; the first expiration truncated before baseline; a staircase volume trace; Vte of the first breath much smaller than its Vti; a higher Ppeak on the second breath.',
-    causes: ['VC with a short Ti or a high flow', 'Low set Vt with a high drive (ARDS, 6 mL/kg)', 'Premature cycling in PSV (high ETS, low τ)', 'SIMV: a mandatory breath lands on the tail of a pressure-supported breath'],
+    causes: ['VC with a short Ti or a high flow', 'Low set Vt with a high drive (ARDS, 6 mL/kg)', 'Premature cycling in PSV (high ETS, low τ)', 'SIMV: a supported breath cycles early and the continuing effort re-triggers; the mandatory clock can add a breath on top of it'],
     fixes: ['Lengthen the ventilator Ti (lower flow, add a pause)', 'Raise Vt if Pplat and ΔP allow', 'Switch to PC or PSV; lower ETS in PSV', 'Treat the drive (analgesia, sedation); neuromuscular blockade in severe ARDS'],
     pitfalls: ['Stacked breaths reach 10–11 mL/kg PBW (1.6× the set Vt) even under deep sedation (Pohlman, BREATHE)', 'A reverse-triggered breath can also stack; check whether the first breath was machine-triggered'],
     citations: [`${B1}.4`, THILLE, POHLMAN, BEITLER, SOTTILE],

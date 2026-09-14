@@ -52,6 +52,16 @@ type Draft = Partial<Pick<VentSettings, NumKey>> & {
   simvBase?: VentSettings['simvBase'];
 };
 
+/** Keys hidden for a given mode: the FIELDS-declared mode restriction, plus (in SIMV) the VC/PC keys the
+ * mandatory base hides. Used both to render the field list and to prune a draft when the mode or base
+ * changes, so a value typed for a now-hidden key never survives into a confirm. */
+function hiddenKeys(mode: Mode, base: VentSettings['simvBase']): NumKey[] {
+  const modeHidden = FIELDS.filter((f) => f.modes && !f.modes.includes(mode)).map((f) => f.key);
+  if (mode !== 'SIMV') return modeHidden;
+  const baseHidden: NumKey[] = base === 'PC' ? ['vt', 'peakFlow', 'pause'] : ['pinsp', 'ti'];
+  return [...modeHidden, ...baseHidden];
+}
+
 export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
   const [draft, setDraft] = useState<Draft>({});
   const [showAlarms, setShowAlarms] = useState(false);
@@ -78,14 +88,9 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
     setAlarmDraft({});
   };
 
-  const visible = FIELDS.filter((f) => !f.modes || f.modes.includes(mode))
-    .filter((f) => (f.key === 'flowTrigger' ? triggerType === 'flow' : f.key === 'pressureTrigger' ? triggerType === 'pressure' : true))
-    .filter((f) => mode !== 'SIMV' || (base === 'PC' ? !['vt', 'peakFlow', 'pause'].includes(f.key) : !['pinsp', 'ti'].includes(f.key)));
-
-  /** Drop draft values for fields that become hidden under a mode, so a stale draft can't apply to the wrong mode. */
-  const dropHiddenForMode = (next: Draft, forMode: Mode): void => {
-    for (const f of FIELDS) if (f.modes && !f.modes.includes(forMode)) delete next[f.key];
-  };
+  const hidden = hiddenKeys(mode, base);
+  const visible = FIELDS.filter((f) => !hidden.includes(f.key))
+    .filter((f) => (f.key === 'flowTrigger' ? triggerType === 'flow' : f.key === 'pressureTrigger' ? triggerType === 'pressure' : true));
 
   return (
     <section class="panel settings" aria-label="Ventilator settings" data-testid="settings-panel">
@@ -98,7 +103,7 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
           onChange={(e) => {
             const value = (e.currentTarget).value as Mode;
             const next: Draft = { ...draft, mode: value };
-            dropHiddenForMode(next, value);
+            for (const k of hiddenKeys(value, draft.simvBase ?? settings.simvBase)) delete next[k];
             setDraft(next);
           }}
           class={draft.mode !== undefined && draft.mode !== settings.mode ? 'pending' : ''}
@@ -120,8 +125,7 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
             onChange={(e) => {
               const value = (e.currentTarget).value as VentSettings['simvBase'];
               const next: Draft = { ...draft, simvBase: value };
-              const dropKeys: NumKey[] = value === 'PC' ? ['vt', 'peakFlow', 'pause'] : ['pinsp', 'ti'];
-              for (const k of dropKeys) delete next[k];
+              for (const k of hiddenKeys(mode, value)) delete next[k];
               setDraft(next);
             }}
           >

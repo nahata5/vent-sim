@@ -623,3 +623,18 @@ mandatory-breath flow starvation and needs a mandatory clock to demonstrate). Th
 in its own right, not just an implementation detail: SIMV's fixed mandatory clock racing a patient's own
 variable respiratory timing is inherently asynchrony-prone, and the bedside fix clinicians actually reach
 for is to leave the mode, which the scenario library now teaches directly.
+
+**Stacked-mandatory rule coverage (post-review, 2026-09-14).** The stacked-mandatory truth rule above (a
+machine-triggered breath starting while the neural inspiration that already triggered the previous breath
+is still active) is exercised only by the synthetic `labelBreaths` test in `tests/unit/labeler.test.ts`; no
+shipped scenario produces a time-triggered stack. A time trigger can only land inside a still-active neural
+inspiration once the previous supported breath has already cycled early against that same effort — and a
+breath that cycles early and gets re-triggered by the continuing effort is a *patient* re-trigger, not a
+time trigger, so it satisfies the rule through `triggerCause === 'patient'` first. `simv-stacking`'s stacks
+are exactly this: PS breaths cycle early at ETS 60 %, the effort continues and re-triggers before the
+mandatory clock ever fires. For this reason the scenario's assertion (`tests/unit/labeler.test.ts`, "SIMV
+stacking") checks `evidence.firstBreath` — evidence that the truth rule matched a stacked pair at all —
+rather than the plan's original `triggerCause === 'time' && mandatory && mandatoryStack`, which would
+assert a code path the library never exercises. Also from tuning during this review: `simv-low-support`
+ships `peakFlow` 35 (the original plan called for 50) — the lower flow was needed to keep the after-fix
+asynchrony index under the scenario gate.

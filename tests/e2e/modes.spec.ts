@@ -39,10 +39,32 @@ test('SIMV: mode select, base select switches the fields, tiles show mandatory a
 test('SIMV: a draft value hidden by a base switch is dropped, not applied to the ventilator', async ({ page }) => {
   await page.goto('/#double-trigger');
   await ready(page);
+  const vtBefore = await page.evaluate(() => window.__ventsim?.ctl.settings?.vt);
   await page.getByTestId('mode-select').selectOption('SIMV');
   await page.getByTestId('setting-vt').fill('600');
   await page.getByTestId('simv-base-select').selectOption('PC');
   await page.getByTestId('confirm-settings').click();
   await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'SIMV', undefined, { timeout: 10_000 });
-  expect(await page.evaluate(() => window.__ventsim?.ctl.settings?.vt)).not.toBe(600);
+  expect(await page.evaluate(() => window.__ventsim?.ctl.settings?.vt)).toBe(vtBefore);
+});
+
+test('SIMV: a draft vt typed in VC-AC is dropped on a mode switch into SIMV when the base is already PC', async ({ page }) => {
+  await page.goto('/#double-trigger');
+  await ready(page);
+  // Put the SIMV base to PC first, then leave SIMV again, so `settings.simvBase` is PC when we switch back in.
+  await page.getByTestId('mode-select').selectOption('SIMV');
+  await page.getByTestId('simv-base-select').selectOption('PC');
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'SIMV', undefined, { timeout: 10_000 });
+  await page.getByTestId('mode-select').selectOption('VC-AC');
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'VC-AC', undefined, { timeout: 10_000 });
+  expect(await page.evaluate(() => window.__ventsim?.ctl.settings?.simvBase)).toBe('PC');
+
+  const vtBefore = await page.evaluate(() => window.__ventsim?.ctl.settings?.vt);
+  await page.getByTestId('setting-vt').fill('600');
+  await page.getByTestId('mode-select').selectOption('SIMV');
+  await page.getByTestId('confirm-settings').click();
+  await page.waitForFunction(() => window.__ventsim?.ctl.settings?.mode === 'SIMV', undefined, { timeout: 10_000 });
+  expect(await page.evaluate(() => window.__ventsim?.ctl.settings?.vt)).toBe(vtBefore);
 });

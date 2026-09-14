@@ -38,7 +38,6 @@ export type AlarmId =
   | 'high-peepi';
 
 interface BreathPlan {
-  mode: VentSettings['mode'];
   ti: number;
   qPeak: number;
   square: boolean;
@@ -230,7 +229,6 @@ export class Ventilator {
   private vcPlan(s: VentSettings): BreathPlan {
     const vc = vcTiming(s);
     return {
-      mode: s.mode,
       ti: vc.ti,
       qPeak: vc.qPeak,
       square: s.flowPattern === 'square',
@@ -250,7 +248,6 @@ export class Ventilator {
   private pcPlan(s: VentSettings, above: number): BreathPlan {
     const vc = vcTiming(s);
     return {
-      mode: s.mode,
       ti: s.ti,
       qPeak: vc.qPeak,
       square: s.flowPattern === 'square',
@@ -271,7 +268,6 @@ export class Ventilator {
     const vc = vcTiming(s);
     const above = s.mode === 'CPAP' ? 0 : s.ps;
     return {
-      mode: s.mode,
       ti: s.ti,
       qPeak: vc.qPeak,
       square: s.flowPattern === 'square',
@@ -291,7 +287,7 @@ export class Ventilator {
   private makePlan(s: VentSettings, backup = false, kind?: BreathKind): BreathPlan {
     if (backup) {
       const plan = this.pcPlan(s, s.backupPinsp);
-      return { ...plan, mode: 'PC-AC', ti: s.ti, square: true, rampEnd: 0 };
+      return { ...plan, ti: s.ti, square: true, rampEnd: 0 };
     }
     switch (s.mode) {
       case 'VC-AC':

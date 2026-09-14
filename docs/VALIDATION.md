@@ -116,6 +116,10 @@ segment and compares the signal-only detector's per-breath patterns against the 
 breath (first 10 s excluded as settling time). These numbers are informative only — the gated targets
 remain the held-out grid in §9.5, which contains no SIMV breaths.
 
+The stacked-mandatory truth rule (a time-triggered breath starting inside a neural inspiration that already
+triggered the previous breath) is exercised only by the synthetic `labelBreaths` test in
+`tests/unit/labeler.test.ts`; no shipped scenario produces it — see D-022 for why.
+
 | Scenario | Pattern | tp | fp | tn | fn | Sens | Spec |
 |---|---|---|---|---|---|---|---|
 | simv-low-support | ineffective-effort | 0 | 4 | 8 | 0 | NaN | 0.67 |

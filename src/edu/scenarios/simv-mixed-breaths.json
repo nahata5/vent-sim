@@ -10,9 +10,9 @@
   "seed": 32,
   "objectives": [
     "Spot the scooped, concave pressure ramp on the mandatory breaths and its absence on the supported breaths.",
-    "Fix the mandatory breaths: raise the peak flow (or switch the base to pressure control) so flow meets demand."
+    "Fix the mandatory breaths: raise the peak flow (or switch the base to pressure control), and bring the mandatory rate closer to the patient's own, so flow meets demand."
   ],
   "targetPatterns": ["flow-starvation"],
   "fix": { "at": 60, "note": "Mandatory breaths in pressure control (Pinsp 16, Ti 1.0 s) at a mandatory rate of 13: flow now follows the demand and the clock is closer to the patient's own rate.", "settings": { "simvBase": "PC", "pinsp": 16, "ti": 1.0, "rr": 13 } },
-  "criteria": { "minFraction": 0.3, "aiAfter": 10, "over": "mandatory" }
+  "criteria": { "minFraction": 0.25, "aiAfter": 10, "over": "mandatory" }
 }

@@ -62,7 +62,7 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
   ];
   if (settings.mode === 'SIMV') {
     const rrIndex = tiles.findIndex(([label]) => label === 'RR');
-    tiles.splice(rrIndex + 1, 0, ['RRmand', v(simv?.mandatory, 0), '/min mandatory'], ['RRspont', v(simv?.spontaneous, 0), '/min spontaneous']);
+    if (rrIndex >= 0) tiles.splice(rrIndex + 1, 0, ['RRmand', v(simv?.mandatory, 0), '/min mandatory'], ['RRspont', v(simv?.spontaneous, 0), '/min spontaneous']);
   }
   const shown = hideBalloonTiles ? tiles.filter(([label]) => !BALLOON_TILES.has(label)) : tiles;
   return (

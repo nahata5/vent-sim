@@ -9,7 +9,7 @@
   "settings": { "mode": "SIMV", "simvBase": "PC", "rr": 14, "pinsp": 12, "ti": 1.0, "ps": 8, "ets": 0.6, "peep": 5, "flowTrigger": 2, "simvWindow": 0.2 },
   "seed": 33,
   "objectives": [
-    "Recognize breath stacking from the mandatory clock: two breaths in one effort, the second time-triggered, with a truncated expiration.",
+    "Recognize breath stacking in SIMV: a supported breath cycles early at 60 % of peak flow, the effort continues and re-triggers, and the mandatory clock adds its own breaths on top — two breaths in one effort with a truncated expiration.",
     "Fix it by letting the patient own the rhythm: pressure support (or assist-control) instead of SIMV."
   ],
   "targetPatterns": ["double-trigger"],

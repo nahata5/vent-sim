@@ -25,7 +25,11 @@ export function breathKindFromMode(s: Pick<VentSettings, 'mode'> & Partial<Pick<
   }
 }
 
-/** Absolute inspiratory pressure target implied by the settings (the mandatory breath in SIMV); NaN when flow-controlled. */
+/**
+ * Absolute inspiratory pressure target implied by the settings (the mandatory breath in SIMV); NaN when
+ * flow-controlled. No production caller yet: M12 (PRVC) and M13 (APRV) use it for the settings-derived
+ * fallback target.
+ */
 export function pTargetFromSettings(s: VentSettings): number {
   switch (s.mode) {
     case 'PC-AC':
