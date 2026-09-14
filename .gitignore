@@ -12,3 +12,6 @@ scripts/dev/
 .playwright-mcp/
 *.png
 !docs/screenshots/*.png
+
+# Claude Code worktrees (EnterWorktree)
+.claude/worktrees/
