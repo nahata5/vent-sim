@@ -60,7 +60,11 @@ also fails the same way on unrelated commits, so treat that as environment, not 
 alone — it passed on the first try this session. `tests/e2e/quiz.spec.ts` and the `a11y.spec.ts`
 colour-contrast check have each shown a one-off failure under a loaded full Playwright run in multiple past
 sessions (M10 Tasks 5–6, the a11y check again in M11, again in M12, and again this session); each has
-reproduced clean when re-run alone — same rule: re-run the spec alone, report both outcomes. Live-site check
+reproduced clean when re-run alone — same rule: re-run the spec alone, report both outcomes. A third one
+joined the list in the M13 controller's verification: `tests/e2e/load.spec.ts` "truth layer adds channels and
+loops; pause, freeze and speed controls work" failed once under the loaded full run because one worker batch
+landed inside the 600 ms window after the pause click (`tLatest` 4.50 vs 4.48); alone it passes 4/4 across
+the three projects, and the pause path has no mode-specific code. Live-site check
 after a push: fetch the served `assets/index-*.js` and grep for a **literal** string of the change (template
 strings such as `mtab-${id}` or `setting-${f.key}` are not literal in the bundle; `mobile-tabs`,
 `view-toggles` and `simv-base-select` are, because those are written as literal string props) — but see the
@@ -611,8 +615,9 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > detector suite un-gated; the performance test is wall-clock and must be re-run alone if the parallel run
 > is under load), lint clean, Playwright 44/44 (+ 9 screenshot tests behind `SCREENSHOTS=1`, 1 a11y flake
 > re-run alone) across three projects (chromium, mobile, tablet; `tests/e2e/quiz.spec.ts` and the
-> `a11y.spec.ts` colour-contrast check have each shown a one-off flake under a loaded full run in M10–M13 —
-> re-run the spec alone and report both outcomes if it recurs), build clean (`dist/assets/index-D4LrRMw_.js`
+> `a11y.spec.ts` colour-contrast check have each shown a one-off flake under a loaded full run in M10–M13,
+> and `load.spec.ts`'s pause test did once in M13 (a worker batch inside the pause window) — re-run the spec
+> alone and report both outcomes if it recurs), build clean (`dist/assets/index-D4LrRMw_.js`
 > 299.63 kB, gzip 104.04 kB). All numbers from this session's full verification run in the `m13-aprv`
 > worktree, on branch `worktree-m13-aprv` (not yet merged to main — do that first if the owner confirms).
 >
