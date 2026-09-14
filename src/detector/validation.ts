@@ -32,11 +32,12 @@ export function runEmergence(def: ScenarioDef): EmergenceRow {
   const from = Math.max(10, injectorOnset + 8);
   const before = out.breaths.filter((b) => b.tStart > from && b.tStart < EMERGENCE_FIX_AT);
   const effortsBefore = out.efforts.filter((e) => e.tOnset > from && e.tOnset < EMERGENCE_FIX_AT);
+  const pool = crit.over === 'mandatory' ? before.filter((b) => b.mandatory) : before;
   const targets = def.targetPatterns.map((p) => {
     const fraction =
       p === 'ineffective-effort'
         ? effortsBefore.filter((e) => e.ineffective).length / Math.max(1, effortsBefore.length)
-        : before.filter((b) => b.patterns.includes(p as PatternId)).length / Math.max(1, before.length);
+        : pool.filter((b) => b.patterns.includes(p as PatternId)).length / Math.max(1, pool.length);
     return { pattern: p, fraction, required: crit.minFraction };
   });
   const aiBefore = asynchronyIndex(out, from, EMERGENCE_FIX_AT).ai;

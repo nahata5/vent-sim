@@ -19,6 +19,8 @@ interface Props {
   spo2: Spo2Readout | null;
   /** Bedside quiz (D-019): drop the tiles that need the balloon and the SpO2 shunt detail. */
   hideBalloonTiles?: boolean;
+  /** SIMV mandatory/spontaneous rates (M11); null outside SIMV. */
+  simv: { mandatory: number; spontaneous: number } | null;
 }
 
 /** Tiles that need the esophageal balloon. */
@@ -28,7 +30,7 @@ function v(x: number | null | undefined, digits = 1): string {
   return x === null || x === undefined || !Number.isFinite(x) ? '—' : x.toFixed(digits);
 }
 
-export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false }: Props) {
+export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, busy, ai, spo2, hideBalloonTiles = false, simv }: Props) {
   const p01 = maneuvers.p01?.values?.p01;
   const pocc = maneuvers.pocc?.values?.dPocc;
   const occ = maneuvers.occlusionTest?.values;
@@ -58,6 +60,10 @@ export function MonitorPanel({ ctl, m, maneuvers, settings, rrTotal, veMinute, b
     ['ΔPes/ΔPaw', occ ? v(occ.ratio, 2) : '—', 'occlusion test'],
     ['SpO2', v(spo2?.spo2, 0), spo2 && !hideBalloonTiles ? `% schematic · PaO2 ${v(spo2.paO2, 0)} · shunt ${v(100 * spo2.shunt, 0)} %` : '% schematic'],
   ];
+  if (settings.mode === 'SIMV') {
+    const rrIndex = tiles.findIndex(([label]) => label === 'RR');
+    if (rrIndex >= 0) tiles.splice(rrIndex + 1, 0, ['RRmand', v(simv?.mandatory, 0), '/min mandatory'], ['RRspont', v(simv?.spontaneous, 0), '/min spontaneous']);
+  }
   const shown = hideBalloonTiles ? tiles.filter(([label]) => !BALLOON_TILES.has(label)) : tiles;
   return (
     <section class="panel monitor" aria-label="Monitored values" data-testid="monitor-panel">

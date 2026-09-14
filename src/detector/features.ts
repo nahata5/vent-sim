@@ -6,6 +6,7 @@
 import type { CycleCause, Mode, TriggerCause, VentEvent } from '../sim/types';
 import type { VentSettings } from '../sim/vent/settings';
 import { k } from '../config/constants';
+import { breathKindFromMode, type BreathKind } from '../sim/vent/breath-kind';
 
 export type MeasuredKey = 't' | 'paw' | 'flow' | 'vol' | 'pes';
 
@@ -34,6 +35,7 @@ export interface DeviceContext {
   mode: Mode;
   peep: number;
   pTarget: number;
+  breathKind: BreathKind;
   riseTime: number;
   ets: number;
   flowTrigger: number; // L/min
@@ -323,7 +325,7 @@ export function extractFeatures(r: MeasuredReader, b: MeasuredBreath, ctx: Devic
   // Inspiratory flow decay tail (pressure-targeted breaths): log-linear fit of flow between ETS and
   // 1.5·ETS of the peak, i.e. the passive part of the decay after the effort has relaxed.
   let inspTailTau = NaN;
-  if (ctx.mode !== 'VC-AC' && flowPeak > 0.05) {
+  if (ctx.breathKind !== 'vc' && flowPeak > 0.05) {
     let sx = 0, sy = 0, sxx = 0, sxy = 0, n = 0;
     const hi = 1.5 * ctx.ets * flowPeak;
     const lo = 0.9 * ctx.ets * flowPeak;
@@ -609,7 +611,7 @@ export function extractFeatures(r: MeasuredReader, b: MeasuredBreath, ctx: Devic
   // (running-max R, median τe, trapped volume). Effort only lowers the apparent step, hence the running max.
   let rStep = NaN;
   let ptpDeficit = 0;
-  if (ctx.mode === 'VC-AC') {
+  if (ctx.breathKind === 'vc') {
     const iStep = iS + Math.round(0.08 * fs);
     const qStep = rd('flow', iStep);
     const pStep = rd('paw', iStep);
@@ -744,7 +746,7 @@ export function extractFeatures(r: MeasuredReader, b: MeasuredBreath, ctx: Devic
   // decay continues on the passive time constant; a local τ that doubles marks the neural end, and the
   // time from there to cycle-off is how long the ventilator kept insufflating a relaxed patient.
   let slowTail = 0;
-  if (ctx.mode !== 'VC-AC' && flowPeak > 0.05) {
+  if (ctx.breathKind !== 'vc' && flowPeak > 0.05) {
     const w2 = Math.max(1, Math.round(0.05 * fs));
     const qsm = (i: number): number => {
       let m = 0;
@@ -871,6 +873,7 @@ export function deviceContext(s: VentSettings): DeviceContext {
     mode: s.mode,
     peep: s.peep,
     pTarget: s.peep + above,
+    breathKind: breathKindFromMode(s),
     riseTime: s.riseTime,
     ets: s.ets,
     flowTrigger: s.flowTrigger,

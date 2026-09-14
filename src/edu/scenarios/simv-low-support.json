@@ -1,0 +1,18 @@
+{
+  "id": "simv-low-support",
+  "order": 400,
+  "category": "mode",
+  "title": "SIMV with a low rate and low PS: the spontaneous breaths carry the work",
+  "summary": "A COPD patient on SIMV-VC at 8 mandatory breaths a minute with PS 5 in between and no PEEP. The mandatory breaths are comfortable; every spontaneous breath is barely supported against intrinsic PEEP, so efforts are large for what they get and some never trigger at all. Compare the two breath types on the same trace.",
+  "phenotype": "copd",
+  "drive": { "rate": 18, "ti": 0.9, "pmax": 6, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.15 },
+  "settings": { "mode": "SIMV", "simvBase": "VC", "rr": 8, "vt": 450, "peakFlow": 35, "ps": 5, "ets": 0.25, "peep": 0, "flowTrigger": 3.5, "apneaTime": 30 },
+  "seed": 31,
+  "objectives": [
+    "Tell the mandatory breaths from the spontaneous ones on the pressure and flow traces, and see which ones the patient works for.",
+    "Fix it by leaving SIMV: pressure support with modest PS, a short breath (ETS up), PEEP against the intrinsic PEEP and a sharper trigger; check that the missed efforts stop."
+  ],
+  "targetPatterns": ["ineffective-effort", "auto-peep"],
+  "fix": { "at": 60, "note": "Leave SIMV: PSV with PS 8, ETS 60 %, PEEP 5, trigger 1.5 L/min — every breath supported the same way, no clock, external PEEP against the intrinsic PEEP.", "settings": { "mode": "PSV", "ps": 8, "ets": 0.6, "peep": 5, "flowTrigger": 1.5 } },
+  "criteria": { "minFraction": 0.2, "aiAfter": 10 }
+}

@@ -11,6 +11,7 @@ import type { VentSettings } from '../vent/settings';
 import type { InjectorKind, InjectorLogEntry } from '../injectors';
 import type { HeadlessResult } from '../headless';
 import { TRUTH_CHANNELS } from '../channels';
+import { breathEventAt, breathKindFromMode, type BreathKind } from '../vent/breath-kind';
 
 export type PatternId =
   | 'ineffective-effort'
@@ -67,6 +68,7 @@ export interface LabelContext {
   peep: number;
   /** Absolute inspiratory pressure target for pressure-targeted breaths (PEEP + Pinsp/PS). */
   pTarget: number;
+  breathKind: BreathKind;
   injectors: InjectorKind[];
   rScale: number;
   eScale: number;
@@ -100,6 +102,8 @@ export interface BreathLabel {
   neuralIndex: number | null;
   triggerDelay: number | null;
   cycleDelay: number | null;
+  breathKind: BreathKind;
+  mandatory: boolean;
 }
 
 export interface EffortLabel {
@@ -206,6 +210,20 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
   }
   const assistedEffort = new Set([...assistedOf.values()]);
 
+  // Stacked mandatory breath (SIMV, D-022): a machine-triggered breath that starts while the neural
+  // inspiration that already triggered the previous breath is still active is the second cycle of that
+  // effort. No relaxation-tail allowance here: the tail exists only to attribute a late *patient* trigger
+  // to the effort that caused it, not to call a machine breath during relaxation a second cycle of it — a
+  // time trigger that lands after neural inspiration ends is a coincidence, not a stack.
+  const stackedOn = (i: number): number | undefined => {
+    const b = breaths[i];
+    const ej = effortOf.get(i - 1);
+    if (!b || ej === undefined) return undefined;
+    const e = neural[ej];
+    if (!e) return undefined;
+    return b.tStart >= e.tOnset && b.tStart <= e.tOnset + e.ti ? ej : undefined;
+  };
+
   // Effort labels.
   const efforts: EffortLabel[] = [];
   const machineInspAt = (t: number): boolean => {
@@ -240,6 +258,10 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     const b = breaths[i];
     if (!b || b.tEnd === null) continue;
     const ctx = inp.ctxAt(b.tStart);
+    const be = breathEventAt(inp.events, b.tStart);
+    const kind: BreathKind = be?.kind ?? ctx.breathKind;
+    const mandatory = be?.mandatory ?? kind !== 'ps';
+    const pTarget = be && Number.isFinite(be.pTarget) ? be.pTarget : ctx.pTarget;
     const patterns: PatternId[] = [];
     const ev: Record<string, number> = {};
     const iS = inp.indexAt(b.tStart);
@@ -288,6 +310,14 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
         ev.reverseDelay = re.tOnset - b.tStart;
         lastEffortForBreath.set(rtj, i);
       }
+    } else if (stackedOn(i) !== undefined) {
+      const ej2 = stackedOn(i) as number;
+      const pb = breaths[i - 1];
+      patterns.push('double-trigger');
+      ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
+      ev.firstBreath = i - 1;
+      ev.mandatoryStack = 1;
+      lastEffortForBreath.set(ej2, i);
     } else if (aj !== undefined && e) {
       // Machine breath that met an effort already under way (D-012): late relative to the effort onset.
       triggerDelay = b.tStart - e.tOnset;
@@ -340,12 +370,12 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
       let pmusPeakInsp = 0;
       for (let idx = iS; idx <= iI; idx++) pmusPeakInsp = Math.max(pmusPeakInsp, inp.read('truth.pmus', idx));
       ev.pmusRiseInsp = pmusPeakInsp - pmusAtStart;
-      if (ctx.mode === 'VC-AC' && (e || rtj !== undefined) && ptp >= k('LABEL_FLOW_STARVATION_PTP') && pmusPeak >= k('LABEL_FLOW_STARVATION_PMUS') && pmusPeakInsp - pmusAtStart >= k('LABEL_FLOW_STARVATION_RISE')) {
+      if (kind === 'vc' && (e || rtj !== undefined) && ptp >= k('LABEL_FLOW_STARVATION_PTP') && pmusPeak >= k('LABEL_FLOW_STARVATION_PMUS') && pmusPeakInsp - pmusAtStart >= k('LABEL_FLOW_STARVATION_RISE')) {
         patterns.push('flow-starvation');
       }
-      if (ctx.mode !== 'VC-AC' && pawEarlyMax > ctx.pTarget + k('LABEL_OVERSHOOT_MARGIN')) {
+      if (kind !== 'vc' && pawEarlyMax > pTarget + k('LABEL_OVERSHOOT_MARGIN')) {
         patterns.push('overshoot');
-        ev.overshoot = pawEarlyMax - ctx.pTarget;
+        ev.overshoot = pawEarlyMax - pTarget;
       }
       // End-expiratory alveolar pressure over the 30 ms before the next breath, with the effort removed:
       // Ppl = Pcw,rec − α·Pmus + …, so the relaxed alveolar pressure is Palv + Pmus_eff (α ≈ 1 on average).
@@ -401,6 +431,8 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
       neuralIndex: ej ?? rtj ?? aj ?? null,
       triggerDelay,
       cycleDelay,
+      breathKind: kind,
+      mandatory,
     });
   }
   return { breaths: out, efforts };
@@ -461,6 +493,7 @@ export function contextFromSettings(s: VentSettings, inj: InjectorLogEntry | und
     mode: s.mode,
     peep: s.peep,
     pTarget: s.peep + above,
+    breathKind: breathKindFromMode(s),
     injectors: inj?.kinds ?? [],
     rScale,
     eScale,

@@ -60,6 +60,11 @@ export interface VentSettings {
   ideal: boolean;
   /** Esophageal balloon channel enabled. */
   esophagealBalloon: boolean;
+  // SIMV
+  /** Mandatory breath type in SIMV; spontaneous breaths use ps/ets/tiMax. */
+  simvBase: 'VC' | 'PC';
+  /** Synchronization window as a fraction of the SIMV period, at the end of the period. */
+  simvWindow: number;
 }
 
 export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
@@ -104,12 +109,15 @@ export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
     deviceRate: k('DEVICE_RATE_DEFAULT'),
     ideal: false,
     esophagealBalloon: false,
+    simvBase: 'VC',
+    simvWindow: k('SIMV_SYNC_WINDOW'),
   };
 }
 
 export type NumericSettingKey =
   | 'peep' | 'fio2' | 'flowTrigger' | 'pressureTrigger' | 'biasFlow' | 'vt' | 'rr' | 'peakFlow'
-  | 'rampEndFraction' | 'pause' | 'pinsp' | 'ti' | 'riseTime' | 'ps' | 'ets' | 'tiMax' | 'apneaTime' | 'refractory';
+  | 'rampEndFraction' | 'pause' | 'pinsp' | 'ti' | 'riseTime' | 'ps' | 'ets' | 'tiMax' | 'apneaTime' | 'refractory'
+  | 'simvWindow';
 
 /** Model bounds of Brief 1 §5 and sane device ranges; one table for the clamp, the settings UI and the scenario validator. */
 export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: number; unit: string }> = {
@@ -131,6 +139,7 @@ export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: numbe
   tiMax: { min: 0.5, max: 4, unit: 's' },
   apneaTime: { min: 5, max: 60, unit: 's' },
   refractory: { min: 0, max: 0.5, unit: 's' },
+  simvWindow: { min: 0.05, max: 1, unit: 'fraction of the period' },
 };
 
 /** Clamp settings to the model bounds of Brief 1 §5 and sane device ranges. */

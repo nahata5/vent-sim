@@ -77,3 +77,16 @@ describe('capstone scenario (Spec §8 #18: "find all the problems")', () => {
     expect(def.fix?.injectors && Object.values(def.fix.injectors).every((v) => v === null)).toBe(true);
   });
 });
+
+describe('SIMV scenarios', () => {
+  it('the SIMV scenarios are in the mode category, on SIMV, with a fix and criteria', () => {
+    for (const id of ['simv-low-support', 'simv-mixed-breaths', 'simv-stacking']) {
+      const s = scenarioById(id);
+      expect(s.category).toBe('mode');
+      expect(s.settings.mode).toBe('SIMV');
+      expect(s.fix).toBeDefined();
+      expect(s.criteria).toBeDefined();
+    }
+    expect(scenarioById('simv-mixed-breaths').criteria?.over).toBe('mandatory');
+  });
+});

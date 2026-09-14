@@ -1,0 +1,18 @@
+{
+  "id": "simv-stacking",
+  "order": 402,
+  "category": "mode",
+  "title": "SIMV-PC with a high ETS: early-cycled supported breaths and a mandatory clock that stacks",
+  "summary": "A patient breathing at 24 a minute on SIMV-PC with 14 mandatory breaths a minute and PS 8. The supported breaths cycle off at 60 % of peak flow while the effort continues, so either the patient re-triggers inside the same effort or the mandatory clock delivers a breath on top of it: stacked volumes, a short expiration, a rising baseline.",
+  "phenotype": "normal",
+  "drive": { "rate": 24, "ti": 1.1, "pmax": 10, "cvRate": 0.06, "cvTi": 0.06, "cvPmax": 0.08 },
+  "settings": { "mode": "SIMV", "simvBase": "PC", "rr": 14, "pinsp": 12, "ti": 1.0, "ps": 8, "ets": 0.6, "peep": 5, "flowTrigger": 2, "simvWindow": 0.2 },
+  "seed": 33,
+  "objectives": [
+    "Recognize breath stacking in SIMV: a supported breath cycles early at 60 % of peak flow, the effort continues and re-triggers, and the mandatory clock adds its own breaths on top — two breaths in one effort with a truncated expiration.",
+    "Fix it by letting the patient own the rhythm: pressure support (or assist-control) instead of SIMV."
+  ],
+  "targetPatterns": ["double-trigger"],
+  "fix": { "at": 60, "note": "PSV with PS 10 and ETS 25 %: one breath per effort, cycled when the effort ends.", "settings": { "mode": "PSV", "ps": 10, "ets": 0.25 } },
+  "criteria": { "minFraction": 0.15, "aiAfter": 10 }
+}

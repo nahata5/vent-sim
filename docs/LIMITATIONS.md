@@ -47,6 +47,15 @@ entry names the decision or milestone that introduced it. Newest additions last 
   Pplat; the maneuvers do not abort on effort the way the expiratory hold does.
 - **The decremental trial's ΔP uses the set PEEP**, not total PEEP; in a patient with intrinsic PEEP the
   per-step Crs is under-estimated (an expiratory hold per step is not part of the maneuver).
+- **SIMV's synchronization window and period clock are vendor-specific** (D-022): `SIMV_SYNC_WINDOW`
+  (0.25 of the period) and the clock-resets-on-mandatory-breath behaviour follow one vendor family
+  (PB-840 style); another (Dräger) keeps a fixed clock instead, which would change the achieved mandatory
+  rate when the patient triggers inside the window. Both are exposed as settings (`simvWindow`) rather
+  than fixed in the physics, but the default follows one convention, not a vendor-neutral standard.
+- **The detector is reported but not validated in SIMV** (D-022): `docs/VALIDATION.md`'s SIMV table comes
+  from `scripts/mode-detector-report.ts` against the three SIMV scenarios' own truth labels, not the
+  held-out grid (which has no SIMV breaths and is never tuned against); the numbers are informative, not
+  a gated target.
 
 ## Education layer and export
 
@@ -67,6 +76,11 @@ entry names the decision or milestone that introduced it. Newest additions last 
   validator's own enumerations and bounds so the two cannot drift in content, but the reader's own LLM can
   still return JSON that violates them (wrong types, out-of-range numbers, invented keys); `validateScenario`
   in `src/edu/scenario-schema.ts` is the actual gate — nothing is saved or run until it reports no errors.
+- **The SIMV lessons end by leaving SIMV, not by tuning it** (D-022): `simv-low-support` and
+  `simv-stacking`'s scripted fixes switch the patient to PSV; no combination of SIMV settings within the
+  authorized tuning ranges brought either scenario's after-fix asynchrony index under the 10 % gate (a
+  finding recorded in D-022, not a bug). `simv-mixed-breaths` stays in SIMV (base switched to PC) because
+  its target pattern needs a mandatory clock to demonstrate.
 
 ## Detector (what the bedside signals cannot show)
 

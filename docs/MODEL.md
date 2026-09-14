@@ -144,6 +144,10 @@ signals (D-002), actuators run at 1 ms:
 - **Cycling**: VC by volume/time; PC by time; PSV by flow ≤ ETS·Q_peak held for 30 ms, by Ti max, or by
   pressure safety Paw > target + 3; any breath by the high-pressure alarm. The apnea backup delivers PC
   breaths at the backup rate until the next patient trigger.
+- **SIMV** (D-022): period `60/rr` from the last mandatory breath; a patient trigger in the last
+  `SIMV_SYNC_WINDOW` of the period delivers the mandatory breath (VC or PC plan per `simvBase`) early;
+  earlier efforts get pressure-supported breaths (the PSV plan with `ps`, `ets`, `tiMax`). Every
+  inspiration start emits a `breath` event with its kind, mandatory flag and pressure target.
 - **Alarms** (Brief 1 §2.6): high Ppeak (cycles the breath), low Vte, high/low Ve and high RR on a rolling
   minute, apnea, disconnect (Paw < PEEP − 3 for 0.5 s), high leak, Ti max, high PEEPi after an expiratory hold.
 - **Sensor chain**: first-order low-pass (15 ms), transport delay (20 ms), band-limited noise (Paw 0.15
@@ -215,7 +219,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (262 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (263 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -314,6 +318,7 @@ Generated from `src/config/constants.ts` (262 constants). Confidence: V = verifi
 | `SENSOR_PAW_QUANTUM` | 0.1 | cmH2O | L | Brief 1 §4: quantization 0.1 cmH2O |
 | `SENSOR_FLOW_QUANTUM` | 0.0016666666666666668 | L/s | L | Brief 1 §4: quantization 0.1 L/min |
 | `TRIGGER_REFRACTORY` | 0.2 | s | M | Spec §5; Brief 1 §2.1: 150–300 ms [uncertain, vendor-specific] |
+| `SIMV_SYNC_WINDOW` | 0.25 | fraction of the SIMV period | M | Brief 1 §2.5: mandatory breaths synchronize to a patient trigger "inside a window before each scheduled breath"; window length vendor-specific (Dräger 5 s, PB-840 start-of-period); the last quarter of the period chosen [M] |
 | `ACTUATOR_LATENCY` | 0.03 | s | M | Brief 1 §2.1: actuator latency ≈ 20–50 ms [uncertain] |
 | `SERVO_TAU` | 0.03 | s | M | Spec §5; Brief 1 §1.1: pressure servo effective lag 20–50 ms [uncertain] |
 | `SERVO_SOURCE_R` | 4 | cmH2O/(L/s) | M | Spec §5 "small source resistance"; sized so a 6 L/min demand dips Paw ≈ 0.4 cmH2O before the servo recovers |

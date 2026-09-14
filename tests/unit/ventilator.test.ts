@@ -320,3 +320,29 @@ describe('setting bounds table', () => {
     expect(SETTING_BOUNDS.vt).toEqual({ min: 100, max: 1200, unit: 'mL' });
   });
 });
+
+describe('breath events', () => {
+  it('every breath start emits a breath event with the kind, mandatory flag and target of that mode', () => {
+    const pc = runHeadless({ patient: presetPatient('normal'), settings: { ...defaultSettings('PC-AC'), peep: 5, pinsp: 12, rr: 15 }, seed: 1, duration: 12 });
+    const bev = pc.events.filter((e): e is Extract<VentEvent, { type: 'breath' }> => e.type === 'breath');
+    expect(bev.length).toBe(pc.breaths.length);
+    for (const [i, e] of bev.entries()) {
+      expect(e.kind).toBe('pc');
+      expect(e.mandatory).toBe(true);
+      expect(e.pTarget).toBe(17);
+      expect(Math.abs(e.t - (pc.breaths[i]?.tStart ?? -1))).toBeLessThan(1e-6);
+    }
+    const psv = runHeadless({ patient: presetPatient('normal'), settings: { ...defaultSettings('PSV'), peep: 5, ps: 10, apneaTime: 30 }, seed: 1, duration: 12, drive: effortsAt([3, 6, 9]) });
+    const ps = psv.events.filter((e): e is Extract<VentEvent, { type: 'breath' }> => e.type === 'breath');
+    expect(ps.length).toBe(3);
+    for (const e of ps) {
+      expect(e.kind).toBe('ps');
+      expect(e.mandatory).toBe(false);
+      expect(e.pTarget).toBe(15);
+    }
+    const vc = runHeadless({ patient: presetPatient('normal'), settings: { ...defaultSettings('VC-AC'), rr: 12 }, seed: 1, duration: 6 });
+    const v = vc.events.find((e) => e.type === 'breath');
+    expect(v && v.type === 'breath' ? v.kind : null).toBe('vc');
+    expect(v && v.type === 'breath' ? v.pTarget : 0).toBeNaN();
+  });
+});

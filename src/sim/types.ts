@@ -3,7 +3,10 @@
  */
 
 export type Mode = 'VC-AC' | 'PC-AC' | 'PSV' | 'CPAP' | 'SIMV' | 'PRVC';
-export const IMPLEMENTED_MODES: readonly Mode[] = ['VC-AC', 'PC-AC', 'PSV', 'CPAP'];
+export const IMPLEMENTED_MODES: readonly Mode[] = ['VC-AC', 'PC-AC', 'PSV', 'CPAP', 'SIMV'];
+
+/** Breath plan actually delivered (Spec 2026-09-14 §1): flow-controlled, pressure-controlled time-cycled, flow-cycled spontaneous, or an APRV high phase. */
+export type BreathKind = 'vc' | 'pc' | 'ps' | 'aprv';
 
 export type Phase = 'insp' | 'pause' | 'exp' | 'exp-hold' | 'occlusion';
 
@@ -24,6 +27,8 @@ export type AirwayBC =
 export type VentEvent =
   | { type: 'trigger'; t: number; cause: TriggerCause }
   | { type: 'cycle'; t: number; cause: CycleCause }
+  /** Emitted at every inspiration start: what plan this breath runs, whether it was mandatory, and its absolute pressure target (NaN for flow-controlled breaths). */
+  | { type: 'breath'; t: number; kind: BreathKind; mandatory: boolean; pTarget: number }
   | { type: 'pause-end'; t: number }
   | { type: 'hold-start'; t: number; kind: 'insp' | 'exp' | 'occlusion' }
   | { type: 'hold-end'; t: number; kind: 'insp' | 'exp' | 'occlusion' }

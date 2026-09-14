@@ -102,7 +102,7 @@ ${settingsLines()}
   targetPatterns: array of pattern ids the learner must find, from
     ${quote(PATTERN_IDS)}
   fix: { "at": seconds, "note": string, "settings": {…partial settings}, "drive": {…partial drive}, "injectors": { "<kind>": {…} or null to remove } }
-  criteria: { "minFraction": 0–1, "aiAfter": 0–100, "extra": [ { "metric": ${quote(CRITERIA_EXTRA_METRICS)}, "max": number } ] }
+  criteria: { "minFraction": 0–1, "aiAfter": 0–100, "extra": [ { "metric": ${quote(CRITERIA_EXTRA_METRICS)}, "max": number } ], "over": "all" | "mandatory" (which breaths the fractions count; "mandatory" for lessons about SIMV's mandatory breaths) }
   quizExtras: array of { "metric": one of ${quote(QUIZ_EXTRA_METRICS)}, "min"?: number, "max"?: number, "label"?: string }
 
 UNITS: pressures cmH2O, volumes mL (settings) or L (mechanics), flows L/min (settings), times s, rates /min.

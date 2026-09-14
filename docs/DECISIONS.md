@@ -584,3 +584,57 @@ store second so hash links and quiz links work for both. Settings bounds moved i
 (`src/sim/vent/settings.ts`) so the clamp, the UI and the validator share one table. The help dialog is a
 native `<dialog>`; it holds no truth data, so it stays available in the locked quiz view; the first-visit
 auto-open is remembered in `ventsim.help.seen.v1`.
+
+## D-022 · SIMV: end-of-period synchronization window, clock reset on the mandatory breath, the `breath` event, stacked mandatory breaths as double triggers (2026-09-14)
+
+The ventilator now emits a `breath` event at every inspiration start (`kind` vc | pc | ps, `mandatory`,
+`pTarget`). The truth labeler and the signal-only detector judge each breath by that kind instead of by
+`settings.mode`, which is what mixed-breath modes need (SIMV here, PRVC and APRV next). For the four
+existing modes the kind is a pure function of the mode, so the held-out detector grid reproduces its
+counts exactly (recorded in VALIDATION.md); the detector still reads only measured channels, events and
+settings. SIMV follows Brief 1 §2.5: mandatory VC or PC breaths at the set rate; a patient trigger inside
+the last `SIMV_SYNC_WINDOW` (0.25) of the period delivers the mandatory breath early; efforts earlier in
+the period get PS breaths (the PSV plan). The period clock resets on each mandatory breath (PB-840
+style; Dräger keeps a fixed clock), so the achieved mandatory rate can run a little above the set rate
+when the patient triggers inside the window — a modelling choice, vendor-specific, exposed as the
+advanced `simvWindow` setting. Apnea backup stays a PSV/CPAP feature (SIMV has a mandatory rate).
+
+Truth definition extended: a machine-triggered breath is a **double trigger** (evidence `mandatoryStack`)
+when it starts *while the neural inspiration is still active* — `tStart ≤ onset + neural Ti`, with **no**
+`LABEL_EFFORT_TAIL` allowance — of the same effort that already triggered the previous breath, which is
+the spec's "two ventilator cycles within one neural effort" regardless of the second cycle's trigger
+cause; previously only a patient-triggered second breath qualified. A time trigger that lands in the
+relaxation phase after neural Ti is a coincidence of the clock, not a second cycle of the effort, and
+counting it made every SIMV lesson unpassable (an early implementation with the `LABEL_EFFORT_TAIL`
+allowance flagged the mandatory clock landing shortly after relaxation began as a double trigger on
+nearly every cycle). `ScenarioCriteria.over: 'mandatory'` lets a scenario's emergence fraction count
+mandatory breaths only.
+
+The two "stay in SIMV" fixes tried for the low-support and stacking scenarios could not bring the
+after-fix asynchrony index under the 10 % scenario gate: a fixed-Ti mandatory breath running against a
+variable-duration neural effort always leaves a residual population of premature or delayed mandatory
+cycles (lengthening or shortening the mandatory Ti only trades which tail of the effort-duration
+distribution it misses), and a mandatory rate that sits at an exact submultiple of the neural drive rate
+phase-locks into reverse-trigger labels on a fixed fraction of cycles. So `simv-low-support` and
+`simv-stacking` fix by **leaving SIMV for PSV** (every breath supported the same way, no mandatory clock
+to miscycle), and `simv-mixed-breaths` fixes by **switching the mandatory base to PC** with `rr 13` and
+drive `rate 22` (breaking the harmonic lock without leaving SIMV, since the target pattern here is
+mandatory-breath flow starvation and needs a mandatory clock to demonstrate). This is a pedagogic finding
+in its own right, not just an implementation detail: SIMV's fixed mandatory clock racing a patient's own
+variable respiratory timing is inherently asynchrony-prone, and the bedside fix clinicians actually reach
+for is to leave the mode, which the scenario library now teaches directly.
+
+**Stacked-mandatory rule coverage (post-review, 2026-09-14).** The stacked-mandatory truth rule above (a
+machine-triggered breath starting while the neural inspiration that already triggered the previous breath
+is still active) is exercised only by the synthetic `labelBreaths` test in `tests/unit/labeler.test.ts`; no
+shipped scenario produces a time-triggered stack. A time trigger can only land inside a still-active neural
+inspiration once the previous supported breath has already cycled early against that same effort — and a
+breath that cycles early and gets re-triggered by the continuing effort is a *patient* re-trigger, not a
+time trigger, so it satisfies the rule through `triggerCause === 'patient'` first. `simv-stacking`'s stacks
+are exactly this: PS breaths cycle early at ETS 60 %, the effort continues and re-triggers before the
+mandatory clock ever fires. For this reason the scenario's assertion (`tests/unit/labeler.test.ts`, "SIMV
+stacking") checks `evidence.firstBreath` — evidence that the truth rule matched a stacked pair at all —
+rather than the plan's original `triggerCause === 'time' && mandatory && mandatoryStack`, which would
+assert a code path the library never exercises. Also from tuning during this review: `simv-low-support`
+ships `peakFlow` 35 (the original plan called for 50) — the lower flow was needed to keep the after-fix
+asynchrony index under the scenario gate.

@@ -108,3 +108,29 @@ Every pattern has a complete card; case evidence names the neural and ventilator
 identification grading (Jaccard), fix grading (limits, unverified plateau, extras), composite score;
 progress survives a throwing storage and corrupt JSON; CSV shape with and without truth; JSON schema
 `ventsim-session/1`; batch grid + zip round trip with a manifest.
+
+## Detector in SIMV (reported, not gated; D-022)
+
+`npx tsx scripts/mode-detector-report.ts` runs the three SIMV scenarios' pre-fix (dyssynchronous) 60 s
+segment and compares the signal-only detector's per-breath patterns against the truth labeler's, breath by
+breath (first 10 s excluded as settling time). These numbers are informative only — the gated targets
+remain the held-out grid in §9.5, which contains no SIMV breaths.
+
+The stacked-mandatory truth rule (a time-triggered breath starting inside a neural inspiration that already
+triggered the previous breath) is exercised only by the synthetic `labelBreaths` test in
+`tests/unit/labeler.test.ts`; no shipped scenario produces it — see D-022 for why.
+
+| Scenario | Pattern | tp | fp | tn | fn | Sens | Spec |
+|---|---|---|---|---|---|---|---|
+| simv-low-support | ineffective-effort | 0 | 4 | 8 | 0 | NaN | 0.67 |
+| simv-low-support | double-trigger | 0 | 0 | 12 | 0 | NaN | 1.00 |
+| simv-low-support | flow-starvation | 0 | 6 | 6 | 0 | NaN | 0.50 |
+| simv-low-support | auto-peep | 1 | 0 | 0 | 11 | 0.08 | NaN |
+| simv-mixed-breaths | ineffective-effort | 0 | 0 | 29 | 0 | NaN | 1.00 |
+| simv-mixed-breaths | double-trigger | 3 | 5 | 21 | 0 | 1.00 | 0.81 |
+| simv-mixed-breaths | flow-starvation | 3 | 1 | 25 | 0 | 1.00 | 0.96 |
+| simv-mixed-breaths | auto-peep | 15 | 8 | 0 | 6 | 0.71 | 0.00 |
+| simv-stacking | ineffective-effort | 0 | 0 | 27 | 0 | NaN | 1.00 |
+| simv-stacking | double-trigger | 4 | 1 | 20 | 2 | 0.67 | 0.95 |
+| simv-stacking | flow-starvation | 0 | 0 | 27 | 0 | NaN | 1.00 |
+| simv-stacking | auto-peep | 16 | 0 | 0 | 11 | 0.59 | NaN |

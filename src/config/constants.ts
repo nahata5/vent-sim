@@ -143,6 +143,7 @@ export const CONSTANTS = {
 
   // ───────────────────────── Ventilator logic ─────────────────────────
   TRIGGER_REFRACTORY: c(0.2, 's', 'Spec §5; Brief 1 §2.1: 150–300 ms [uncertain, vendor-specific]', 'M'),
+  SIMV_SYNC_WINDOW: c(0.25, 'fraction of the SIMV period', 'Brief 1 §2.5: mandatory breaths synchronize to a patient trigger "inside a window before each scheduled breath"; window length vendor-specific (Dräger 5 s, PB-840 start-of-period); the last quarter of the period chosen [M]', 'M'),
   ACTUATOR_LATENCY: c(0.03, 's', 'Brief 1 §2.1: actuator latency ≈ 20–50 ms [uncertain]', 'M'),
   SERVO_TAU: c(0.03, 's', 'Spec §5; Brief 1 §1.1: pressure servo effective lag 20–50 ms [uncertain]', 'M'),
   SERVO_SOURCE_R: c(4.0, 'cmH2O/(L/s)', 'Spec §5 "small source resistance"; sized so a 6 L/min demand dips Paw ≈ 0.4 cmH2O before the servo recovers', 'M'),

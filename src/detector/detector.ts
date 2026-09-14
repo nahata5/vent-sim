@@ -13,6 +13,7 @@ import type { PatternId } from '../sim/truth/labeler';
 import type { VentEvent } from '../sim/types';
 import type { VentSettings } from '../sim/vent/settings';
 import type { HeadlessResult } from '../sim/headless';
+import { breathEventAt } from '../sim/vent/breath-kind';
 import { deviceContext, extractFeatures, measuredBreath, type BreathFeatures, type DeviceContext, type MeasuredBreath, type MeasuredReader, type PassiveRef } from './features';
 
 export interface DetectedBreath {
@@ -90,7 +91,9 @@ export function detect(inp: DetectorInput): DetectorOutput {
     const trig = triggers[ti];
     const triggerT = trig && trig.t <= b.tStart + 1e-9 ? trig.t : b.tStart;
     const nextTrig = triggers[ti + 1];
-    const ctx = inp.ctxAt(b.tStart);
+    const ctx0 = inp.ctxAt(b.tStart);
+    const be = breathEventAt(inp.events, b.tStart);
+    const ctx: DeviceContext = be ? { ...ctx0, breathKind: be.kind, pTarget: Number.isFinite(be.pTarget) ? be.pTarget : ctx0.pTarget } : ctx0;
     const prev = inp.breaths[bi - 1];
 
     const prevInspEnd = prev ? (Number.isNaN(prev.tPauseEnd) ? prev.tInspEnd : prev.tPauseEnd) : null;
@@ -109,8 +112,8 @@ export function detect(inp: DetectorInput): DetectorOutput {
       }
     };
     const medTi = tiHist.length >= 3 ? median(tiHist) : f.ti;
-    const isPressure = ctx.mode !== 'VC-AC';
-    const spont = ctx.mode === 'PSV' || ctx.mode === 'CPAP';
+    const isPressure = ctx.breathKind !== 'vc';
+    const spont = ctx.breathKind === 'ps';
     const tauFit = Number.isFinite(f.lsqR) && Number.isFinite(f.lsqC) && f.lsqR > 0 ? (f.lsqR * f.lsqC) / 1000 : NaN;
     // Passive expiratory time constant: the running maximum over previous breaths (an effort only shortens
     // the apparent decay), else this breath's own fit, else the equation-of-motion fit.
