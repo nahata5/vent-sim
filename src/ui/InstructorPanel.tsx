@@ -1,10 +1,12 @@
 import { useState } from 'preact/hooks';
 import type { SessionController } from '../app/controller';
-import { SCENARIOS, type ScenarioDef } from '../edu/scenarios';
 import { CARDS } from '../edu/cards';
 import type { PatternId } from '../sim/truth/labeler';
 import { downloadBytes } from '../export/download';
 import { QUIZ_HIDE_KEYS, QUIZ_HIDE_LABELS, bedsideHide, quizLink, type QuizHideKey } from '../edu/quiz-view';
+import { parseScenarioText } from '../edu/scenario-schema';
+import { AUTHORING_PROMPT, EXAMPLE_SCENARIO } from '../edu/authoring';
+import type { ScenarioDef } from '../edu/scenarios';
 
 interface Props {
   ctl: SessionController;
@@ -13,20 +15,6 @@ interface Props {
 function num(v: string, fallback: number): number {
   const x = Number(v);
   return Number.isFinite(x) ? x : fallback;
-}
-
-/** Minimal structural validation of an imported scenario definition. */
-export function parseScenarioJson(text: string): { def: ScenarioDef | null; error: string | null } {
-  try {
-    const raw = JSON.parse(text) as Partial<ScenarioDef>;
-    for (const key of ['id', 'title', 'phenotype', 'settings'] as const) if (raw[key] === undefined) return { def: null, error: `missing "${key}"` };
-    if (typeof raw.settings !== 'object' || !raw.settings || !('mode' in raw.settings)) return { def: null, error: 'settings.mode is required' };
-    const defaults: Partial<ScenarioDef> = { order: 999, category: 'capstone', summary: '', drive: null, seed: 1, objectives: [], targetPatterns: [] };
-    const def = { ...defaults, ...raw } as ScenarioDef;
-    return { def, error: null };
-  } catch (e) {
-    return { def: null, error: (e as Error).message };
-  }
 }
 
 const ATTEMPTS_SHOWN = 20;
@@ -47,6 +35,18 @@ export function InstructorPanel({ ctl }: Props) {
   const [vco2, setVco2] = useState('200');
   const [json, setJson] = useState('');
   const [msg, setMsg] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const custom = ctl.customScenarios.all();
+  const validate = (): ScenarioDef | null => {
+    const r = parseScenarioText(json);
+    setErrors(r.errors);
+    setWarnings(r.warnings);
+    if (r.def) setMsg(`valid: "${r.def.title}"${r.warnings.length ? ` (${r.warnings.length} warning${r.warnings.length > 1 ? 's' : ''})` : ''}`);
+    else setMsg(`invalid: ${r.errors.length} problem${r.errors.length > 1 ? 's' : ''}`);
+    return r.def;
+  };
   const co2 = ctl.status?.co2 ?? null;
   const currentJson = () => JSON.stringify(ctl.scenario ?? {}, null, 2);
   const link = quizLink(ctl.scenario?.id ?? '', ctl.view.quizHide, `${location.origin}${location.pathname}`);
@@ -55,7 +55,7 @@ export function InstructorPanel({ ctl }: Props) {
     .flatMap(([id, p]) => p.history.map((a) => ({ id, ...a })))
     .sort((a, b) => b.at - a.at)
     .slice(0, ATTEMPTS_SHOWN);
-  const titleOf = (id: string) => SCENARIOS.find((s) => s.id === id)?.title ?? id;
+  const titleOf = (id: string) => ctl.findScenario(id)?.title ?? id;
   return (
     <section class="panel instructor" aria-label="Instructor mode" data-testid="instructor-panel">
       <h2>
@@ -226,48 +226,127 @@ export function InstructorPanel({ ctl }: Props) {
           )}
           <div class="row editor">
             <b>Scenario editor</b>
-            <textarea value={json} onInput={(e) => setJson(e.currentTarget.value)} placeholder="Scenario JSON (load current to start)" rows={8} data-testid="instr-json" spellcheck={false} />
+            <span class="muted">
+              Write your own: copy the authoring prompt into your LLM, answer its questions, paste the JSON here, validate, save.
+              See docs/SCENARIO_AUTHORING.md.
+            </span>
             <div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPrompt(true);
+                  const clip = navigator.clipboard;
+                  if (!clip) {
+                    setMsg('copy blocked: select the prompt field and copy it');
+                    return;
+                  }
+                  void clip
+                    .writeText(AUTHORING_PROMPT)
+                    .then(() => setMsg('authoring prompt copied'))
+                    .catch(() => setMsg('copy blocked: select the prompt field and copy it'));
+                }}
+                data-testid="author-copy-prompt"
+              >
+                Copy authoring prompt
+              </button>
+              <button type="button" onClick={() => { setJson(JSON.stringify(EXAMPLE_SCENARIO, null, 2)); setErrors([]); setWarnings([]); setMsg('example loaded; edit it or validate as is'); }} data-testid="author-load-example">
+                Load example
+              </button>
               <button type="button" onClick={() => setJson(currentJson())} data-testid="instr-current">
                 load current
+              </button>
+            </div>
+            {showPrompt && (
+              <textarea readOnly value={AUTHORING_PROMPT} rows={6} aria-label="Authoring prompt" data-testid="author-prompt-field" onFocus={(e) => e.currentTarget.select()} spellcheck={false} />
+            )}
+            <textarea value={json} onInput={(e) => setJson(e.currentTarget.value)} placeholder="Scenario JSON (load the example or the current scenario to start)" rows={8} data-testid="instr-json" spellcheck={false} />
+            <div>
+              <button type="button" onClick={() => void validate()} data-testid="author-validate">
+                Validate
               </button>
               <button
                 type="button"
                 class="primary"
                 onClick={() => {
-                  const r = parseScenarioJson(json);
-                  if (r.def) {
-                    ctl.loadScenarioDef(r.def);
-                    setMsg(`loaded "${r.def.title}"`);
-                  } else setMsg(`invalid: ${r.error}`);
+                  const def = validate();
+                  if (!def) return;
+                  const r = ctl.customScenarios.save(def);
+                  if (!r.ok) {
+                    setErrors([r.error]);
+                    setMsg('not saved');
+                    return;
+                  }
+                  ctl.loadScenario(def.id);
+                  location.hash = def.id;
+                  setMsg(`saved and loaded "${def.title}"`);
+                }}
+                data-testid="author-save"
+              >
+                Save to My scenarios
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const def = validate();
+                  if (def) {
+                    ctl.loadScenarioDef(def);
+                    setMsg(`running "${def.title}" (not saved)`);
+                  }
                 }}
                 data-testid="instr-load"
               >
-                run this JSON
+                run without saving
               </button>
               <button type="button" onClick={() => void downloadBytes(`${ctl.scenario?.id ?? 'scenario'}.json`, json || currentJson(), 'application/json')} data-testid="instr-export">
                 export
               </button>
               <label class="inline">
                 import
-                <input
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={(e) => {
-                    const f = e.currentTarget.files?.[0];
-                    if (!f) return;
-                    void f.text().then((txt) => setJson(txt));
-                  }}
-                  data-testid="instr-import"
-                />
+                <input type="file" accept="application/json,.json" onChange={(e) => { const f = e.currentTarget.files?.[0]; if (!f) return; void f.text().then((txt) => setJson(txt)); }} data-testid="instr-import" />
               </label>
             </div>
+            {errors.length > 0 && (
+              <ul class="author-errors" data-testid="author-errors">
+                {errors.map((e) => <li key={e}>{e}</li>)}
+              </ul>
+            )}
+            {warnings.length > 0 && (
+              <ul class="author-warnings muted" data-testid="author-warnings">
+                {warnings.map((w) => <li key={w}>{w}</li>)}
+              </ul>
+            )}
             {msg && (
               <span class="muted" data-testid="instr-msg">
                 {msg}
               </span>
             )}
           </div>
+          {custom.length > 0 && (
+            <div class="row custom-list" data-testid="custom-list">
+              <b>My scenarios</b>
+              <span class="muted">saved in this browser</span>
+              <ul>
+                {custom.map((s) => (
+                  <li key={s.id} data-testid="custom-row">
+                    <span>{s.title}</span>
+                    <button type="button" onClick={() => { ctl.loadScenario(s.id); location.hash = s.id; }} data-testid="custom-load">load</button>
+                    <button type="button" onClick={() => setJson(ctl.customScenarios.exportJson(s.id) ?? '')} data-testid="custom-export">edit</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        ctl.customScenarios.remove(s.id);
+                        ctl.refresh();
+                        setMsg(`removed "${s.title}"`);
+                      }}
+                      data-testid="custom-delete"
+                    >
+                      delete
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </section>

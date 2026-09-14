@@ -777,6 +777,27 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+.instructor-body .author-errors {
+  color: var(--danger);
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.instructor-body .author-warnings {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.instructor-body .custom-list ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.instructor-body .custom-list li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* ── Responsive layout (design 2026-09-11, D-020). Desktop ≥ 1100 px is the grid above. ── */
 
 /* Tablet: waveforms and drawer full width, panels in two columns below; the page scrolls. */

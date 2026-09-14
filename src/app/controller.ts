@@ -167,6 +167,11 @@ export class SessionController {
     });
   }
 
+  /** Re-render without a state change (custom-scenario list edits). */
+  refresh(): void {
+    this.notify();
+  }
+
   /** Shipped library first, then the learner's saved scenarios. */
   findScenario(id: string): ScenarioDef | null {
     return SCENARIOS.find((s) => s.id === id) ?? this.customScenarios.get(id);
