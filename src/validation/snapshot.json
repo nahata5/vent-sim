@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T18:01:19.845Z",
- "commit": "4651224",
+ "generatedAt": "2026-09-14T18:10:12.780Z",
+ "commit": "bd55e3e",
  "emergence": [
   {
    "id": "double-trigger",
@@ -323,7 +323,7 @@
     }
    ],
    "aiBefore": 0,
-   "aiAfter": 31.818181818181817,
+   "aiAfter": 42.10526315789474,
    "aiLimit": 10,
    "extra": [],
    "pass": false

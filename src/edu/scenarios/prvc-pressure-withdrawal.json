@@ -12,10 +12,10 @@
   "seed": 41,
   "objectives": [
     "Watch the regulated pressure step down breath by breath while the volume stays at target, and read the growing ΔPes on the balloon.",
-    "Fix by giving the patient a fixed pressure: PC-AC with a pressure that meets the demand."
+    "Fix by leaving the fixed-Ti breath behind: PSV with a support level the effort can lean on, cycled off by the effort itself instead of a clock."
   ],
   "targetPatterns": ["support-withdrawal", "high-effort"],
-  "fix": { "at": 60, "note": "PC-AC, Pinsp 14, Ti 0.9: a fixed pressure the effort can lean on.", "settings": { "mode": "PC-AC", "pinsp": 14, "ti": 0.9 } },
+  "fix": { "at": 60, "note": "Leave the fixed-Ti breath for PSV, PS 12: a patient-cycled breath that matches its own duration to the effort every time, instead of racing a fixed Ti against a variable one.", "settings": { "mode": "PSV", "ps": 12 } },
   "criteria": { "minFraction": 0.3, "aiAfter": 10 },
   "quizExtras": [{ "metric": "dPes", "max": 10, "label": "ΔPes ≤ 10 cmH2O" }]
 }
