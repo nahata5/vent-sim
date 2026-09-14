@@ -3,6 +3,11 @@
  * on evaluate reveals it; a plain hash keeps the M8 behaviour; the instructor's checkboxes set the hide set.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { dismissHelp } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 async function waitForSim(page: Page, seconds: number): Promise<void> {
   await page.waitForFunction((s) => (window.__ventsim?.ctl.store.tLatest ?? 0) >= s, seconds, { timeout: 120_000 });

@@ -1,5 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { dismissHelp } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 async function ready(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });
@@ -14,6 +19,10 @@ async function seriousViolations(page: Page) {
 test('main page has no serious or critical accessibility violations', async ({ page }) => {
   await page.goto('/#ineffective-effort');
   await ready(page);
+  await page.getByTestId('help-open').click();
+  await expect(page.getByTestId('help-dialog')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.getByTestId('help-close').click();
   await page.getByTestId('tab-quiz').click();
   expect(await seriousViolations(page)).toEqual([]);
 });

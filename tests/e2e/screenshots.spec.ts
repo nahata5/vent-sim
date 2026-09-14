@@ -3,6 +3,7 @@
  *   SCREENSHOTS=1 npx playwright test tests/e2e/screenshots.spec.ts
  */
 import { devices, test, type Page } from '@playwright/test';
+import { dismissHelp } from './helpers/layout';
 
 const enabled = process.env.SCREENSHOTS === '1';
 
@@ -11,6 +12,10 @@ async function waitForSim(page: Page, seconds: number): Promise<void> {
 }
 
 test.skip(!enabled, 'set SCREENSHOTS=1 to capture documentation screenshots');
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 test('m6: ineffective effort with detector badges, truth row and AI tile', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 });

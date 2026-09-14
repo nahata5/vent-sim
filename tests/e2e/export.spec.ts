@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { unzipSync, strFromU8 } from 'fflate';
 import { readFileSync } from 'node:fs';
+import { dismissHelp } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 async function waitForSim(page: Page, seconds: number): Promise<void> {
   await page.waitForFunction((s) => (window.__ventsim?.ctl.store.tLatest ?? 0) >= s, seconds, { timeout: 120_000 });

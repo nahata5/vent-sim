@@ -3,7 +3,11 @@
  * Runs in the `mobile` Playwright project (Pixel 7, 412 × 839, touch).
  */
 import { expect, test } from '@playwright/test';
-import { canvasFollowsWrap, noHorizontalOverflow, ready, waitForSim } from './helpers/layout';
+import { canvasFollowsWrap, dismissHelp, noHorizontalOverflow, ready, waitForSim } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 test('phone: single column, pinned waveforms, tab bar, settings confirm reachable, badge tap', async ({ page }) => {
   test.setTimeout(180_000);

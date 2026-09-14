@@ -798,6 +798,45 @@ a:focus-visible {
   flex-wrap: wrap;
 }
 
+/* ── Help dialog (spec 2026-09-14 §6). ── */
+dialog.help-dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+}
+dialog.help-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.help-body {
+  padding: 16px 20px;
+  overflow: auto;
+  max-height: calc(100vh - 34px);
+}
+.help-body h2 {
+  margin-top: 0;
+}
+.help-body h3 {
+  margin: 14px 0 4px;
+  font-size: 14px;
+}
+.help-body ul,
+.help-body ol {
+  padding-left: 20px;
+}
+button.help-open {
+  font-weight: 700;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  text-align: center;
+}
+
 /* ── Responsive layout (design 2026-09-11, D-020). Desktop ≥ 1100 px is the grid above. ── */
 
 /* Tablet: waveforms and drawer full width, panels in two columns below; the page scrolls. */

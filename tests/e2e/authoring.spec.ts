@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { dismissHelp } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 async function ready(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__ventsim?.ctl.ready === true, undefined, { timeout: 30_000 });

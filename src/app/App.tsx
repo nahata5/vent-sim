@@ -18,6 +18,8 @@ import { ExplainCard } from '../ui/ExplainCard';
 import { QuizPanel } from '../ui/QuizPanel';
 import { InstructorPanel } from '../ui/InstructorPanel';
 import { ExportPanel } from '../ui/ExportPanel';
+import { HelpDialog, HELP_SEEN_KEY } from '../ui/HelpDialog';
+import { browserStorage } from '../edu/progress';
 import type { DrawerTab } from './controller';
 import { defaultBalloon } from '../sim/patient/balloon';
 import type { BadgeHit } from '../ui/waveform-draw';
@@ -58,6 +60,21 @@ export function App() {
   const [showObjectives, setShowObjectives] = useState(true);
   const [page, setPage] = useState(hashPage());
   const [fixApplied, setFixApplied] = useState(false);
+  const [help, setHelp] = useState<boolean>(() => {
+    try {
+      return browserStorage().getItem(HELP_SEEN_KEY) === null;
+    } catch {
+      return false;
+    }
+  });
+  const closeHelp = () => {
+    setHelp(false);
+    try {
+      browserStorage().setItem(HELP_SEEN_KEY, '1');
+    } catch {
+      /* blocked */
+    }
+  };
   const phone = usePhoneLayout();
   const [mtab, setMtab] = useState<MobileTab>('vent');
   // When the controller opens a drawer tab on its own (badge tap → Explain, quiz start → Quiz), the phone shows Learn.
@@ -161,6 +178,9 @@ export function App() {
     <div class="app-shell">
       <header class="app-header">
         <h1>VentSim</h1>
+        <button type="button" class="link help-open" onClick={() => setHelp(true)} aria-label="How to use VentSim" title="How to use VentSim" data-testid="help-open">
+          ?
+        </button>
         {!phone && <span class="muted small">v{APP_VERSION}</span>}
         <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} custom={ctl.customScenarios.all()} disabled={locked} mask={hideScenario} />
         {!phone && toggles}
@@ -285,6 +305,7 @@ export function App() {
       <footer class="app-footer" data-testid="disclaimer">
         {DISCLAIMER}
       </footer>
+      <HelpDialog open={help} onClose={closeHelp} />
     </div>
   );
 }
