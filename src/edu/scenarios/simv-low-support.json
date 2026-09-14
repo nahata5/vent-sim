@@ -6,7 +6,7 @@
   "summary": "A COPD patient on SIMV-VC at 8 mandatory breaths a minute with PS 5 in between and no PEEP. The mandatory breaths are comfortable; every spontaneous breath is barely supported against intrinsic PEEP, so efforts are large for what they get and some never trigger at all. Compare the two breath types on the same trace.",
   "phenotype": "copd",
   "drive": { "rate": 18, "ti": 0.9, "pmax": 6, "cvRate": 0.1, "cvTi": 0.1, "cvPmax": 0.15 },
-  "settings": { "mode": "SIMV", "simvBase": "VC", "rr": 8, "vt": 450, "peakFlow": 50, "ps": 5, "ets": 0.25, "peep": 0, "flowTrigger": 3.5, "apneaTime": 30 },
+  "settings": { "mode": "SIMV", "simvBase": "VC", "rr": 8, "vt": 450, "peakFlow": 35, "ps": 5, "ets": 0.25, "peep": 0, "flowTrigger": 3.5, "apneaTime": 30 },
   "seed": 31,
   "objectives": [
     "Tell the mandatory breaths from the spontaneous ones on the pressure and flow traces, and see which ones the patient works for.",

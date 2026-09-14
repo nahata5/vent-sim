@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T15:47:55.697Z",
- "commit": "3194f1d",
+ "generatedAt": "2026-09-14T15:55:57.291Z",
+ "commit": "1a2baa7",
  "emergence": [
   {
    "id": "double-trigger",
@@ -272,7 +272,7 @@
      "required": 0.2
     }
    ],
-   "aiBefore": 70.58823529411765,
+   "aiBefore": 88.23529411764706,
    "aiAfter": 14.285714285714286,
    "aiLimit": 10,
    "extra": [],
@@ -288,10 +288,10 @@
     }
    ],
    "aiBefore": 20,
-   "aiAfter": 12,
+   "aiAfter": 4,
    "aiLimit": 10,
    "extra": [],
-   "pass": false
+   "pass": true
   },
   {
    "id": "simv-stacking",
