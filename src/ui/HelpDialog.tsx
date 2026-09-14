@@ -47,9 +47,9 @@ export function HelpDialog({ open, onClose }: Props) {
           <li><b>PC-AC</b>: set pressure and Ti; volume follows compliance and effort.</li>
           <li><b>PSV</b>: the patient sets the rate and Ti; cycling by flow (ETS) — premature or delayed cycling, ineffective efforts with intrinsic PEEP.</li>
           <li><b>CPAP</b>: no support; work of breathing is the patient's.</li>
-          <li><b>SIMV</b>: mandatory VC or PC breaths at a set rate, pressure-supported breaths in between; two breath types in one trace.</li>
-          <li><b>PRVC</b>: pressure control that adapts breath by breath to a volume target; a strong effort makes it withdraw support.</li>
-          <li><b>APRV</b>: long Phigh with short releases and unrestricted spontaneous breathing; the release timing sets the trapped PEEP and can collide with efforts.</li>
+          <li><b>SIMV</b> (not in this version yet): mandatory VC or PC breaths at a set rate, pressure-supported breaths in between; two breath types in one trace.</li>
+          <li><b>PRVC</b> (not in this version yet): pressure control that adapts breath by breath to a volume target; a strong effort makes it withdraw support.</li>
+          <li><b>APRV</b> (not in this version yet): long Phigh with short releases and unrestricted spontaneous breathing; the release timing sets the trapped PEEP and can collide with efforts.</li>
         </ul>
         <h3>Write your own scenario</h3>
         <p>
@@ -59,7 +59,7 @@ export function HelpDialog({ open, onClose }: Props) {
         <h3>More</h3>
         <p>
           <a href="https://github.com/nahata5/vent-sim#readme" target="_blank" rel="noreferrer">README</a> · <a href="https://github.com/nahata5/vent-sim/blob/main/docs/MODEL.md" target="_blank" rel="noreferrer">Model</a> ·{' '}
-          <a href="#validation">Validation</a>. VentSim is for education only; it is not a medical device and not a clinical decision aid.
+          <a href="#validation" onClick={onClose}>Validation</a>. VentSim is for education only; it is not a medical device and not a clinical decision aid.
         </p>
         <button type="button" class="primary" onClick={onClose} data-testid="help-close">
           Close

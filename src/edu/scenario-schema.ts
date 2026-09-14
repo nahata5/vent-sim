@@ -5,9 +5,10 @@
  */
 import { PHENOTYPE_IDS } from '../sim/patient/presets';
 import { IMPLEMENTED_MODES } from '../sim/types';
-import { INJECTOR_KINDS } from '../sim/injectors';
+import { INJECTOR_KINDS, defaultInjectorParams, type InjectorKind } from '../sim/injectors';
 import { PATTERN_IDS } from '../sim/truth/labeler';
 import { SETTING_BOUNDS, defaultSettings, type NumericSettingKey } from '../sim/vent/settings';
+import { defaultGasParams } from '../sim/patient/gas-exchange';
 import { QUIZ_EXTRA_METRICS } from './quiz';
 import { SCENARIO_CATEGORIES, type ScenarioDef } from './scenarios';
 
@@ -33,6 +34,10 @@ export const DRIVE_BOUNDS = {
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const SETTINGS_KEYS = new Set(Object.keys(defaultSettings()));
 const ALARM_KEYS = new Set(Object.keys(defaultSettings().alarms));
+/** DriveParams fields not covered by DRIVE_BOUNDS (src/sim/patient/neural-drive.ts). */
+const DRIVE_EXTRA_KEYS = new Set(['entrainment', 'expiratory', 'sighInterval', 'lowDriveClusters', 'relaxTau', 'holdFrac', 'ar1Phi', 'kFv', 'qRef']);
+const GAS_KEYS = new Set(Object.keys(defaultGasParams()));
+const MECHANICS_POSITIVE_KEYS = ['el', 'ecw', 'frc'] as const;
 const ENUM_KEYS: Record<string, readonly string[]> = {
   triggerType: ['flow', 'pressure'],
   flowPattern: ['square', 'ramp'],
@@ -80,7 +85,7 @@ function checkSettings(s: unknown, path: string, requireMode: boolean, errors: s
   }
 }
 
-function checkDrive(d: unknown, path: string, errors: string[]): void {
+function checkDrive(d: unknown, path: string, errors: string[], warnings: string[]): void {
   if (d === null) return;
   if (!isRec(d)) {
     errors.push(`${path} must be null (passive patient) or an object`);
@@ -95,9 +100,13 @@ function checkDrive(d: unknown, path: string, errors: string[]): void {
   if (d.entrainment !== undefined && d.entrainment !== null) {
     if (!isRec(d.entrainment) || ![1, 2, 3].includes(Number(d.entrainment.ratio))) errors.push(`${path}.entrainment must be null or { "ratio": 1 | 2 | 3, "delay": s, "jitter": s }`);
   }
+  for (const key of Object.keys(d)) {
+    if (key in DRIVE_BOUNDS || DRIVE_EXTRA_KEYS.has(key)) continue;
+    warnings.push(`unknown key ${path}.${key} (ignored)`);
+  }
 }
 
-function checkInjectors(inj: unknown, path: string, allowNull: boolean, errors: string[]): void {
+function checkInjectors(inj: unknown, path: string, allowNull: boolean, errors: string[], warnings: string[]): void {
   if (!isRec(inj)) {
     errors.push(`${path} must be an object keyed by injector kind`);
     return;
@@ -106,7 +115,14 @@ function checkInjectors(inj: unknown, path: string, allowNull: boolean, errors: 
     if (!(INJECTOR_KINDS as readonly string[]).includes(key)) errors.push(`${path}.${key} is not an injector; use ${list(INJECTOR_KINDS)}`);
     else if (v === null && !allowNull) errors.push(`${path}.${key} must be an object of parameters (null is only allowed inside "fix")`);
     else if (v !== null && !isRec(v)) errors.push(`${path}.${key} must be an object of parameters`);
-    else if (isRec(v) && v.at !== undefined && (typeof v.at !== 'number' || v.at < 0)) errors.push(`${path}.${key}.at must be seconds ≥ 0`);
+    else if (isRec(v)) {
+      if (v.at !== undefined && (typeof v.at !== 'number' || v.at < 0)) errors.push(`${path}.${key}.at must be seconds ≥ 0`);
+      const paramKeys = new Set(Object.keys(defaultInjectorParams(key as InjectorKind)));
+      for (const pk of Object.keys(v)) {
+        if (pk === 'at' || paramKeys.has(pk)) continue;
+        warnings.push(`unknown key ${path}.${key}.${pk} (ignored)`);
+      }
+    }
   }
 }
 
@@ -127,18 +143,30 @@ export function validateScenario(raw: unknown): ScenarioValidation {
   if (r.settings === undefined) errors.push('"settings" is required (at least { "mode": … })');
   else checkSettings(r.settings, 'settings', true, errors, warnings);
   if (r.drive === undefined) warnings.push('"drive" missing: the patient will be passive (null)');
-  else checkDrive(r.drive, 'drive', errors);
+  else checkDrive(r.drive, 'drive', errors, warnings);
   if (r.mechanics !== undefined) {
     if (!isRec(r.mechanics)) errors.push('"mechanics" must be an object');
     else {
       const rec = r.mechanics.recoil;
       if (rec !== undefined && rec !== 'recruitable' && !(isRec(rec) && rec.kind === 'recruitable')) errors.push('mechanics.recoil must be "recruitable" or { "kind": "recruitable", …overrides }');
       for (const [key, v] of Object.entries(r.mechanics)) if (key !== 'recoil' && typeof v !== 'number') errors.push(`mechanics.${key} must be a number`);
+      for (const key of MECHANICS_POSITIVE_KEYS) {
+        const v = r.mechanics[key];
+        if (typeof v === 'number' && v <= 0) errors.push(`mechanics.${key} must be > 0`);
+      }
     }
   }
   if (r.balloon !== undefined && !isRec(r.balloon)) errors.push('"balloon" must be an object, e.g. { "enabled": true }');
-  if (r.gas !== undefined && !isRec(r.gas)) errors.push('"gas" must be an object of CO2-loop parameters');
-  if (r.injectors !== undefined) checkInjectors(r.injectors, 'injectors', false, errors);
+  if (r.gas !== undefined) {
+    if (!isRec(r.gas)) errors.push('"gas" must be an object of CO2-loop parameters');
+    else {
+      for (const [key, v] of Object.entries(r.gas)) {
+        if (typeof v !== 'number' || !Number.isFinite(v)) errors.push(`gas.${key} must be a number`);
+        if (!GAS_KEYS.has(key)) warnings.push(`unknown key gas.${key} (ignored)`);
+      }
+    }
+  }
+  if (r.injectors !== undefined) checkInjectors(r.injectors, 'injectors', false, errors, warnings);
   if (r.objectives !== undefined && !(Array.isArray(r.objectives) && r.objectives.every((x) => typeof x === 'string'))) errors.push('"objectives" must be an array of strings');
   if (r.targetPatterns !== undefined) {
     if (!Array.isArray(r.targetPatterns)) errors.push('"targetPatterns" must be an array');
@@ -150,8 +178,8 @@ export function validateScenario(raw: unknown): ScenarioValidation {
       if (typeof r.fix.at !== 'number' || r.fix.at < 0) errors.push('fix.at must be seconds ≥ 0');
       if (typeof r.fix.note !== 'string') errors.push('fix.note must be a string');
       if (r.fix.settings !== undefined) checkSettings(r.fix.settings, 'fix.settings', false, errors, warnings);
-      if (r.fix.drive !== undefined) checkDrive(r.fix.drive, 'fix.drive', errors);
-      if (r.fix.injectors !== undefined) checkInjectors(r.fix.injectors, 'fix.injectors', true, errors);
+      if (r.fix.drive !== undefined) checkDrive(r.fix.drive, 'fix.drive', errors, warnings);
+      if (r.fix.injectors !== undefined) checkInjectors(r.fix.injectors, 'fix.injectors', true, errors, warnings);
     }
   }
   if (r.criteria !== undefined) {

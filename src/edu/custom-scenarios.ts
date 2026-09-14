@@ -3,6 +3,7 @@
  * localStorage as one versioned JSON document (guarded like the progress store) and listed in the picker.
  */
 import { browserStorage, type KeyValueStorage } from './progress';
+import { validateScenario } from './scenario-schema';
 import { SCENARIOS, type ScenarioDef } from './scenarios';
 
 export const CUSTOM_KEY = 'ventsim.custom.v1';
@@ -30,7 +31,14 @@ export class CustomScenarioStore {
       const raw = this.storage.getItem(CUSTOM_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<CustomDoc>;
-        if (parsed.version === 1 && Array.isArray(parsed.scenarios)) return { version: 1, scenarios: parsed.scenarios };
+        if (parsed.version === 1 && Array.isArray(parsed.scenarios)) {
+          // Re-validate on load: the schema (or the code it checks against) may have moved on since a
+          // scenario was saved, so a stored entry that no longer validates is dropped rather than trusted.
+          const scenarios = parsed.scenarios
+            .map((s) => validateScenario(s).def)
+            .filter((d): d is ScenarioDef => d !== null);
+          return { version: 1, scenarios };
+        }
       }
     } catch {
       /* corrupt or blocked: start empty */
@@ -38,11 +46,13 @@ export class CustomScenarioStore {
     return { version: 1, scenarios: [] };
   }
 
-  private persist(): void {
+  private persist(): boolean {
     try {
       this.storage.setItem(CUSTOM_KEY, JSON.stringify(this.doc));
+      return true;
     } catch {
       /* full or blocked: keep the in-memory copy */
+      return false;
     }
   }
 
@@ -54,13 +64,13 @@ export class CustomScenarioStore {
     return this.doc.scenarios.find((s) => s.id === id) ?? null;
   }
 
-  save(def: ScenarioDef): { ok: true } | { ok: false; error: string } {
+  save(def: ScenarioDef): { ok: true; persisted: boolean } | { ok: false; error: string } {
     if (isShippedScenario(def.id)) return { ok: false, error: `"${def.id}" is a built-in scenario; choose another id` };
     const i = this.doc.scenarios.findIndex((s) => s.id === def.id);
     if (i >= 0) this.doc.scenarios[i] = def;
     else this.doc.scenarios.push(def);
-    this.persist();
-    return { ok: true };
+    const persisted = this.persist();
+    return { ok: true, persisted };
   }
 
   remove(id: string): void {

@@ -99,7 +99,12 @@ export function App() {
       if (info?.locked && info.scenarioId === ctl.scenario?.id) ctl.lockQuiz(info.hide);
     };
     if (hashPage() !== VALIDATION_HASH) {
-      ctl.loadScenario(fromHash());
+      try {
+        ctl.loadScenario(fromHash());
+      } catch {
+        // A stale hash (e.g. a deleted custom scenario link) points at an id that no longer resolves.
+        ctl.loadScenario(DEFAULT_SCENARIO);
+      }
       applyQuizLink();
     }
     const onHash = () => {
@@ -108,7 +113,11 @@ export function App() {
       const id = fromHash();
       if (id !== ctl.scenario?.id) {
         setFixApplied(false);
-        ctl.loadScenario(id);
+        try {
+          ctl.loadScenario(id);
+        } catch {
+          ctl.loadScenario(DEFAULT_SCENARIO);
+        }
       }
       applyQuizLink();
     };

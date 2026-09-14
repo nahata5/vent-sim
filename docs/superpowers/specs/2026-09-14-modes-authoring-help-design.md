@@ -303,9 +303,9 @@ drift), and `EXAMPLE_SCENARIO: ScenarioDef` (validated by a test). The prompt:
 4. The worked example (verbatim JSON) with a two-line explanation.
 5. Output rules: JSON only, no comments, ids as slugs, cmH2O/mL/L/min/s units, do not invent fields.
 
-`EXAMPLE_SCENARIO`: `custom-example-fibrosis-psv-ets` — fibrosis on PSV with ETS 60 %, drive rate 24 Ti 0.9:
-premature cycling with double triggers; fix ETS 25 %, PS 12; objectives, criteria, one quiz extra. Not in the
-shipped library.
+`EXAMPLE_SCENARIO`: `example-obesity-pc-short-ti` — an obese post-operative patient on PC-AC with Ti 0.6 s
+against a neural Ti of 1.2 s: double triggering, with stacked volumes; fix Ti 1.1 s; objectives, criteria,
+one quiz extra. Not in the shipped library.
 
 `docs/SCENARIO_AUTHORING.md` is generated from the same module by `scripts/authoring-doc.ts` (tracked;
 run like `scripts/model-constants.ts`, the constants-table generator), so the document and the in-app prompt match.
@@ -342,6 +342,7 @@ available in the locked quiz view and on phones):
 3. Workflow: pick a scenario → watch 30 s → holds and occlusions → open Explain on a badge → Quiz
    (identify → fix → debrief) → Export.
 4. Modes primer: one line each for VC-AC, PC-AC, PSV, CPAP, SIMV, PRVC, APRV and where their pitfalls live.
+   Until M11–M13 land, the SIMV, PRVC and APRV lines carry the qualifier "(not in this version yet)".
 5. Author your own: Instructor panel → copy the authoring prompt → paste into your LLM → paste the JSON
    back → validate → save.
 6. Links: README, MODEL.md, VALIDATION page, and the disclaimer.

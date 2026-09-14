@@ -81,4 +81,26 @@ describe('validateScenario', () => {
     expect(r.errors).toHaveLength(1);
     expect(r.errors[0]).toMatch(/JSON/);
   });
+
+  it('warns about drive keys that are not in DRIVE_BOUNDS or the known DriveParams extras', () => {
+    const r = validateScenario({ ...good, drive: { rate: 20, pMax: 30, Ti: 1.2 } });
+    expect(r.warnings.join('\n')).toMatch(/drive\.pMax/);
+    expect(r.warnings.join('\n')).toMatch(/drive\.Ti/);
+  });
+
+  it('checks gas is an object of finite numbers and warns on unknown gas keys', () => {
+    const r = validateScenario({ ...good, gas: { warp: 'x', nonsense: true } });
+    expect(r.errors.join('\n')).toMatch(/gas\.warp/);
+    expect(r.warnings.join('\n')).toMatch(/gas\.nonsense/);
+  });
+
+  it('warns on injector parameter keys that are not "at" or a known param of that kind', () => {
+    const r = validateScenario({ ...good, injectors: { leak: { kk: 0.02 } } });
+    expect(r.warnings.join('\n')).toMatch(/injectors\.leak\.kk/);
+  });
+
+  it('rejects a non-positive mechanics.el', () => {
+    const r = validateScenario({ ...good, mechanics: { el: 0 } });
+    expect(r.errors.join('\n')).toMatch(/mechanics\.el/);
+  });
 });

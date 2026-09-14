@@ -162,7 +162,7 @@ Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §5–§
   category, settings (mode + every `SETTING_BOUNDS` key + alarms), drive (`DRIVE_BOUNDS`, entrainment),
   mechanics/recoil, balloon, gas, injectors (`INJECTOR_KINDS`), targetPatterns (`PATTERN_IDS`), the `fix`
   block, `criteria` (`CRITERIA_EXTRA_METRICS`), `quizExtras` (`QUIZ_EXTRA_METRICS`); unknown keys warn and are
-  dropped, not rejected. `src/edu/scenarios/index.ts` — `SCENARIO_CATEGORIES` (added `'mode'`),
+  ignored (they stay in the stored JSON), not rejected. `src/edu/scenarios/index.ts` — `SCENARIO_CATEGORIES` (added `'mode'`),
   `isShippedScenario(id)`. `ScenarioPicker.tsx` — `CATEGORY_LABEL.mode = 'SIMV, PRVC and APRV'`.
 - **Authoring prompt**: `src/edu/authoring.ts` — `AUTHORING_PROMPT` (built from the validator's own tables:
   phenotypes, modes, injector kinds, pattern ids, every bound), `EXAMPLE_SCENARIO`

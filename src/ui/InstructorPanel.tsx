@@ -6,7 +6,7 @@ import { downloadBytes } from '../export/download';
 import { QUIZ_HIDE_KEYS, QUIZ_HIDE_LABELS, bedsideHide, quizLink, type QuizHideKey } from '../edu/quiz-view';
 import { parseScenarioText } from '../edu/scenario-schema';
 import { AUTHORING_PROMPT, EXAMPLE_SCENARIO } from '../edu/authoring';
-import type { ScenarioDef } from '../edu/scenarios';
+import { SCENARIOS, type ScenarioDef } from '../edu/scenarios';
 
 interface Props {
   ctl: SessionController;
@@ -18,6 +18,7 @@ function num(v: string, fallback: number): number {
 }
 
 const ATTEMPTS_SHOWN = 20;
+const DEFAULT_SCENARIO_ID = SCENARIOS[0]?.id ?? '';
 
 /** Instructor mode (Spec §8): live patient controls and a scenario editor with JSON import/export. */
 export function InstructorPanel({ ctl }: Props) {
@@ -252,7 +253,7 @@ export function InstructorPanel({ ctl }: Props) {
               <button type="button" onClick={() => { setJson(JSON.stringify(EXAMPLE_SCENARIO, null, 2)); setErrors([]); setWarnings([]); setMsg('example loaded; edit it or validate as is'); }} data-testid="author-load-example">
                 Load example
               </button>
-              <button type="button" onClick={() => setJson(currentJson())} data-testid="instr-current">
+              <button type="button" onClick={() => { setJson(currentJson()); setErrors([]); setWarnings([]); }} data-testid="instr-current">
                 load current
               </button>
             </div>
@@ -278,7 +279,7 @@ export function InstructorPanel({ ctl }: Props) {
                   }
                   ctl.loadScenario(def.id);
                   location.hash = def.id;
-                  setMsg(`saved and loaded "${def.title}"`);
+                  setMsg(r.persisted ? `saved and loaded "${def.title}"` : 'kept for this session only: this browser is blocking storage');
                 }}
                 data-testid="author-save"
               >
@@ -307,12 +308,12 @@ export function InstructorPanel({ ctl }: Props) {
             </div>
             {errors.length > 0 && (
               <ul class="author-errors" data-testid="author-errors">
-                {errors.map((e) => <li key={e}>{e}</li>)}
+                {errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             )}
             {warnings.length > 0 && (
               <ul class="author-warnings muted" data-testid="author-warnings">
-                {warnings.map((w) => <li key={w}>{w}</li>)}
+                {warnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>
             )}
             {msg && (
@@ -329,12 +330,29 @@ export function InstructorPanel({ ctl }: Props) {
                 {custom.map((s) => (
                   <li key={s.id} data-testid="custom-row">
                     <span>{s.title}</span>
-                    <button type="button" onClick={() => { ctl.loadScenario(s.id); location.hash = s.id; }} data-testid="custom-load">load</button>
-                    <button type="button" onClick={() => setJson(ctl.customScenarios.exportJson(s.id) ?? '')} data-testid="custom-export">edit</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          ctl.loadScenario(s.id);
+                          location.hash = s.id;
+                        } catch (e) {
+                          setMsg((e as Error).message);
+                        }
+                      }}
+                      data-testid="custom-load"
+                    >
+                      load
+                    </button>
+                    <button type="button" onClick={() => { setJson(ctl.customScenarios.exportJson(s.id) ?? ''); setErrors([]); setWarnings([]); }} data-testid="custom-export">edit</button>
                     <button
                       type="button"
                       onClick={() => {
                         ctl.customScenarios.remove(s.id);
+                        if (ctl.scenario?.id === s.id) {
+                          ctl.loadScenario(DEFAULT_SCENARIO_ID);
+                          location.hash = DEFAULT_SCENARIO_ID;
+                        }
                         ctl.refresh();
                         setMsg(`removed "${s.title}"`);
                       }}

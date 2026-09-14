@@ -13,10 +13,10 @@ describe('custom scenario store', () => {
     const s = memoryStorage();
     const store = new CustomScenarioStore(s);
     expect(store.all()).toEqual([]);
-    expect(store.save(EXAMPLE_SCENARIO)).toEqual({ ok: true });
-    expect(store.save({ ...EXAMPLE_SCENARIO, id: 'second', title: 'Second' })).toEqual({ ok: true });
+    expect(store.save(EXAMPLE_SCENARIO)).toEqual({ ok: true, persisted: true });
+    expect(store.save({ ...EXAMPLE_SCENARIO, id: 'second', title: 'Second' })).toEqual({ ok: true, persisted: true });
     expect(store.all().map((d) => d.id)).toEqual([EXAMPLE_SCENARIO.id, 'second']);
-    expect(store.save({ ...EXAMPLE_SCENARIO, title: 'Renamed' })).toEqual({ ok: true });
+    expect(store.save({ ...EXAMPLE_SCENARIO, title: 'Renamed' })).toEqual({ ok: true, persisted: true });
     expect(store.get(EXAMPLE_SCENARIO.id)?.title).toBe('Renamed');
     expect(store.all()).toHaveLength(2);
     expect((JSON.parse(store.exportJson('second') ?? '{}') as { title: string }).title).toBe('Second');
@@ -42,7 +42,20 @@ describe('custom scenario store', () => {
     expect(new CustomScenarioStore(s).all()).toEqual([]);
     const throwing: KeyValueStorage = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => {} };
     const store = new CustomScenarioStore(throwing);
-    expect(store.save(EXAMPLE_SCENARIO)).toEqual({ ok: true });
+    expect(store.save(EXAMPLE_SCENARIO)).toEqual({ ok: true, persisted: false });
     expect(store.all()).toHaveLength(1);
+  });
+
+  it('re-validates a stored document on load and drops entries that no longer validate', () => {
+    const s = memoryStorage();
+    s.map.set(
+      CUSTOM_KEY,
+      JSON.stringify({
+        version: 1,
+        scenarios: [EXAMPLE_SCENARIO, { ...EXAMPLE_SCENARIO, id: 'bad-one', phenotype: 'martian' }],
+      }),
+    );
+    const store = new CustomScenarioStore(s);
+    expect(store.all().map((d) => d.id)).toEqual([EXAMPLE_SCENARIO.id]);
   });
 });
