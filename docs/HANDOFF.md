@@ -5,7 +5,9 @@ schematic SpO2, live EL/Ecw, quiz bedside view + debrief D-019 with its follow-u
 D-020, Cloudflare Workers hosting at `vent.nahass.ai` D-021; M10 complete: scenario authoring, My scenarios,
 help overlay D-025; M11 complete: SIMV, a shared `breath` event, stacked-mandatory double triggers D-022;
 M12 complete: PRVC, a breath-by-breath pressure regulator seeded by a VC test breath, the
-support-withdrawal truth pattern D-023), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
+support-withdrawal truth pattern D-023; **M13 APRV in progress** — plan committed, Tasks 1–2 of six done on
+branch `worktree-m13-aprv`, Task 3 in flight, see "M13 in progress" and the prompt at the end), for a fresh
+session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
@@ -40,7 +42,8 @@ support-withdrawal truth pattern D-023), for a fresh session continuing from `do
 | Post-M9 | **done** (2026-09-11 → 2026-09-12): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) + follow-ups (masked picker, drive marks, attempts review); mobile-responsive layout (D-020); Cloudflare Workers Static Assets hosting at `vent.nahass.ai` as the primary home (D-021) |
 | M10 | **done** (2026-09-14): scenario authoring through the reader's own LLM, a field-level validator as the save/run gate, "My scenarios" persisted per-browser, a first-visit help overlay (D-025) — see "M10 as built" below |
 | M11 | **done** (2026-09-14): SIMV (mandatory VC or PC breaths with PS between them, end-of-period sync window), a shared `breath` event judging every mode by breath kind, stacked-mandatory double triggers, three SIMV scenarios, a reported (not gated) detector-in-SIMV table (D-022) — see "M11 as built" below |
-| M12 | **done** (2026-09-14): PRVC (a VC test breath seeds a breath-by-breath pressure regulator with a step, ceiling and floor), "volume not achieved", the `support-withdrawal` truth pattern and its report-only detector rule, three PRVC scenarios (D-023) — see "M12 as built" below |
+| M12 | **done** (2026-09-14): PRVC (a VC test breath seeds a breath-by-breath pressure regulator with a step, ceiling and floor), "volume not achieved", the `support-withdrawal` truth pattern and its report-only detector rule, three PRVC scenarios (D-023) — merged to main (e3d7b81) and pushed — see "M12 as built" below |
+| M13 | **in progress** (2026-09-14): APRV — plan `docs/superpowers/plans/2026-09-14-m13-aprv.md` (six tasks) on branch `worktree-m13-aprv` in `.claude/worktrees/m13-aprv` (base e3d7b81). Task 1 (ventilator: bidirectional servo at Phigh, fixed/pefr releases, maneuvers refused; 3b8de21) and Task 2 (truth: APRV skips, `release-collision`, cards; f6be726 + c46ca2b) reviewed clean; Task 3 (detector) dispatched; Tasks 4 (UI/status/quiz/help — includes the help-dialog scroll fix), 5 (scenarios + `recruitedGain`), 6 (docs, D-024) to go — see "M13 in progress" below |
 
 `npm test` → 268 passed, 43 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e
 -- --reporter=line` → 53 total: 43 passed, 1 failed (`tests/e2e/a11y.spec.ts` main-page colour-contrast on
@@ -344,16 +347,43 @@ Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §3; pla
   `tests/scenarios/emergence.test.ts` (three PRVC rows), `tests/e2e/modes.spec.ts` (the regulated-pressure
   tile and the floor field), `tests/e2e/help.spec.ts` (the dropped qualifier).
 
+## M13 in progress (2026-09-14)
+
+The M13 APRV plan is committed (`docs/superpowers/plans/2026-09-14-m13-aprv.md`; amended once for the
+validator's `tlowMode` enum) and is being executed by subagent-driven development in the worktree
+`.claude/worktrees/m13-aprv` (branch `worktree-m13-aprv`, base e3d7b81 = main after the M12 merge). The
+SDD ledger lives inside that worktree at `.superpowers/sdd/2026-09-14-m13-aprv/progress.md` (git-ignored;
+its first line names the plan; a task with a `Task N: complete` line is done, a task whose last line is a
+fix round is mid-loop; the task briefs are already extracted next to it). Done: **Task 1** (3b8de21 —
+`aprvPlan`, the bidirectional `servoTo(target, EXH_VALVE_R, −∞, MAX_SERVO_FLOW)` at Phigh, `controlRelease`
+with fixed/pefr termination and `aprvStatus`, refusals in `requestHold`/`requestOcclusion`/
+`requestPeepManeuver`, disconnect against Plow, backup exit extended to APRV, `ENUM_KEYS.tlowMode`,
+`tests/physics/aprv.test.ts` 7 tests) and **Task 2** (f6be726 + fix c46ca2b — labeler `kindOf`/`isAprv`/
+`aprvBreathAt`, trigger/cycle rules wrapped in `if (kind !== 'aprv')`, efforts inside APRV never
+ineffective, `release-collision` (in `AI_EVENT_PATTERNS`, evidence `releaseLead`), `LabelContext.peep =
+plow`, card + badge `RC` + `caseEvidence`, the `auto-peep` card's APRV pitfall, a `baseline()` helper so
+auto-PEEP evidence cites Plow in APRV, the M12 carry-over on the support-withdrawal card). Both reviewed
+clean; held-out grid byte-identical throughout. **Task 3** (detector skips + report-only `release-collision`
+rule with `DET_RC_WINDOW`/`DET_RC_PEFR_DELAY` set on the tuning runs, `scripts/mode-detector-report.ts`
+extended) was dispatched when this handoff was written — check `git log` on the branch: if a Task 3 commit
+exists but the ledger has no `Task 3: complete` line, dispatch its task review over `c46ca2b..<head>` before
+moving on. Deferred minors so far are in the ledger (`minor (deferred)` lines): latched hold/occlusion
+requests and a running PEEP maneuver survive a switch into APRV; the pefr rule ends a release at once on an
+inspiratory flow (a de-facto synchronization to document in D-024); the engine primes the lung at
+`settings.peep` so APRV starts with a t = 0 transient; with Plow 0 the disconnect alarm is unreachable;
+`ventilator.ts` is ~1040 lines. Owner-reported bug folded into Task 4: the first-visit help dialog opens
+scrolled to the bottom (`showModal()` focuses the bottom-most focusable element; fix and e2e assertion are
+written into the plan's Task 4).
+
 ## What is left (post-M9)
 
 All spec milestones and the optional extensions listed in the previous handoff are built, and M10 (scenario
 authoring, My scenarios, help overlay, D-025), M11 (SIMV, D-022) and M12 (PRVC, D-023) are also done — see
-"M10 as built", "M11 as built" and "M12 as built" above. What is actually next is **M13 APRV** (spec §4,
-D-024 reserved), whose plan still needs writing first, following the shape of
-`docs/superpowers/plans/2026-09-14-m11-simv.md` and `…-m12-prvc.md` (tests first per task, one commit per
-task, interfaces stated up front, a Global Constraints section pinning the held-out grid), per
-`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §4. See "Prompt for the next session"
-below. The rest of this section is the pre-M10 leftover list, still accurate:
+"M10 as built", "M11 as built" and "M12 as built" above. **M13 APRV** is in progress (section above); after
+it lands, the spec's build order (`docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`, items
+1–5) is complete and what remains is the optional list below plus the structural follow-up of extracting the
+mode regulators (PRVC, APRV) out of `ventilator.ts`. See "Prompt for the next session" below. The rest of
+this section is the pre-M10 leftover list, still accurate:
 
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
@@ -508,29 +538,45 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 > string, not a template — `data-testid={...}` template strings like `setting-${f.key}` are never literal in
 > the bundle).
 >
-> Task — **write, then execute, the M13 APRV plan**. No plan exists yet for APRV (unlike M12, which started
-> from an already-written plan); write `docs/superpowers/plans/2026-09-14-m13-aprv.md` first, in the shape
-> of `docs/superpowers/plans/2026-09-14-m11-simv.md` and `…-m12-prvc.md`: tests first per task, one commit
-> per task, interfaces stated up front, a Global Constraints section pinning the held-out grid (the seven
-> lines above) and the push/deploy policy for the session. Read spec §4 for APRV's mechanics (`phigh`,
-> `plow`, `thigh`, `tlow`, `tlowMode` "fixed" or "pefr" with `tlowPefr`) before writing the plan; `MODE_NOTES`
-> in `src/edu/authoring.ts` already has a placeholder note for these settings keys — check the plan's design
-> matches it, or update the note if the built settings differ. Then execute the plan with subagent-driven
-> development in a fresh `EnterWorktree` worktree rebased onto local main. APRV needs: the ventilator
-> FSM/settings support, the new settings keys added to `SETTING_BOUNDS` (`src/sim/vent/settings.ts`) with
-> `'APRV'` added to `IMPLEMENTED_MODES` (`src/sim/types.ts`, already has `'VC-AC' | 'PC-AC' | 'PSV' | 'CPAP'
-> | 'SIMV' | 'PRVC'`) so `scenario-schema.ts` and `authoring.ts` pick it up automatically (no change to the
-> authoring/help/My-scenarios code itself should be needed), scenarios exercising it (the `'mode'` scenario
-> category and `scripts/mode-detector-report.ts`'s pattern are exactly for this — extend the script's
-> `IDS`/`PATTERNS` rather than writing a new one, the way M11 and M12 each did), and a decision entry
-> D-024 recording APRV's design choices in the same register as D-022 and D-023 (prose paragraphs, numbers
-> cited, no bullet soup). Tests first for anything in `src/sim`/`src/detector`/`src/edu`; regenerate the
-> validation snapshot and the MODEL.md constants table if scenarios or constants change. If a scenario's
-> after-fix asynchrony index resists tuning within the authorized ranges the way two of M11's SIMV scenarios
-> and M12's `prvc-pressure-withdrawal` did, that is a legitimate outcome to report and record — D-022's
-> "leave the mode" finding and D-023's "treat the drive too" finding are the precedent — not something to
-> force by loosening a labeler rule or widening scope unauthorized. Confirm the push/deploy policy for the
-> session before pushing (the M10, M11 and M12 sessions were each told to commit only and let a controller
-> merge and deploy); check the live site with a literal string in the served bundle once it is deployed (use
-> the Netlify URL for a scripted check, or a real browser against `vent.nahass.ai`). When you reach a good
-> place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.
+> Task — **finish executing the M13 APRV plan**, then integrate. The plan exists and is partly executed:
+> `docs/superpowers/plans/2026-09-14-m13-aprv.md` (six tasks, tests first, one commit per task, Global
+> Constraints pinning the seven held-out lines). Work is on branch `worktree-m13-aprv` in the existing
+> worktree `.claude/worktrees/m13-aprv` — enter it with `EnterWorktree` (`path:
+> .claude/worktrees/m13-aprv`), do not create a new one and do not rebase it (base e3d7b81 is main's tip).
+> Use superpowers:subagent-driven-development: its ledger is already there at
+> `.superpowers/sdd/2026-09-14-m13-aprv/progress.md` (first line names this plan; the six task briefs sit
+> next to it; every controller ruling is a `Ruling:` line and every deferred minor a `minor (deferred)`
+> line — read them all first). Resume at the first task without a `Task N: complete` line: Tasks 1 and 2 are
+> complete (commits 3b8de21, f6be726, c46ca2b, reviews clean); Task 3 (detector in APRV) was dispatched at
+> base c46ca2b when this handoff was written — if `git log` shows its commit but the ledger has no
+> completion line, run its task review (review-package over `c46ca2b..<head>`, opus reviewer, the seven
+> held-out lines as the binding constraint) before Task 4; if no commit exists, re-dispatch Task 3 from its
+> brief. Then Tasks 4 (status/UI/quiz/help — the brief now also carries the owner-reported help-dialog
+> scroll bug and its e2e assertion), 5 (three APRV scenarios + the `recruitedGain` criterion; expect the
+> `aprv-release-collision` after-fix AI gate to resist Thigh/Tlow tuning because collisions ≈ (Ti − 0.1)/
+> period in an unsynchronized mode — the brief authorizes, in order, longer Thigh, then treating the drive,
+> then leaving APRV for a synchronized mode, each recorded in D-024 like D-022/D-023) and 6 (docs, D-024,
+> the mode-detector table, full verification). Rules that bind: never tune on the held-out grid (the seven
+> lines are in the plan's Global Constraints); the detector reads only measured channels, events and
+> settings; every new number is a tagged constant; regenerate `src/validation/snapshot.json` after
+> scenario changes, the MODEL.md constants table (`npx tsx scripts/model-constants.ts`) after constants
+> changes, and `docs/SCENARIO_AUTHORING.md` (`npm run docs:authoring`) after `IMPLEMENTED_MODES` or the
+> authoring enum list changes (Task 1's regen left the "other:" enum line without `tlowMode` because
+> `src/edu/authoring.ts` hardcodes that list — fix it in Task 4 or 6); responsive CSS stays at the end of
+> `theme.css`; implementers run Playwright in the foreground with plain Bash; never read a subagent's
+> transcript; the harness refuses compound shell commands inside a worktree — one plain command per Bash
+> call; subagent reports that call a red suite a "known failure" must be checked (run the named test
+> yourself). Model plan that worked: opus for state-machine/labeler/detector tasks and their reviews, sonnet
+> for UI/scenario/docs tasks and scoped re-reviews, fable for the final whole-branch review; one fix wave
+> after the final review, then one scoped re-review, then adjudicate. Integration: run the
+> finishing-a-development-branch flow — full `npm test`, `npm run lint`, `npm run test:e2e --
+> --reporter=line` (the a11y `.chip-alarm` contrast check may flake under a loaded run; re-run the spec
+> alone and report both), `npm run build` — then ask the owner whether to merge to main and push (M10–M12
+> each merged locally and pushed: `ExitWorktree` keep → in the main checkout `git checkout main && git pull
+> --ff-only && git merge --no-ff worktree-m13-aprv` with the trailer lines → re-run the suite → `git push
+> origin main` → `git worktree remove .claude/worktrees/m13-aprv && git branch -d worktree-m13-aprv`; copy
+> the ledger out of the worktree first if you want to keep it). Every commit ends with the session's two
+> attribution trailer lines. The M13 deploy check is the literal string `aprv-tlow-mode` (the release-mode
+> select's test id, a literal prop). Before deleting the SDD workspace, list every `Ruling:` line from the
+> ledger in your final message for the owner. When you reach a good place around 50 % context, update
+> docs/HANDOFF.md and write the next prompt into it.
