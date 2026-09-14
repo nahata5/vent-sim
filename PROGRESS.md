@@ -646,3 +646,59 @@ strings in `dist/assets/index-*.js`. Known flakes not hit this run but still rea
 occasional `tests/e2e/quiz.spec.ts`/`a11y.spec.ts` contrast flakes under a loaded full Playwright run (both
 seen and re-run clean during Tasks 5–6, see their reports). Per the controller's ruling this session does not
 push or poll the live site; the branch is merged and deployed separately.
+
+## M11 · SIMV (2026-09-14)
+
+D-022, spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §2, plan
+`docs/superpowers/plans/2026-09-14-m11-simv.md` (six tasks, tests first, one commit per task plus fix
+rounds). SIMV joins VC-AC, PC-AC, PSV and CPAP: mandatory VC or PC breaths at the set rate with
+pressure-supported breaths between them, and a patient trigger inside the last `SIMV_SYNC_WINDOW` (0.25)
+of the period delivers the mandatory breath early. Every breath (in every mode) now emits a `breath` event
+at inspiration start (`kind`, `mandatory`, `pTarget`); the truth labeler and the detector judge each breath
+by that kind instead of `settings.mode`, which is what SIMV (and PRVC/APRV next) need. A new truth rule
+reads a machine-triggered breath that starts inside the effort that already triggered the previous breath
+as a stacked double trigger. Settings: `simvBase` (VC/PC), `simvWindow`; UI: `simv-base-select`, monitor
+tiles `mon-RRmand`/`mon-RRspont` (`ctl.simvRates()`, windowed to when SIMV was actually engaged, draft
+pruning on mode/base switch so a hidden field can't apply silently). Three scenarios
+(`simv-low-support`, `simv-mixed-breaths`, `simv-stacking`), `ScenarioCriteria.over: 'mandatory'` so a
+target fraction can be measured over mandatory breaths only, and `scripts/mode-detector-report.ts` (a
+reported-not-gated detector-vs-truth table for the three SIMV scenarios, in `docs/VALIDATION.md`).
+
+**The fix-round story**: the first truth-rule draft allowed a `LABEL_EFFORT_TAIL` grace period after neural
+Ti, which flagged the mandatory clock landing shortly after relaxation began as a double trigger on nearly
+every cycle and made all three scenarios unpassable; tightening the rule to require the mandatory breath
+start at or before the end of neural Ti (no tail) fixed that without moving the held-out grid. The
+remaining scenario-tuning problem was structural, not a bug: a fixed-Ti mandatory breath racing a
+variable-duration neural effort always leaves some breaths miscycling (shortening or lengthening the
+mandatory Ti just trades which tail of the effort-duration distribution is missed), and a mandatory rate
+at an exact submultiple of the neural drive rate phase-locks into reverse-trigger labels — neither is
+fixable by tuning SIMV settings within the authorized ranges. `simv-low-support` and `simv-stacking`
+resolve by having their scripted fix leave SIMV for PSV; `simv-mixed-breaths` stays in SIMV, switching the
+mandatory base to PC with `rr 13` and drive `rate 22` to break the harmonic lock, since its target pattern
+(mandatory-breath flow starvation) needs a mandatory clock to demonstrate.
+
+Tests first: `tests/unit/breath-kind.test.ts` (3), an appended `describe('breath events', …)` in
+`tests/unit/ventilator.test.ts`, an appended `describe('breath kind on labels', …)` in
+`tests/unit/labeler.test.ts` plus the SIMV stacking/mixed-breaths and synthetic stacked-mandatory tests (6
+more in that file), `tests/physics/simv.test.ts` (6: passive/active mandatory + PS breaths, sync-window
+early delivery, a narrower window yields fewer patient-triggered mandatory breaths, SIMV-PC targets and
+cycling, no apnea backup in SIMV), `tests/e2e/modes.spec.ts` (2: mode/base select and rate tiles; a stale
+draft value hidden by a base switch is dropped, not applied), an appended SIMV case in
+`tests/unit/scenario-schema.test.ts`, and the two `tests/unit/scenarios.test.ts`/`tests/scenarios/
+emergence.test.ts` SIMV rows.
+
+Full verification (this session, worktree `m11-simv`, all four foreground): `npm test` → **254 passed, 41
+files**, 24.0 s, no re-run needed (the wall-clock performance test passed on the first try). `npm run lint`
+(eslint + `tsc --noEmit`) → clean. `npm run test:e2e -- --reporter=line` → **51 total: 41 passed, 1 failed,
+9 skipped** (screenshot tests, gated behind `SCREENSHOTS=1`), 1.4 min; the one failure was
+`tests/e2e/a11y.spec.ts`'s main-page colour-contrast check on `.chip-alarm` — a known one-off flake under a
+loaded full Playwright run (documented in HANDOFF); re-ran `tests/e2e/a11y.spec.ts` alone: **3/3 passed**,
+confirming the flake, not a regression. `npm run build` → clean (`dist/assets/index-*.js` 277.42 kB, gzip
+96.83 kB). Held-out grid unchanged throughout every task and fix round: ineffective-effort 0.925/0.992,
+double-trigger 0.986/0.999, auto-trigger 0.973/0.987, premature-cycling 0.950/0.986, delayed-cycling
+0.841/0.980, flow-starvation 0.907/0.984, reverse-trigger 0.851/0.999 (sens/spec) — identical to the M10
+numbers; SIMV breaths never entered the held-out grid. `src/validation/snapshot.json` (regenerated during
+Task 5's fix rounds, unchanged by this docs-only task; 28 scenarios, 17 emergence rows) has all three SIMV
+rows `pass: true`: `simv-low-support` aiBefore 88.2 % aiAfter 0 %, `simv-mixed-breaths` aiBefore 20.0 %
+aiAfter 4.0 %, `simv-stacking` aiBefore 42.9 % aiAfter 0 %. Per the controller's ruling this session does
+not push or poll the live site; the branch is merged and deployed separately.
