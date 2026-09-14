@@ -10,7 +10,7 @@ export type { BreathKind };
 
 export type BreathEvent = Extract<VentEvent, { type: 'breath' }>;
 
-export function breathKindFromMode(s: Pick<VentSettings, 'mode'>): BreathKind {
+export function breathKindFromMode(s: Pick<VentSettings, 'mode'> & Partial<Pick<VentSettings, 'simvBase'>>): BreathKind {
   switch (s.mode) {
     case 'VC-AC':
       return 'vc';
@@ -21,7 +21,7 @@ export function breathKindFromMode(s: Pick<VentSettings, 'mode'>): BreathKind {
     case 'CPAP':
       return 'ps';
     case 'SIMV':
-      return 'vc';
+      return s.simvBase === 'PC' ? 'pc' : 'vc';
   }
 }
 
@@ -34,8 +34,9 @@ export function pTargetFromSettings(s: VentSettings): number {
       return s.peep + s.ps;
     case 'CPAP':
       return s.peep;
-    case 'VC-AC':
     case 'SIMV':
+      return s.simvBase === 'PC' ? s.peep + s.pinsp : NaN;
+    case 'VC-AC':
     case 'PRVC':
       return NaN;
   }

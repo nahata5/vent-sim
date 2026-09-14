@@ -101,6 +101,10 @@ export class Ventilator {
   phase: Phase = 'exp';
   private tPhaseStart = 0;
   private tLastBreathStart = -Infinity;
+  /** Start of the last mandatory (non-spontaneous) breath; the SIMV period clock. */
+  private tLastMandatory = -Infinity;
+  /** Breath kind requested for the pending trigger, while it waits out the actuator latency. */
+  private pendingKind: BreathKind | undefined;
   /** Start of ventilation (t = 0) is the apnea reference until the first breath. */
   private get tApneaRef(): number {
     return Math.max(0, this.tLastBreathStart);
@@ -223,46 +227,86 @@ export class Ventilator {
     return this.peepManeuver?.kind ?? null;
   }
 
-  private makePlan(s: VentSettings, backup = false): BreathPlan {
+  private vcPlan(s: VentSettings): BreathPlan {
     const vc = vcTiming(s);
-    if (backup) {
-      return {
-        mode: 'PC-AC',
-        ti: s.ti,
-        qPeak: vc.qPeak,
-        square: true,
-        rampEnd: 0,
-        pause: 0,
-        pTarget: s.peep + s.backupPinsp,
-        riseTime: s.riseTime,
-        ets: s.ets,
-        tiMax: s.tiMax,
-        peep: s.peep,
-        vt: s.vt / 1000,
-        spontaneous: false,
-        kind: 'pc',
-      };
-    }
-    const isVc = s.mode === 'VC-AC';
-    const isPc = s.mode === 'PC-AC';
-    const spontaneous = s.mode === 'PSV' || s.mode === 'CPAP';
-    const above = isPc ? s.pinsp : s.mode === 'PSV' ? s.ps : 0;
     return {
       mode: s.mode,
-      ti: isVc ? vc.ti : s.ti,
+      ti: vc.ti,
       qPeak: vc.qPeak,
       square: s.flowPattern === 'square',
       rampEnd: s.rampEndFraction,
-      pause: isVc ? s.pause : 0,
+      pause: s.pause,
+      pTarget: s.peep,
+      riseTime: s.riseTime,
+      ets: s.ets,
+      tiMax: s.tiMax,
+      peep: s.peep,
+      vt: s.vt / 1000,
+      spontaneous: false,
+      kind: 'vc',
+    };
+  }
+
+  private pcPlan(s: VentSettings, above: number): BreathPlan {
+    const vc = vcTiming(s);
+    return {
+      mode: s.mode,
+      ti: s.ti,
+      qPeak: vc.qPeak,
+      square: s.flowPattern === 'square',
+      rampEnd: s.rampEndFraction,
+      pause: 0,
       pTarget: s.peep + above,
       riseTime: s.riseTime,
       ets: s.ets,
       tiMax: s.tiMax,
       peep: s.peep,
       vt: s.vt / 1000,
-      spontaneous,
-      kind: isVc ? 'vc' : spontaneous ? 'ps' : 'pc',
+      spontaneous: false,
+      kind: 'pc',
     };
+  }
+
+  private psPlan(s: VentSettings): BreathPlan {
+    const vc = vcTiming(s);
+    const above = s.mode === 'CPAP' ? 0 : s.ps;
+    return {
+      mode: s.mode,
+      ti: s.ti,
+      qPeak: vc.qPeak,
+      square: s.flowPattern === 'square',
+      rampEnd: s.rampEndFraction,
+      pause: 0,
+      pTarget: s.peep + above,
+      riseTime: s.riseTime,
+      ets: s.ets,
+      tiMax: s.tiMax,
+      peep: s.peep,
+      vt: s.vt / 1000,
+      spontaneous: true,
+      kind: 'ps',
+    };
+  }
+
+  private makePlan(s: VentSettings, backup = false, kind?: BreathKind): BreathPlan {
+    if (backup) {
+      const plan = this.pcPlan(s, s.backupPinsp);
+      return { ...plan, mode: 'PC-AC', ti: s.ti, square: true, rampEnd: 0 };
+    }
+    switch (s.mode) {
+      case 'VC-AC':
+        return this.vcPlan(s);
+      case 'PC-AC':
+        return this.pcPlan(s, s.pinsp);
+      case 'PSV':
+      case 'CPAP':
+        return this.psPlan(s);
+      case 'SIMV':
+        return kind === 'ps' ? this.psPlan(s) : s.simvBase === 'PC' ? this.pcPlan(s, s.pinsp) : this.vcPlan(s);
+      case 'PRVC':
+        // M12 replaces this with the pressure-regulated volume-control controller.
+        return this.pcPlan(s, s.pinsp);
+    }
   }
 
   // ───────────────────────── Continuous actuators (physics rate) ─────────────────────────
@@ -295,7 +339,7 @@ export class Ventilator {
     switch (this.phase) {
       case 'insp': {
         const tIn = t - this.tPhaseStart;
-        if (this.plan.mode === 'VC-AC') {
+        if (this.plan.kind === 'vc') {
           const q = this.vcFlowAt(tIn);
           this.psrc = pawTrue; // keep the servo state continuous for the transition to expiration
           return { kind: 'flow', qv: q };
@@ -362,8 +406,8 @@ export class Ventilator {
     return events;
   }
 
-  private get isAC(): boolean {
-    return this.settings.mode === 'VC-AC' || this.settings.mode === 'PC-AC';
+  private get hasMandatoryRate(): boolean {
+    return this.settings.mode === 'VC-AC' || this.settings.mode === 'PC-AC' || this.settings.mode === 'SIMV';
   }
 
   private get isSpontMode(): boolean {
@@ -381,14 +425,17 @@ export class Ventilator {
     // Leak-compensation baseline: slow tracking of expiratory flow once expiration has settled.
     if (t - this.tLastCycle > 0.8) this.leakBaseline += 0.02 * (m.flow - this.leakBaseline);
 
-    const timeDue = this.isAC && t - this.tLastBreathStart >= 60 / s.rr - 1e-9;
+    const period = 60 / s.rr;
+    const sinceMandatory = t - (s.mode === 'SIMV' ? this.tLastMandatory : this.tLastBreathStart);
+    const timeDue = this.hasMandatoryRate && sinceMandatory >= period - 1e-9;
+    const inSyncWindow = s.mode === 'SIMV' && sinceMandatory >= period * (1 - s.simvWindow);
     const backupDue = this.backupActive && t - this.tApneaRef >= 60 / s.backupRR - 1e-9;
     // Expiratory hold: taken at the end of expiration (the moment a time trigger would fire in AC, or once
     // expiratory flow has settled in spontaneous modes), blocking the next breath.
     // "Settled" expiration in spontaneous modes: past the fast part of exhalation, no inspiratory flow
     // yet (an effort in progress must not be occluded mid-way), Paw back at PEEP.
     const settled =
-      !this.isAC &&
+      !this.hasMandatoryRate &&
       t - this.tLastCycle > 0.6 &&
       m.flow <= 0.005 &&
       m.flow >= -k('OCCLUSION_SETTLED_FLOW') &&
@@ -399,7 +446,7 @@ export class Ventilator {
         return;
       }
     }
-    if (this.occlusionRequest && (timeDue || settled || (this.isAC && t - this.tLastCycle > 1.0))) {
+    if (this.occlusionRequest && (timeDue || settled || (this.hasMandatoryRate && t - this.tLastCycle > 1.0))) {
       this.beginOcclusion(m, events);
       return;
     }
@@ -420,7 +467,7 @@ export class Ventilator {
     }
     if (this.patientTrigger(m)) {
       if (this.backupActive) this.exitBackup(t, events);
-      this.scheduleInsp(t, 'patient', events);
+      this.scheduleInsp(t, 'patient', events, s.mode === 'SIMV' && !inSyncWindow ? 'ps' : undefined);
       return;
     }
     if (this.isSpontMode && !this.backupActive && t - this.tApneaRef >= s.apneaTime) {
@@ -448,22 +495,26 @@ export class Ventilator {
     return m.paw <= s.peep - s.pressureTrigger;
   }
 
-  private scheduleInsp(t: number, cause: TriggerCause, events: VentEvent[]): void {
+  private scheduleInsp(t: number, cause: TriggerCause, events: VentEvent[], kind?: BreathKind): void {
     events.push({ type: 'trigger', t, cause });
     const latency = this.settings.ideal ? 0 : this.settings.actuatorLatency;
     if (latency <= 0) {
-      this.startInsp(t, cause, events);
+      this.startInsp(t, cause, events, kind);
     } else {
       this.tInspPending = t + latency;
       this.pendingCause = cause;
+      this.pendingKind = kind;
     }
   }
 
-  private startInsp(t: number, cause: TriggerCause, events: VentEvent[]): void {
+  private startInsp(t: number, cause: TriggerCause, events: VentEvent[], kind?: BreathKind): void {
     this.tInspPending = null;
+    const resolvedKind = kind ?? this.pendingKind;
+    this.pendingKind = undefined;
     this.evaluateBreathAlarms(t, events);
     this.commitPending();
-    this.plan = this.makePlan(this.settings, this.backupActive);
+    this.plan = this.makePlan(this.settings, this.backupActive, resolvedKind);
+    if (!this.plan.spontaneous) this.tLastMandatory = t;
     this.breathIndex += 1;
     events.push({ type: 'breath', t, kind: this.plan.kind, mandatory: !this.plan.spontaneous, pTarget: this.plan.kind === 'vc' ? NaN : this.plan.pTarget });
     this.phase = 'insp';
@@ -506,19 +557,10 @@ export class Ventilator {
       } else if (tIn >= p.tiMax) {
         cycle = 'ti-max';
       }
-    } else {
-      switch (p.mode) {
-        case 'VC-AC':
-          if (tIn >= p.ti - 1e-9) cycle = 'volume';
-          break;
-        case 'PC-AC':
-        case 'SIMV':
-        case 'PRVC':
-        case 'PSV':
-        case 'CPAP':
-          if (tIn >= p.ti - 1e-9) cycle = 'time';
-          break;
-      }
+    } else if (tIn >= p.ti - 1e-9) {
+      // Non-spontaneous plans are volume-controlled (kind 'vc': VC-AC, or SIMV with a VC mandatory
+      // breath) or pressure-controlled (kind 'pc': PC-AC, PRVC, SIMV-PC, or the apnea backup).
+      cycle = p.kind === 'vc' ? 'volume' : 'time';
     }
     if (m.paw > this.settings.alarms.highPpeak) {
       cycle = 'alarm';
@@ -601,7 +643,7 @@ export class Ventilator {
       this.tPhaseStart = t;
       // The held breath is delivered now in AC modes; an interrupting effort triggers it in any mode.
       if (interrupted) this.scheduleInsp(t, 'patient', events);
-      else if (this.isAC) this.scheduleInsp(t, 'time', events);
+      else if (this.hasMandatoryRate) this.scheduleInsp(t, 'time', events);
     }
   }
 
