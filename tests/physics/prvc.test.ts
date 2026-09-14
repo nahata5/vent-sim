@@ -99,6 +99,30 @@ describe('PRVC', () => {
     expect(alarms.at(-1)?.t).toBeGreaterThan(20);
   });
 
+  it('switching into PRVC while the apnea backup is running leaves the backup: a test breath, then PC breaths, and the apnea alarm clears', () => {
+    // PSV with a short apnea time and no efforts: the backup engages and repeats its own PC plan. A mode
+    // change into PRVC (a mandatory rate) must end the backup at the next breath start, or every later
+    // breath stays the backup plan, the apnea alarm never clears and the VC test breath never runs.
+    const res = runHeadless({
+      patient: presetPatient('normal'),
+      settings: { ...defaultSettings('PSV'), peep: 5, ps: 10, apneaTime: 8, backupRR: 10 },
+      seed: 11,
+      duration: 50,
+      schedule: [{ t: 25, action: (e) => e.vent.applySettings({ mode: 'PRVC', vt: 450, rr: 12, ti: 1.0 }) }],
+    });
+    const b = breathEvents(res.events);
+    expect(b.filter((e) => e.t < 25).length).toBeGreaterThan(1); // the backup did run
+    const after = b.filter((e) => e.t > 25);
+    expect(after.length).toBeGreaterThan(3);
+    expect(after[0]?.kind).toBe('vc'); // regulatedDp is null after the mode change: the VC test breath
+    expect(after.slice(1).every((e) => e.kind === 'pc')).toBe(true);
+    const apnea = res.events.filter((e): e is AlarmEvent => e.type === 'alarm' && e.alarm === 'apnea');
+    expect(apnea.filter((e) => e.t > 25).at(-1)?.active).toBe(false);
+    // The regulator converges on the target from the test breath, not from a backup breath.
+    const last = res.breaths.filter((x) => x.tEnd !== null).at(-1);
+    expect(Math.abs((last?.vtiMeasured ?? 0) * 1000 - 450) / 450).toBeLessThan(0.05);
+  });
+
   it('a change of the target volume restarts with a test breath', () => {
     const res = runHeadless({
       patient: presetPatient('normal'),

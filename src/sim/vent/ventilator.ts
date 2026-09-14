@@ -144,6 +144,8 @@ export class Ventilator {
   private prvcShortCount = 0;
   /** PRVC: compliance measured by the last test breath (L/cmH2O), the fallback when ΔP is too small to divide by. */
   private prvcCompliance = NaN;
+  /** Whether the breath now being delivered is an apnea-backup breath (its volume says nothing about the mode's own plan). */
+  private breathIsBackup = false;
   /** Settings actually in effect over time (initial + each commit), for the labeler and exports. */
   readonly settingsLog: Array<{ t: number; settings: VentSettings }> = [];
 
@@ -192,6 +194,9 @@ export class Ventilator {
     }
     const prev = this.settings;
     this.settings = clampSettings(target as unknown as VentSettings);
+    // Defensive: `mode` and `vt` are not immediate keys, so on this path the reset is a no-op today. It
+    // stays so that making either immediate cannot silently leave a stale regulator (the real reset runs
+    // from `commitPending`, at the next breath start).
     this.prvcResetIfRetargeted(prev);
     this.plan.peep = this.settings.peep;
     if (this.pending && Object.keys(this.pending).length === 0) this.pending = null;
@@ -525,7 +530,14 @@ export class Ventilator {
     this.pendingKind = undefined;
     this.evaluateBreathAlarms(t, events);
     this.commitPending();
-    this.prvcRegulate(t, events);
+    // Apnea backup only exists for a mode without a mandatory rate. If the committed mode has one (a mode
+    // change into VC-AC/PC-AC/SIMV/PRVC while the backup was running), the backup ends here: this breath is
+    // the mode's own plan and the apnea alarm clears. Without this the backup PC plan would repeat forever
+    // (cause 'backup', alarm latched, and in PRVC no VC test breath would ever run).
+    if (this.backupActive && this.hasMandatoryRate) this.exitBackup(t, events);
+    const wasBackup = this.breathIsBackup;
+    this.breathIsBackup = this.backupActive;
+    this.prvcRegulate(t, events, wasBackup);
     this.plan = this.makePlan(this.settings, this.backupActive, resolvedKind);
     if (!this.plan.spontaneous) this.tLastMandatory = t;
     this.breathIndex += 1;
@@ -820,9 +832,11 @@ export class Ventilator {
   /**
    * At the start of a PRVC breath: adapt ΔP toward the volume target from the volume the previous breath
    * actually delivered (its effective compliance Vti/ΔP), limited to PRVC_STEP_MAX per breath and to the
-   * floor/ceiling band. Two consecutive short breaths at the ceiling raise the volume-not-achieved alarm.
+   * floor/ceiling band. Two consecutive short PC breaths at the ceiling raise the volume-not-achieved alarm.
+   * `prevWasBackup` marks the breath that just ended as an apnea-backup breath, whose volume was produced by
+   * the backup plan rather than by the regulator: it is read like "no previous breath".
    */
-  private prvcRegulate(t: number, events: VentEvent[]): void {
+  private prvcRegulate(t: number, events: VentEvent[], prevWasBackup = false): void {
     const s = this.settings;
     if (s.mode !== 'PRVC') {
       // Another mode has no regulated pressure: the volume-not-achieved condition has ended.
@@ -837,6 +851,13 @@ export class Ventilator {
       this.setAlarm('prvc-limit', false, t, events);
       return;
     }
+    if (prevWasBackup) {
+      // The breath that just ended was the apnea backup's own PC plan, not a regulated one: nothing to
+      // learn from its volume, and it cannot count toward the volume-not-achieved alarm.
+      this.prvcShortCount = 0;
+      this.setAlarm('prvc-limit', false, t, events);
+      return;
+    }
     const m = this.lastMeasured;
     if (!m || this.breathIndex < 0) return;
     // The volume sensor resets on the next breath start (engine.onInspStart), so this is still the
@@ -846,14 +867,19 @@ export class Ventilator {
     // Effective compliance of the previous breath. Once ΔP has been withdrawn to (nearly) nothing the
     // delivered volume is the patient's effort, not the pressure's effect, and Vti/ΔP diverges; the test
     // breath's compliance takes over, so a regulator parked at a floor of 0 can still step back up.
-    const cEff = this.regulatedDp > k('PRVC_DP_EPSILON') && vtiPrev > 0.02 ? vtiPrev / this.regulatedDp : this.prvcCompliance;
+    const cEff =
+      this.regulatedDp > k('PRVC_DP_EPSILON') && vtiPrev > k('PRVC_MIN_VTI_FOR_C') ? vtiPrev / this.regulatedDp : this.prvcCompliance;
+    // The alarm judges the breath that just ended, so both of its terms are read before the step: the ΔP
+    // that breath was delivered at, and whether that breath was a regulated PC breath at all (the VC test
+    // breath is a measurement, not an attempt at the target, and never counts).
+    const atCeiling = this.regulatedDp >= this.prvcCeiling(s) - 1e-9;
+    const prevWasPc = this.plan.kind === 'pc';
     if (Number.isFinite(cEff) && cEff > 0) {
       const step = clamp((k('PRVC_GAIN') * (target - vtiPrev)) / cEff, -k('PRVC_STEP_MAX'), k('PRVC_STEP_MAX'));
       this.regulatedDp = clamp(this.regulatedDp + step, s.prvcMinDp, this.prvcCeiling(s));
     }
-    const atCeiling = this.regulatedDp >= this.prvcCeiling(s) - 1e-9;
     const short = vtiPrev < k('PRVC_LIMIT_VT_FRACTION') * target;
-    this.prvcShortCount = atCeiling && short ? this.prvcShortCount + 1 : 0;
+    this.prvcShortCount = prevWasPc && atCeiling && short ? this.prvcShortCount + 1 : 0;
     this.setAlarm('prvc-limit', this.prvcShortCount >= 2, t, events);
   }
 
@@ -863,8 +889,11 @@ export class Ventilator {
    */
   private prvcSeedFromTestBreath(m: VentMeasured): void {
     if (!this.prvcTestPending) return;
+    // An apnea-backup breath is the backup plan at PEEP + backupPinsp, not the test breath: it cannot seed
+    // the estimate. `prvcTestPending` stays set so the next breath is a real test breath.
+    if (this.breathIsBackup) return;
     const s = this.settings;
-    const cEst = m.vti / Math.max(0.5, m.paw - s.peep);
+    const cEst = m.vti / Math.max(k('PRVC_MIN_DP_FOR_C'), m.paw - s.peep);
     this.prvcCompliance = cEst;
     this.regulatedDp = clamp(s.vt / 1000 / Math.max(1e-3, cEst), s.prvcMinDp, this.prvcCeiling(s));
     this.prvcTestPending = false;

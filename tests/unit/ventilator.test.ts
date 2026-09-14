@@ -129,6 +129,28 @@ describe('patient triggering', () => {
     expect(backup[0]?.t).toBeGreaterThanOrEqual(10);
     expect(alarms(res.events).some((a) => a.alarm === 'apnea' && a.active)).toBe(true);
   });
+
+  it('switching from the apnea backup into a mode with a mandatory rate ends the backup and clears the apnea alarm', () => {
+    const res = runHeadless({
+      patient: presetPatient('normal'),
+      settings: { ...defaultSettings('PSV'), peep: 5, ps: 10, apneaTime: 8, backupRR: 10 },
+      seed: 11,
+      duration: 50,
+      schedule: [{ t: 25, action: (e) => e.vent.applySettings({ mode: 'VC-AC', vt: 450, rr: 12, ti: 1.0 }) }],
+    });
+    const after = triggers(res.events).filter((e) => e.t > 25);
+    expect(after.length).toBeGreaterThan(3);
+    // The first trigger after the mode change is still the backup clock's: the new mode is pending until
+    // the breath starts, and the backup exits there. Every trigger after that is the mandatory rate's.
+    expect(after.slice(1).every((e) => e.cause === 'time')).toBe(true);
+    expect(after.slice(1).some((e) => e.cause === 'backup')).toBe(false);
+    const bev = res.events.filter((e): e is Extract<VentEvent, { type: 'breath' }> => e.type === 'breath');
+    expect(bev.filter((e) => e.t > 25).every((e) => e.kind === 'vc')).toBe(true);
+    const apnea = alarms(res.events).filter((a) => a.alarm === 'apnea');
+    expect(apnea.some((a) => a.active && a.t < 25)).toBe(true);
+    expect(apnea.at(-1)?.active).toBe(false);
+    expect(apnea.at(-1)?.t).toBeGreaterThan(25);
+  });
 });
 
 describe('cycling', () => {

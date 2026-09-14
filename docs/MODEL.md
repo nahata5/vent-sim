@@ -149,12 +149,17 @@ signals (D-002), actuators run at 1 ms:
   earlier efforts get pressure-supported breaths (the PSV plan with `ps`, `ets`, `tiMax`). Every
   inspiration start emits a `breath` event with its kind, mandatory flag and pressure target.
 - **PRVC** (D-023): the first breath after entering PRVC or changing `vt` is a square-flow VC test breath
-  over the set Ti (`PRVC_TEST_PAUSE` pause) → C = Vti/(Pplat − PEEP) → ΔP0 = Vt/C; every later breath is
+  over the set Ti (`PRVC_TEST_PAUSE` pause) → C = Vti/(Pplat − PEEP, floored at `PRVC_MIN_DP_FOR_C`) →
+  ΔP0 = Vt/C; ΔP0 is clamped to the same [floor, ceiling] band as every later breath before the first PC
+  breath is built. Every later breath is
   PC at PEEP + ΔP, time-cycled, with ΔP += `clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff, ±PRVC_STEP_MAX)` each
-  breath start (`C_eff = Vti_prev/ΔP_prev`, or the stored test-breath compliance below `PRVC_DP_EPSILON`,
-  where Vti/ΔP is no longer a compliance), bounded to [`prvcMinDp`, highPpeak − `PRVC_PMAX_MARGIN` − PEEP].
-  A test breath that alarm-cycles (no pause) seeds ΔP from the end-inspiratory pressure instead. Alarm
-  `prvc-limit` after two consecutive at-ceiling breaths under `PRVC_LIMIT_VT_FRACTION` of the target.
+  breath start (`C_eff = Vti_prev/ΔP_prev`, or the stored test-breath compliance when ΔP_prev is below
+  `PRVC_DP_EPSILON` or Vti_prev is at or below `PRVC_MIN_VTI_FOR_C`, where Vti/ΔP is no longer a
+  compliance), bounded to [`prvcMinDp`, highPpeak − `PRVC_PMAX_MARGIN` − PEEP].
+  A test breath that alarm-cycles (no pause) seeds ΔP from the end-inspiratory pressure instead; an apnea
+  backup breath never seeds it and is never read as the previous breath. Alarm `prvc-limit` after two
+  consecutive at-ceiling **PC** breaths (the VC test breath does not count) under
+  `PRVC_LIMIT_VT_FRACTION` of the target, both terms read on the breath that just ended.
 - **Alarms** (Brief 1 §2.6): high Ppeak (cycles the breath), low Vte, high/low Ve and high RR on a rolling
   minute, apnea, disconnect (Paw < PEEP − 3 for 0.5 s), high leak, Ti max, high PEEPi after an expiratory hold.
 - **Sensor chain**: first-order low-pass (15 ms), transport delay (20 ms), band-limited noise (Paw 0.15
@@ -226,7 +231,7 @@ the `DET_*` constants; scores on the held-out grid are in `docs/VALIDATION.md`.
 
 <!-- constants:start -->
 
-Generated from `src/config/constants.ts` (272 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
+Generated from `src/config/constants.ts` (274 constants). Confidence: V = verified against a primary source, L = literature not re-verified, M = modelling assumption.
 
 | Key | Value | Unit | Conf. | Source |
 |---|---|---|---|---|
@@ -351,6 +356,8 @@ Generated from `src/config/constants.ts` (272 constants). Confidence: V = verifi
 | `PRVC_GAIN` | 1 | fraction | M | Fraction of the computed pressure correction applied per breath [M] |
 | `PRVC_DP_EPSILON` | 0.5 | cmH2O | M | Below this regulated ΔP the breath's volume is effort, not pressure, so Vti/ΔP is no longer a compliance: the test-breath estimate takes over (without it a regulator driven to ΔP 0 could never step back up) [M] |
 | `PRVC_LIMIT_VT_FRACTION` | 0.9 | fraction of the target | M | Volume-not-achieved alarm: two consecutive breaths under 90 % of the target at the ceiling [M] |
+| `PRVC_MIN_VTI_FOR_C` | 0.02 | L | M | Measured inspired volume below which Vti/ΔP is not a usable compliance [M]: 20 mL is under any adult tidal volume, so a breath at or below it (a disconnect, an alarm cycle, a breath cut off in its first moments) would divide noise by pressure; the stored test-breath compliance is used instead |
+| `PRVC_MIN_DP_FOR_C` | 0.5 | cmH2O | M | Plateau − PEEP floor for the test-breath compliance estimate [M]: below this the measured driving pressure is at the resolution of the pressure signal and C = Vti/(Pplat − PEEP) would blow up |
 | `INSP_HOLD_P1_DELAY` | 0.05 | s | M | Brief 2 §5: P1 read after the fast resistive drop (Paw → P1 "quickly"), before the slow P2 decay |
 | `INSP_HOLD_MIN` | 0.3 | s | L | Brief 1 §2.7: Pplat at the end of a ≥ 0.3–0.5 s no-flow pause |
 | `EXP_HOLD_DEFAULT` | 3 | s | L | Spec §5: expiratory hold 2–4 s |

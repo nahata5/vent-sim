@@ -128,10 +128,22 @@ The PRVC detector rule for `support-withdrawal` (D-023) is: the regulated pressu
 `LABEL_SUPPORT_WITHDRAWAL_MARGIN` (1 cmH2O) of the floor, the breath is patient-triggered, and the measured
 Vti is ≥ `DET_SW_VT_EXCESS` (1.05) × the set target — the floor, the trigger cause and the volume excess,
 not the Paw ramp shape (the drafted `earlySag` conjunct never separated the case; see D-023). By
-construction this rule misses time- or reverse-triggered support-withdrawal breaths, since it requires a
-patient trigger; the truth labeler still scores those breaths (it judges the regulated pressure and effort
-only), so `prvc-pressure-withdrawal`'s sensitivity below (0.20) reflects that gap, not a detector bug — most
-of its support-withdrawal breaths in this scenario are not patient-triggered.
+construction this rule also misses time- or reverse-triggered support-withdrawal breaths, since it requires
+a patient trigger; the truth labeler still scores those breaths (it judges the regulated pressure and effort
+only).
+
+`prvc-pressure-withdrawal`'s sensitivity below is 0.20, and the trigger cause is **not** why. Measured on
+the shipped scenario (60 s, breaths after 10 s): all 15 truth support-withdrawal breaths are
+patient-triggered; the 12 misses fail the volume conjunct, with measured Vti/Vt of 0.96–1.05 (full range
+over the 15 breaths 0.96–1.22; only 3 reach 1.05). The finding is a **transfer problem in the threshold**:
+`DET_SW_VT_EXCESS` was tuned on runs at a drive Pmax of 16, where the same scenario's support-withdrawal
+breaths sit at Vti/Vt 1.10–1.18 (re-measured now at Pmax 16: 1.01–1.37, 9 of 14 breaths at or above 1.05),
+while the shipped scenario runs at Pmax 12, where the regulator pinned at its floor delivers about the
+target rather than over it (Pmax 12: 3 of 15; Pmax 14: 7 of 16). The threshold is deliberately **not**
+retuned against this scenario — the reported scenario is not a tuning set, and lowering the conjunct to
+≈ 0.96 would make it fire on any floor-pinned passive breath (a passive lung at the floor delivers
+Vti/Vt 0.99–1.01, D-023). What the number means is that a volume-excess rule is a poor separator once the
+regulator reaches its floor: the excess is what drove the pressure down, so at the floor it is spent.
 
 | Scenario | Pattern | tp | fp | tn | fn | Sens | Spec |
 |---|---|---|---|---|---|---|---|

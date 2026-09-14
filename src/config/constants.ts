@@ -169,6 +169,8 @@ export const CONSTANTS = {
   PRVC_GAIN: c(1.0, 'fraction', 'Fraction of the computed pressure correction applied per breath [M]', 'M'),
   PRVC_DP_EPSILON: c(0.5, 'cmH2O', 'Below this regulated ΔP the breath\'s volume is effort, not pressure, so Vti/ΔP is no longer a compliance: the test-breath estimate takes over (without it a regulator driven to ΔP 0 could never step back up) [M]', 'M'),
   PRVC_LIMIT_VT_FRACTION: c(0.9, 'fraction of the target', 'Volume-not-achieved alarm: two consecutive breaths under 90 % of the target at the ceiling [M]', 'M'),
+  PRVC_MIN_VTI_FOR_C: c(0.02, 'L', 'Measured inspired volume below which Vti/ΔP is not a usable compliance [M]: 20 mL is under any adult tidal volume, so a breath at or below it (a disconnect, an alarm cycle, a breath cut off in its first moments) would divide noise by pressure; the stored test-breath compliance is used instead', 'M'),
+  PRVC_MIN_DP_FOR_C: c(0.5, 'cmH2O', 'Plateau − PEEP floor for the test-breath compliance estimate [M]: below this the measured driving pressure is at the resolution of the pressure signal and C = Vti/(Pplat − PEEP) would blow up', 'M'),
   INSP_HOLD_P1_DELAY: c(0.05, 's', 'Brief 2 §5: P1 read after the fast resistive drop (Paw → P1 "quickly"), before the slow P2 decay', 'M'),
   INSP_HOLD_MIN: c(0.3, 's', 'Brief 1 §2.7: Pplat at the end of a ≥ 0.3–0.5 s no-flow pause', 'L'),
   EXP_HOLD_DEFAULT: c(3.0, 's', 'Spec §5: expiratory hold 2–4 s', 'L'),

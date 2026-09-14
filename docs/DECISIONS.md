@@ -644,16 +644,21 @@ asynchrony index under the scenario gate.
 Brief 1 §2.5 gives the regulator as `Pinsp_next = Pinsp + clamp(k·(Vt_target − Vte)/C_est, ±ΔPmax)` with
 ΔPmax ≈ 3 and a ceiling of Pmax_alarm − 5, all vendor-specific. Built as: the first breath after entering
 PRVC or changing the volume target is a square-flow VC breath over the set Ti with a `PRVC_TEST_PAUSE`
-(0.3 s) pause; compliance is C = Vti/(Pplat − PEEP) measured at the end of that pause, and the initial ΔP
-is Vt/C. Every later breath is PC at PEEP + ΔP, time-cycled; at each breath start the regulator corrects
+(0.3 s) pause; compliance is C = Vti/(Pplat − PEEP) measured at the end of that pause (with the divisor
+floored at `PRVC_MIN_DP_FOR_C`, 0.5 cmH2O), and the initial ΔP is Vt/C. That initial ΔP is itself clamped to
+the [floor, ceiling] band before the first PC breath, so a test breath on a very stiff or very compliant
+lung cannot start the regulator outside the band it is then held in. Every later breath is PC at PEEP + ΔP,
+time-cycled; at each breath start the regulator corrects
 ΔP from the previous breath's measured inspired volume — `step = clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff,
 ±PRVC_STEP_MAX)` with `C_eff = Vti_prev/ΔP_prev` (gain 1.0, step clamped to ±3) — then clamps the result to
 [`prvcMinDp` (5), highPpeak − `PRVC_PMAX_MARGIN` (5) − PEEP]. The floor is the Servo-i convention (PEEP +
 5); it is a setting (`prvcMinDp`) because vendors differ. "Volume not achieved" (`prvc-limit`) fires after
 two consecutive breaths at the ceiling delivering under `PRVC_LIMIT_VT_FRACTION` (0.9) of the target. The
 regulator reads the ventilator's own Vti, so a leak fools it as at the bedside; entering PRVC or changing
-`vt` (both the `applySettings` and `commitPending` paths) forces a new test breath, but a PEEP change does
-not.
+`vt` forces a new test breath, but a PEEP change does not. The reset (`prvcResetIfRetargeted`) runs when the
+pending settings commit, at the next breath start — `mode` and `vt` are not immediate keys, so the identical
+call on the `applySettings` path is defensive only (it would matter only if either key were ever made
+immediate), and is commented as such in the code.
 
 Two deviations from the plan. First, a ruling on the VC test breath itself: when it alarm-cycles (high
 Ppeak on a stiff lung, so there is no pause and no plateau), the regulator seeds ΔP from the
@@ -664,9 +669,30 @@ delivered volume is effort, not pressure, so `Vti/ΔP` is no longer a compliance
 stored test-breath compliance (`prvcCompliance`) is used as the denominator instead. Without it, a
 regulator driven to ΔP ≈ 0 by a strong effort against a floor setting of 0 could never step back up
 (measured: 2 mL/breath for the rest of the run — the volume the effort alone produces, with no pressure
-left for the step formula to divide by). A third fix-round change is bookkeeping, not physics:
-`prvcRegulate` now runs at every breath start in every mode and clears `prvc-limit` when the mode is not
-PRVC, since the alarm previously survived a mode change.
+left for the step formula to divide by). The same fallback is taken when the previous breath's measured Vti
+is at or below `PRVC_MIN_VTI_FOR_C` (0.02 L): 20 mL is under any adult tidal volume, so such a breath (a
+disconnect, an alarm cycle, a breath cut off in its first moments) would put noise in the numerator of
+Vti/ΔP. A third fix-round change is bookkeeping, not physics: `prvcRegulate` now runs at every breath start
+in every mode and clears `prvc-limit` when the mode is not PRVC, since the alarm previously survived a mode
+change.
+
+Three further changes came out of the whole-branch review. (a) **The apnea backup now ends at the first
+breath start in a mode with a mandatory rate.** `backupActive` was cleared only by a patient trigger, so
+switching from PSV-in-backup to any of VC-AC/PC-AC/SIMV/PRVC left every later breath on the backup PC plan
+at PEEP + `backupPinsp` with the apnea alarm latched (in PRVC the VC test breath never ran, and
+`regulatedDp` would have been seeded from a backup breath). `startInsp` now calls `exitBackup` when the
+committed mode `hasMandatoryRate`; the trigger that starts that first breath still reads `backup`, because
+it was scheduled during expiration while the old mode was still in effect. `prvcRegulate` and
+`prvcSeedFromTestBreath` additionally treat a preceding backup breath as "no previous breath" — its volume
+came from the backup plan, not the regulator. This was pre-existing behaviour (VC-AC showed the identical
+stuck sequence), not new in M12. (b) **`prvc-limit` counts what the rule says it counts.** `atCeiling` was
+read on the post-step ΔP while `short` referred to the previous breath, and an alarm-cycled VC test breath
+counted as an at-ceiling short breath, so the alarm could fire one breath early (measured on the stiff-lung
+test: at the start of the third breath, after one PC breath at the ceiling). Both terms are now read on the
+breath that just ended and only `kind === 'pc'` breaths count, so the alarm fires after two consecutive PC
+breaths at the ceiling under `PRVC_LIMIT_VT_FRACTION` of the target (measured on the same test: t = 13.0,
+after the ceiling-bound PC breaths at 4.4 and 8.7). (c) The two inline guards became tagged constants:
+`PRVC_MIN_VTI_FOR_C` (0.02 L) and `PRVC_MIN_DP_FOR_C` (0.5 cmH2O).
 
 Truth pattern `support-withdrawal`: a PRVC breath (`kind === 'pc'`) whose ΔP is within
 `LABEL_SUPPORT_WITHDRAWAL_MARGIN` (1 cmH2O) of the floor while the peak Pmus is ≥ `PMUS_HIGH` — the "PRVC
@@ -686,6 +712,18 @@ does not exist in the constants table; `earlySag` appears only in the evidence s
 reading it, not as a detector conjunct. By construction the detector misses time- or reverse-triggered
 support-withdrawal breaths (truth still labels them, since the regulator's math does not care why the
 breath started) — a limitation, not a bug, recorded in `docs/LIMITATIONS.md`.
+
+Review-round correction to the reported gap: that construction is **not** what the 0.20 sensitivity on
+`prvc-pressure-withdrawal` measures. Re-measured on the shipped scenario, all 15 truth support-withdrawal
+breaths after 10 s are patient-triggered; the 12 misses fail the volume conjunct (Vti/Vt 0.96–1.05, full
+range 0.96–1.22, only 3 at or above `DET_SW_VT_EXCESS`). The volume-excess threshold was tuned at a drive
+Pmax of 16 and does not transfer to the shipped Pmax of 12, where a regulator pinned at its floor delivers
+about the target rather than over it (re-run: 9/14 breaths ≥ 1.05 at Pmax 16, 7/16 at Pmax 14, 3/15 at Pmax
+12). `DET_SW_VT_EXCESS` is deliberately left at 1.05: the reported scenario is not a tuning set, and the
+value that would catch these breaths (≈ 0.96) is inside the passive floor-pinned band (0.99–1.01) the
+conjunct exists to exclude. The honest statement of the limit is that a volume-excess test is weak once the
+regulator reaches its floor, because the excess is what drove the pressure down. `docs/VALIDATION.md` and
+`docs/LIMITATIONS.md` carry the measured numbers.
 
 `prvc-pressure-withdrawal`'s scripted fix needed two rulings to clear the 10 % after-fix asynchrony gate.
 The brief's fix (PC-AC, Pinsp 14, Ti 0.9) left AI at 31.8 % after the fix; a full sweep of PC-AC (Ti

@@ -69,7 +69,20 @@ entry names the decision or milestone that introduced it. Newest additions last 
   withdrawal**: `support-withdrawal` requires `triggerCause === 'patient'` (the floor test and the volume
   excess alone do not separate the pattern from a passive breath sitting at the floor), so a time- or
   reverse-triggered support-withdrawal breath is missed by the detector even though the truth labeler still
-  scores it; see `docs/VALIDATION.md`'s "Detector in SIMV and PRVC" section for the measured gap.
+  scores it.
+- **The volume-excess conjunct of that rule does not transfer across drive strengths**, which is why its
+  measured sensitivity on `prvc-pressure-withdrawal` is 0.20. Measured on the shipped scenario: all 15 truth
+  support-withdrawal breaths after 10 s are patient-triggered, and the 12 misses fail `DET_SW_VT_EXCESS`
+  (1.05) with Vti/Vt 0.96–1.05 (full range 0.96–1.22). The threshold was tuned at a drive Pmax of 16
+  (Vti/Vt 1.10–1.18 there; 9 of 14 breaths at or above 1.05 on a re-run), while the shipped scenario runs
+  at Pmax 12, where a regulator pinned at its floor delivers about the target rather than over it. The
+  threshold is deliberately not retuned against the reported scenario; see `docs/VALIDATION.md`'s
+  "Detector in SIMV and PRVC" section for the numbers.
+- **A PRVC floor set above the ceiling is accepted without a warning**: `prvcCeiling` is
+  `max(prvcMinDp, highPpeak − PRVC_PMAX_MARGIN − PEEP)`, so with, say, PEEP 25 and a high-pressure alarm of
+  30 the floor wins and the regulated target sits at the alarm limit, alarm-cycling every breath. Real
+  ventilators refuse or warn on the combination; a settings-level warning is UI scope beyond M12 and is not
+  built.
 
 ## Education layer and export
 

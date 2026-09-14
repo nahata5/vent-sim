@@ -278,24 +278,34 @@ Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §3; pla
 
 - **The PRVC regulator in the ventilator**: `src/sim/vent/ventilator.ts` — private fields `regulatedDp`
   (ΔP above PEEP, null until seeded), `prvcTestPending`, `prvcShortCount`, `prvcCompliance` (the fallback
-  denominator below `PRVC_DP_EPSILON`). `makePlan`'s `'PRVC'` case runs a square-flow VC test breath
+  denominator below `PRVC_DP_EPSILON`), `breathIsBackup` (whether the breath being delivered is the apnea
+  backup's). `makePlan`'s `'PRVC'` case runs a square-flow VC test breath
   (`vcPlan` with `vcTiming: 'ti'`, `flowPattern: 'square'`, `pause: k('PRVC_TEST_PAUSE')`) when
-  `prvcTestPending`, otherwise a PC breath at PEEP + `regulatedDp`. `prvcRegulate(t, events)` runs at every
-  breath start in every mode (Spec 2026-09-14 §3, D-023): outside PRVC it clears `prvcShortCount` and the
-  `prvc-limit` alarm; entering a PRVC breath it steps `regulatedDp` from the previous breath's measured Vti
-  (`C_eff = Vti_prev/regulatedDp_prev`, or `prvcCompliance` below `PRVC_DP_EPSILON`) by
+  `regulatedDp === null` (the state `prvcTestPending` then marks, so the breath's plateau seeds the
+  estimate), otherwise a PC breath at PEEP + `regulatedDp`. `prvcRegulate(t, events, prevWasBackup)` runs at
+  every breath start in every mode (Spec 2026-09-14 §3, D-023): outside PRVC it clears `prvcShortCount` and
+  the `prvc-limit` alarm; entering a PRVC breath it steps `regulatedDp` from the previous breath's measured
+  Vti (`C_eff = Vti_prev/regulatedDp_prev`, or `prvcCompliance` below `PRVC_DP_EPSILON` or at/below
+  `PRVC_MIN_VTI_FOR_C`) by
   `clamp(PRVC_GAIN·(Vt − Vti_prev)/C_eff, ±PRVC_STEP_MAX)`, then clamps to `[prvcMinDp, prvcCeiling(s)]`
-  where `prvcCeiling = highPpeak − PRVC_PMAX_MARGIN − PEEP`; two consecutive at-ceiling breaths under
-  `PRVC_LIMIT_VT_FRACTION` of the target set `prvc-limit`. `prvcSeedFromTestBreath(m)` runs at every
+  where `prvcCeiling = highPpeak − PRVC_PMAX_MARGIN − PEEP`; two consecutive at-ceiling **PC** breaths under
+  `PRVC_LIMIT_VT_FRACTION` of the target set `prvc-limit` (both terms read on the breath that just ended,
+  before the step — the VC test breath never counts). A breath that followed the apnea backup is read as
+  "no previous breath". `prvcSeedFromTestBreath(m)` runs at every
   inspiratory exit (not only after a completed test-breath pause) so an alarm-cycled test breath (no
   plateau) still seeds `regulatedDp` from the end-inspiratory pressure — a modelling choice beyond the
-  plan's literal text (D-023). `prvcResetIfRetargeted(prev)` forces a new test breath on entering PRVC or
-  changing `vt` (both the `applySettings` and `commitPending` paths), but not on a PEEP change.
+  plan's literal text (D-023) — and refuses to seed from a backup breath. `prvcResetIfRetargeted(prev)`
+  forces a new test breath on entering PRVC or changing `vt`, but not on a PEEP change; it runs when those
+  pending settings commit, at the next breath start (the identical call in `applySettings` is defensive
+  only — neither `mode` nor `vt` is an immediate key on that path).
   `hasMandatoryRate` (`'VC-AC' | 'PC-AC' | 'SIMV' | 'PRVC'`) gates the mandatory-rate time trigger for PRVC
-  too. Public getter `Ventilator.prvcDp`.
+  too, and `startInsp` now calls `exitBackup` when the committed mode has one, so a mode change out of an
+  apnea backup leaves the backup instead of repeating its PC plan for ever (D-023; pre-existing, VC-AC
+  showed the same). Public getter `Ventilator.prvcDp`.
 - **Settings and constants**: `src/sim/vent/settings.ts` `prvcMinDp` (in `SETTING_BOUNDS`, PRVC-only
   field). `src/config/constants.ts`: `PRVC_STEP_MAX` (3), `PRVC_PMAX_MARGIN` (5), `PRVC_MIN_DP` (5),
   `PRVC_TEST_PAUSE` (0.3), `PRVC_GAIN` (1.0), `PRVC_DP_EPSILON` (0.5), `PRVC_LIMIT_VT_FRACTION` (0.9),
+  `PRVC_MIN_VTI_FOR_C` (0.02 L), `PRVC_MIN_DP_FOR_C` (0.5 cmH2O),
   `LABEL_SUPPORT_WITHDRAWAL_MARGIN` (1), `DET_SW_VT_EXCESS` (1.05).
 - **UI**: `src/ui/MonitorPanel.tsx` — `Props.prvcDp`, a `Pinsp` tile (`data-testid="mon-Pinsp"`, "cmH2O
   PRVC ΔP above PEEP") spliced in next to `ΔP` when the mode is PRVC. `src/ui/SettingsPanel.tsx` —
