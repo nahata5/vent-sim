@@ -265,7 +265,7 @@ export const CONSTANTS = {
   DET_HIGH_R_EEF: c(5, 'L/min', 'The inspiratory resistive step is trusted for the resistance estimate when the end-expiratory flow before the breath is above −5 L/min (a 5 L/min residual flow across R 30 adds ≈ 2.5 cmH2O, ≤ 4 cmH2O/(L/s) of apparent R at 0.6 L/s) [M]', 'M'),
   DET_DC_TI_RATIO: c(2.0, 'ratio', 'Brief 1 §3.7 Thille: prolonged cycle = Ti > 2× mean Ti', 'L'),
   DET_OVERSHOOT_MARGIN: c(3.0, 'cmH2O', 'Brief 1 §3.9: Paw in the first 200 ms > target + 2–3 [heuristic]', 'L'),
-  DET_SW_SAG: c(2, 'cmH2O', 'Detector: inspiratory Paw sag below the regulated target that marks unmet demand in PRVC (report only) [M]', 'M'),
+  DET_SW_VT_EXCESS: c(1.05, 'fraction of the set target', 'Detector: a PRVC breath at the floor that is patient-triggered and still over-delivers the target by 5 % marks the effort the regulator is reading as excess volume (report only); set on the tuning runs (support withdrawal 1.10–1.18 vs passive 0.99–1.01), never on the held-out grid [M]', 'M'),
   DET_AUTOPEEP_FLOW: c(3.0, 'L/min', 'Brief 1 §3.10: end-expiratory flow magnitude > 2–5 L/min at the trigger point [heuristic]', 'L'),
   DET_LEAK_RATIO: c(0.85, 'fraction', 'Spec §7: Vte/Vti < 0.85–0.9 [heuristic]; summed over 8 breaths so stacked pairs cancel', 'L'),
   DET_SECRETIONS_HP_RMS: c(2.2, 'L/min', 'Second-difference RMS of expiratory flow at the device rate (5–20 Hz energy proxy); band-limited sensor noise alone gives ≈ 0.55 [M, tuned]', 'M'),
