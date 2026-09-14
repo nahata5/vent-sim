@@ -10,7 +10,7 @@ import type { BreathRecord, ManeuverKind, ManeuverResult, VentEvent } from '../s
 import type { VentSettings } from '../sim/vent/settings';
 import type { BalloonParams } from '../sim/patient/balloon';
 import { defaultBalloon } from '../sim/patient/balloon';
-import { resolveScenario, scenarioById, type ScenarioDef, type ScenarioFix } from '../edu/scenarios';
+import { SCENARIOS, resolveScenario, type ScenarioDef, type ScenarioFix } from '../edu/scenarios';
 import type { PatientSummary, SessionStatus, WorkerToMain } from '../worker/protocol';
 import { StreamStore } from './StreamStore';
 import { WorkerClient } from './WorkerClient';
@@ -23,6 +23,7 @@ import type { DriveParams } from '../sim/patient/neural-drive';
 import type { PatternId } from '../sim/truth/labeler';
 import { QuizSession } from '../edu/quiz-session';
 import { ProgressStore } from '../edu/progress';
+import { CustomScenarioStore } from '../edu/custom-scenarios';
 import { SEVERE_ALARMS, extrasFromTruth, truthPatternsInWindow, type FixGrade, type FixInput } from '../edu/quiz';
 import { effortEvidence, explainBreath, type BreathExplanation } from '../edu/cards';
 import type { QuizHideKey } from '../edu/quiz-view';
@@ -127,6 +128,7 @@ export class SessionController {
   private driveAtFixStart: DriveSnapshot | null = null;
   quiz = new QuizSession();
   progress = new ProgressStore();
+  customScenarios = new CustomScenarioStore();
   /** Breath index whose explain card is open (badge click), or null for the latest labelled breath. */
   selectedBreath: number | null = null;
   private alarmsAtFixStart = 0;
@@ -165,8 +167,23 @@ export class SessionController {
     });
   }
 
+  /** Re-render without a state change (custom-scenario list edits). */
+  refresh(): void {
+    this.notify();
+  }
+
+  /** Shipped library first, then the learner's saved scenarios. */
+  findScenario(id: string): ScenarioDef | null {
+    return SCENARIOS.find((s) => s.id === id) ?? this.customScenarios.get(id);
+  }
+
+  hasScenario(id: string): boolean {
+    return this.findScenario(id) !== null;
+  }
+
   loadScenario(id: string): void {
-    const def = scenarioById(id);
+    const def = this.findScenario(id);
+    if (!def) throw new Error(`unknown scenario ${id}`);
     const spec = resolveScenario(def);
     this.scenario = def;
     this.resetSessionState(spec);

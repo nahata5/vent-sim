@@ -17,6 +17,17 @@ export async function noHorizontalOverflow(page: Page): Promise<void> {
   expect(o.body, 'body.scrollWidth').toBeLessThanOrEqual(o.inner);
 }
 
+/** Every spec except help.spec.ts starts with the first-visit help already dismissed. */
+export async function dismissHelp(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('ventsim.help.seen.v1', '1');
+    } catch {
+      /* blocked */
+    }
+  });
+}
+
 /** The waveform canvas backing store follows its wrap (clientWidth × dpr capped at 2) and the wrap spans the viewport. */
 export async function canvasFollowsWrap(page: Page): Promise<void> {
   await page.waitForTimeout(150);

@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { dismissHelp } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 /** Sum of pixel values over the waveform canvas: a cheap fingerprint of what is drawn. */
 async function canvasFingerprint(page: Page): Promise<number> {

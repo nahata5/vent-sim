@@ -18,6 +18,8 @@ import { ExplainCard } from '../ui/ExplainCard';
 import { QuizPanel } from '../ui/QuizPanel';
 import { InstructorPanel } from '../ui/InstructorPanel';
 import { ExportPanel } from '../ui/ExportPanel';
+import { HelpDialog, HELP_SEEN_KEY } from '../ui/HelpDialog';
+import { browserStorage } from '../edu/progress';
 import type { DrawerTab } from './controller';
 import { defaultBalloon } from '../sim/patient/balloon';
 import type { BadgeHit } from '../ui/waveform-draw';
@@ -58,6 +60,21 @@ export function App() {
   const [showObjectives, setShowObjectives] = useState(true);
   const [page, setPage] = useState(hashPage());
   const [fixApplied, setFixApplied] = useState(false);
+  const [help, setHelp] = useState<boolean>(() => {
+    try {
+      return browserStorage().getItem(HELP_SEEN_KEY) === null;
+    } catch {
+      return false;
+    }
+  });
+  const closeHelp = () => {
+    setHelp(false);
+    try {
+      browserStorage().setItem(HELP_SEEN_KEY, '1');
+    } catch {
+      /* blocked */
+    }
+  };
   const phone = usePhoneLayout();
   const [mtab, setMtab] = useState<MobileTab>('vent');
   // When the controller opens a drawer tab on its own (badge tap → Explain, quiz start → Quiz), the phone shows Learn.
@@ -74,7 +91,7 @@ export function App() {
     const unsub = ctl.subscribe(() => setTick((n) => n + 1));
     const fromHash = () => {
       const hash = hashPage();
-      return SCENARIOS.some((s) => s.id === hash) ? hash : DEFAULT_SCENARIO;
+      return ctl.hasScenario(hash) ? hash : DEFAULT_SCENARIO;
     };
     // A quiz link (`#<id>?quiz=…`, D-019) applies its hide set and locks the session.
     const applyQuizLink = () => {
@@ -82,7 +99,12 @@ export function App() {
       if (info?.locked && info.scenarioId === ctl.scenario?.id) ctl.lockQuiz(info.hide);
     };
     if (hashPage() !== VALIDATION_HASH) {
-      ctl.loadScenario(fromHash());
+      try {
+        ctl.loadScenario(fromHash());
+      } catch {
+        // A stale hash (e.g. a deleted custom scenario link) points at an id that no longer resolves.
+        ctl.loadScenario(DEFAULT_SCENARIO);
+      }
       applyQuizLink();
     }
     const onHash = () => {
@@ -91,7 +113,11 @@ export function App() {
       const id = fromHash();
       if (id !== ctl.scenario?.id) {
         setFixApplied(false);
-        ctl.loadScenario(id);
+        try {
+          ctl.loadScenario(id);
+        } catch {
+          ctl.loadScenario(DEFAULT_SCENARIO);
+        }
       }
       applyQuizLink();
     };
@@ -161,8 +187,11 @@ export function App() {
     <div class="app-shell">
       <header class="app-header">
         <h1>VentSim</h1>
+        <button type="button" class="link help-open" onClick={() => setHelp(true)} aria-label="How to use VentSim" title="How to use VentSim" data-testid="help-open">
+          ?
+        </button>
         {!phone && <span class="muted small">v{APP_VERSION}</span>}
-        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} disabled={locked} mask={hideScenario} />
+        <ScenarioPicker current={scenario} onPick={pick} progress={ctl.progress.all()} custom={ctl.customScenarios.all()} disabled={locked} mask={hideScenario} />
         {!phone && toggles}
         {!phone && !hideDerived && (
           <a class="small muted" href="#validation" data-testid="validation-link">
@@ -285,6 +314,7 @@ export function App() {
       <footer class="app-footer" data-testid="disclaimer">
         {DISCLAIMER}
       </footer>
+      <HelpDialog open={help} onClose={closeHelp} />
     </div>
   );
 }

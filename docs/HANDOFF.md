@@ -1,23 +1,26 @@
 # Handoff — VentSim build state
 
-Updated 2026-09-11, late (M9 complete; post-M9 extensions done: Pes artifact fix, quiz extras, capstone,
+Updated 2026-09-14 (M9 complete; post-M9 extensions done: Pes artifact fix, quiz extras, capstone,
 schematic SpO2, live EL/Ecw, quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout
-D-020), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
+D-020, Cloudflare Workers hosting at `vent.nahass.ai` D-021; M10 complete: scenario authoring, My scenarios,
+help overlay D-025), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 
 ## Read in this order
 
 1. `docs/FABLE_GOAL_PROMPT.md` — the goal, non-negotiables, definition of done.
 2. `docs/superpowers/specs/2026-09-10-vent-sim-design.md` — the spec (§7 pattern catalog, §8 education, §9
-   validation, §10 export, §12 milestones).
+   validation, §10 export, §12 milestones); `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`
+   — the spec for SIMV/PRVC/APRV, scenario authoring and the help overlay (§2–§4 modes, §5–§7 M10 parts).
 3. `PROGRESS.md` — what each milestone built and its test results (M6 detector table, M7 numbers, the M9
-   definition-of-done walkthrough).
-4. `docs/DECISIONS.md` — D-001…D-020; D-012 is the detector's measurement basis, D-014 the M7 physics
-   (recruited gas, R/I limits, CO2 loop gains, the settings-log bug), D-015 the education/export choices,
-   D-016 the Pes cardiac artifact and cardiac-smoothed ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw,
-   D-019 the quiz bedside view, locked link and templated debrief (+ follow-ups addendum), D-020 the
-   mobile-responsive layout.
+   definition-of-done walkthrough, the M10 entry).
+4. `docs/DECISIONS.md` — D-001…D-021, D-025 (D-022…D-024 reserved for M11 SIMV / M12 PRVC / M13 APRV); D-012
+   is the detector's measurement basis, D-014 the M7 physics (recruited gas, R/I limits, CO2 loop gains, the
+   settings-log bug), D-015 the education/export choices, D-016 the Pes cardiac artifact and cardiac-smoothed
+   ΔPes, D-017 the schematic SpO2, D-018 live EL/Ecw, D-019 the quiz bedside view, locked link and templated
+   debrief (+ follow-ups addendum), D-020 the mobile-responsive layout, D-021 Cloudflare hosting, D-025
+   scenario authoring / My scenarios / help overlay.
 5. `docs/LIMITATIONS.md`, `docs/QUESTIONS.md` (Q-1…Q-5; Q-1…Q-3 answered: keep the defaults).
-6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md` — the user-facing docs (M9).
+6. `README.md`, `docs/MODEL.md`, `docs/VALIDATION.md`, `docs/SCENARIO_AUTHORING.md` — the user-facing docs.
 7. This file's "What is left" before touching anything.
 
 ## Where things stand
@@ -28,17 +31,23 @@ D-020), for a fresh session continuing from `docs/FABLE_GOAL_PROMPT.md`.
 | M7 | **done**: recruitable-population lung with real recruited gas, stress index, R/I, decremental PEEP trial, Gattinoni full power, CO2 → drive loop with time warp, truth recruitment readouts, 4 new scenarios, Playwright |
 | M8 | **done**: explain cards with case evidence, quiz (identify → fix → score), instructor mode with a scenario editor, progress in localStorage, session CSV/JSON, batch zip (worker + `scripts/batch.ts`) |
 | M9 | **done**: README, MODEL.md (equations + constants table via `scripts/model-constants.ts`), VALIDATION.md, determinism and performance tests, axe accessibility pass, keyboard/focus, Validation page links; definition-of-done walked in PROGRESS |
-| Post-M9 | **done** (2026-09-11): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) + follow-ups (masked picker, drive marks, attempts review); **mobile-responsive layout (D-020)** |
+| Post-M9 | **done** (2026-09-11 → 2026-09-12): Pes cardiac artifact → systolic pulse + cardiac-smoothed ΔPes (D-016); scenario quiz extras (`quizExtras`); capstone scenario; schematic SpO2 tile (D-017); live EL/Ecw instructor control (D-018); quiz bedside view, locked quiz link and debrief (D-019) + follow-ups (masked picker, drive marks, attempts review); mobile-responsive layout (D-020); Cloudflare Workers Static Assets hosting at `vent.nahass.ai` as the primary home (D-021) |
+| M10 | **done** (2026-09-14): scenario authoring through the reader's own LLM, a field-level validator as the save/run gate, "My scenarios" persisted per-browser, a first-visit help overlay (D-025) — see "M10 as built" below |
 
-`npm test` → 217 passed, 36 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e`
-→ 35/35 = 32 `chromium` (desktop) + 2 `mobile` (Pixel 7) + 1 `tablet` (Nexus 10) (+ 9 screenshot tests
-behind `SCREENSHOTS=1`). `npm run build` clean. Everything committed and pushed on `main`; **live at
-https://vent-sim.netlify.app/** (every push to `main` redeploys). Note: the performance test (`≥ 50× real
-time`) is a wall-clock test; under a loaded machine it fails inside the parallel full run (28–49×) while
-passing alone (see PROGRESS post-M9); it also fails the same way on the pre-change commits, so treat that
-as environment, not regression, and re-run it alone. Live-site check after a push: fetch the served
-`assets/index-*.js` and grep for a **literal** string of the change (template strings such as
-`mtab-${id}` are not literal in the bundle; `mobile-tabs` and `view-toggles` are).
+`npm test` → 230 passed, 39 files (held-out detector suite un-gated). `npm run lint` clean. `npm run test:e2e
+-- --reporter=line` → 40/40 = 37 `chromium` (desktop) + 2 `mobile` (Pixel 7) + 1 `tablet` (Nexus 10) (+ 9
+screenshot tests behind `SCREENSHOTS=1`). `npm run build` clean. All numbers from this session's full
+verification run in the `m10-authoring-help` worktree; no known flake was hit. Committed on the
+`worktree-m10-authoring-help` branch; the controller merges and deploys separately (this session does not
+push or poll the live site — see "Hosting"). Note: the performance test (`≥ 50× real time`) is a wall-clock
+test; under a loaded machine it fails inside the parallel full run (28–49×) while passing alone (see PROGRESS
+post-M9); it also fails the same way on the pre-change commits, so treat that as environment, not regression,
+and re-run it alone. `tests/e2e/quiz.spec.ts` and an `a11y.spec.ts` colour-contrast check have each shown a
+one-off failure under a loaded full Playwright run during M10 (Tasks 5–6 reports); both reproduced clean when
+re-run alone or in a second full run — same rule: re-run the spec alone, report both outcomes. Live-site check
+after a push: fetch the served `assets/index-*.js` and grep for a **literal** string of the change (template
+strings such as `mtab-${id}` are not literal in the bundle; `mobile-tabs` and `view-toggles` are). For M10 the
+literal string is `ventsim.custom.v1` (My scenarios' storage key); `ventsim.help.seen.v1` also works.
 
 ## M7 as built (map of the code)
 
@@ -74,8 +83,9 @@ as environment, not regression, and re-run it alone. Live-site check after a pus
   `src/edu/quiz-session.ts` (`QuizSession`), `src/ui/QuizPanel.tsx`; controller `startQuiz`, `quizTruthPatterns`,
   `submitQuizPicks`, `startQuizFix`, `quizFixInput`, `evaluateQuiz`, `endQuiz`, `settingChanges`, `view.badges`.
 - `src/edu/progress.ts` (`ProgressStore`, key `ventsim.progress.v1`); `ScenarioPicker` shows the best score.
-- `src/ui/InstructorPanel.tsx` (`parseScenarioJson`; drive / R,EL multipliers / CO2 gains live; JSON editor
-  → `ctl.loadScenarioDef`); protocol `setGas`, `setPatientScale`; `GasExchange.setParams`.
+- `src/ui/InstructorPanel.tsx` (drive / R,EL multipliers / CO2 gains live; JSON editor → `ctl.loadScenarioDef`;
+  parsing moved to `parseScenarioText` in M10, see "M10 as built"); protocol `setGas`, `setPatientScale`;
+  `GasExchange.setParams`.
 - `src/export/{csv,json,batch,download}.ts`, `src/worker/batch.worker.ts`, `src/ui/ExportPanel.tsx`,
   `scripts/batch.ts`; controller `co2Log`, `maneuverLog`, `monitorLog`, `sessionCsvText`, `sessionJsonDoc`.
 - App drawer tabs (`tab-scenario|explain|quiz|export`, `ctl.view.drawerTab`).
@@ -140,9 +150,63 @@ as environment, not regression, and re-run it alone. Live-site check after a pus
   `tests/e2e/helpers/layout.ts` (`ready`, `waitForSim`, `noHorizontalOverflow`, `canvasFollowsWrap`).
   Screenshot spec: `emulate(name)` strips `defaultBrowserType` so `test.use` works inside a describe.
 
+## M10 as built (map of the code)
+
+Spec `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md` §5–§7; plan
+`docs/superpowers/plans/2026-09-14-m10-authoring-help.md` (seven tasks); D-025.
+
+- **Shared bounds**: `src/sim/vent/settings.ts` — `NumericSettingKey`, `SETTING_BOUNDS` (`{min, max, unit}`
+  per numeric setting), used by `clampSettings`, the settings UI and the validator so the three cannot drift.
+- **Validator**: `src/edu/scenario-schema.ts` — `validateScenario(raw)` / `parseScenarioText(text)` →
+  `{def, errors, warnings}`; checks every top-level key (`SCENARIO_TOP_KEYS`), the id slug, phenotype,
+  category, settings (mode + every `SETTING_BOUNDS` key + alarms), drive (`DRIVE_BOUNDS`, entrainment),
+  mechanics/recoil, balloon, gas, injectors (`INJECTOR_KINDS`), targetPatterns (`PATTERN_IDS`), the `fix`
+  block, `criteria` (`CRITERIA_EXTRA_METRICS`), `quizExtras` (`QUIZ_EXTRA_METRICS`); unknown keys warn and are
+  ignored (they stay in the stored JSON), not rejected. `src/edu/scenarios/index.ts` — `SCENARIO_CATEGORIES` (added `'mode'`),
+  `isShippedScenario(id)`. `ScenarioPicker.tsx` — `CATEGORY_LABEL.mode = 'SIMV, PRVC and APRV'`.
+- **Authoring prompt**: `src/edu/authoring.ts` — `AUTHORING_PROMPT` (built from the validator's own tables:
+  phenotypes, modes, injector kinds, pattern ids, every bound), `EXAMPLE_SCENARIO`
+  (`example-obesity-pc-short-ti`, double-triggering from a short Ti in obesity; validates clean, not in
+  `SCENARIOS`), `authoringDocument()`. `scripts/authoring-doc.ts` writes `docs/SCENARIO_AUTHORING.md`
+  (`npm run docs:authoring` — regenerate after any change to `authoring.ts` or the tables it reads from).
+- **My scenarios**: `src/edu/custom-scenarios.ts` — `CustomScenarioStore` (guarded `localStorage`, same
+  pattern as `ProgressStore`; key `CUSTOM_KEY = 'ventsim.custom.v1'`; one versioned `{version, scenarios}`
+  document); `save` refuses an id in `isShippedScenario`; `all/get/remove/exportJson`. Controller
+  (`src/app/controller.ts`): `customScenarios`, `findScenario(id)` (library first, then the store),
+  `hasScenario(id)`, `refresh()` (re-render without touching the running scenario, used by delete).
+  `App.tsx`'s hash resolver (`fromHash`) and `ScenarioPicker`'s `custom` prop / "My scenarios" optgroup
+  (`data-testid="picker-custom-group"`) both go through `findScenario`/`hasScenario`.
+- **Instructor authoring controls**: `src/ui/InstructorPanel.tsx` — `author-copy-prompt` (clipboard-writes
+  `AUTHORING_PROMPT`, reveals read-only `author-prompt-field`), `author-load-example`, `author-validate`,
+  `author-save` (validate → `customScenarios.save` → on success `loadScenario` + set `location.hash`, on
+  failure show the store's error in `author-errors`), `author-errors`/`author-warnings` lists, "My scenarios"
+  list (`custom-list`/`custom-row`, `custom-load`/`custom-export`/`custom-delete`). `theme.css`:
+  `.instructor-body .author-errors|.author-warnings|.custom-list` rules added **before** the responsive
+  `@media` blocks at the end of the file.
+- **Help overlay**: `src/ui/HelpDialog.tsx` — native `<dialog>` driven with `showModal()`/`close()`
+  (`help-dialog`, `help-close`, Escape and backdrop-click close), `HELP_SEEN_KEY = 'ventsim.help.seen.v1'`.
+  `App.tsx`: `help` state seeded from `browserStorage().getItem(HELP_SEEN_KEY) === null` (opens once, first
+  visit), header button `help-open` present regardless of quiz lock (the dialog holds no truth data so it
+  stays available in the locked view); mounted only in the main `app-shell`, not on `#validation`.
+  `theme.css`: `dialog.help-dialog`/`::backdrop`/`.help-body`/`button.help-open` rules, also before the
+  responsive blocks. `tests/e2e/helpers/layout.ts` — `dismissHelp(page)` (seeds the seen-key via
+  `page.addInitScript` before first paint); added to the `beforeEach` of every e2e spec except
+  `help.spec.ts` itself (13 files).
+- **Fix round**: `efd848f` — Task 5's rewording of the `instr-load` ("run without saving") status message
+  dropped the word "loaded", breaking the pre-existing M8 assertion in `tests/e2e/quiz.spec.ts:68`; restored
+  to `loaded "<title>" (not saved)`. No test file was touched to fix it.
+- **Tests**: `tests/unit/scenario-schema.test.ts` (6), `tests/unit/authoring.test.ts` (3),
+  `tests/unit/custom-scenarios.test.ts` (3), one appended test in `tests/unit/ventilator.test.ts`
+  (`SETTING_BOUNDS` round trip), `tests/e2e/authoring.spec.ts` (3), `tests/e2e/help.spec.ts` (2).
+
 ## What is left (post-M9)
 
-All spec milestones and the optional extensions listed in the previous handoff are built. Remaining:
+All spec milestones and the optional extensions listed in the previous handoff are built, and M10 (scenario
+authoring, My scenarios, help overlay, D-025) is also done — see "M10 as built" above. What is actually next
+is **M11 SIMV, M12 PRVC and M13 APRV** per `docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md`
+§2–§4; each needs its own plan file written first (none of `docs/superpowers/plans/2026-09-14-m11-simv.md`,
+`…-m12-prvc.md`, `…-m13-aprv.md` exist yet). See "Prompt for the next session" below. The rest of this
+section is the pre-M10 leftover list, still accurate:
 
 1. **Owner questions** Q-4 and Q-5 are answered: keep the defaults (QUESTIONS.md, second round). Nothing to do.
 2. **Held-out delayed cycling 0.84 vs 0.85** (D-012, Q-2 answered "keep the defaults"): leave unless a new
@@ -184,11 +248,25 @@ All spec milestones and the optional extensions listed in the previous handoff a
 
 ## Hosting
 
-Netlify (D-008). `netlify.toml` builds `npm run build` → `dist`, Node 22; GitHub Actions is CI only. Live at
-https://vent-sim.netlify.app/; every push to `main` redeploys. The alias `tomnahass.com/vent-sim/` has its
-proxy rules on the personal site but that site's Netlify build cannot clone its repo (deploy key missing;
-404 on 2026-09-11, owner action in "What is left" 3).
-Deploy check used after each push: poll the served `assets/index-*.js` for a string unique to the commit.
+**Cloudflare Workers Static Assets (primary, D-021)** — `vent.nahass.ai`. `wrangler.toml` `[assets] directory
+= "./dist"`, no `main`; Workers Builds runs `npm run build` then `npx wrangler deploy`; production branch
+`main`. `wrangler` is pinned as an exact devDependency (version-sensitive autoconfig behaviour, see D-021).
+`npm run deploy` builds and deploys the same way locally; `npx wrangler deploy --dry-run` validates config
+without deploying.
+
+**Netlify (fallback)** — https://vent-sim.netlify.app/, `netlify.toml` builds `npm run build` → `dist`, Node
+22; redeploys on every push to `main`. GitHub Actions (`.github/workflows/deploy.yml`) is CI only (lint,
+tests, Playwright, build) on both.
+
+The alias `tomnahass.com/vent-sim/` has its proxy rules on the personal site but that site's Netlify build
+cannot clone its repo (deploy key missing; 404 on 2026-09-11, owner action in "What is left" 3); it no longer
+blocks VentSim's public URL since D-021.
+
+Deploy check used after each push: fetch the served `assets/index-*.js` and grep for a **literal** string
+unique to the commit (a template string like `` `mtab-${id}` `` is not literal in the bundle). For M10 that
+string is `ventsim.custom.v1` (verified present in the built `dist/assets/index-*.js` this session; not
+pushed or polled live per the controller's ruling for this task — the branch is merged and deployed
+separately).
 
 ## Detector: final numbers and how it works
 
@@ -238,36 +316,42 @@ Files: `src/detector/features.ts` (measured-only reader, per-breath features), `
 
 ## Prompt for the next session
 
-> Continue VentSim in this repo (main branch, clean tree). Read docs/HANDOFF.md first, then PROGRESS.md (the
-> M9 definition-of-done walkthrough and the post-M9 entries) and docs/DECISIONS.md (D-001…D-019). The goal
-> and non-negotiables are in docs/FABLE_GOAL_PROMPT.md; the spec is
-> docs/superpowers/specs/2026-09-10-vent-sim-design.md. The owner has answered docs/QUESTIONS.md Q-1…Q-5:
-> keep the defaults; do not reopen them.
+> Continue VentSim in this repo. Read docs/HANDOFF.md first, then PROGRESS.md (the M9 definition-of-done
+> walkthrough, the post-M9 entries and the M10 entry) and docs/DECISIONS.md (D-001…D-021, D-025; D-022…D-024
+> are reserved for the milestones below). The goal and non-negotiables are in docs/FABLE_GOAL_PROMPT.md; the
+> original spec is docs/superpowers/specs/2026-09-10-vent-sim-design.md; the spec for what comes next is
+> docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md. The owner has answered
+> docs/QUESTIONS.md Q-1…Q-5: keep the defaults; do not reopen them.
 >
-> State: M0–M9 and the post-M9 extensions (Pes artifact fix, quiz extras, capstone, schematic SpO2, live
-> EL/Ecw, quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout D-020) are done
-> and deployed at https://vent-sim.netlify.app/. Vitest 217/217 (held-out detector suite un-gated; the
-> performance test is wall-clock and must be re-run alone if the parallel run is under load), lint clean,
-> Playwright 35/35 in three projects (chromium 32, mobile 2, tablet 1; the M8 quiz test can flake under a
-> loaded full run because the fix outcome depends on wall-clock click timing; re-run it alone), build
-> clean. Do not revisit finished milestones except to fix a bug; never tune the detector on the held-out
-> grid; regenerate src/validation/snapshot.json after any scenario change and the MODEL.md constants table
-> after any constants change; keep the responsive CSS blocks at the end of theme.css.
+> State: M0–M9, the post-M9 extensions (Pes artifact fix, quiz extras, capstone, schematic SpO2, live EL/Ecw,
+> quiz bedside view + debrief D-019 with its follow-ups, mobile-responsive layout D-020, Cloudflare hosting
+> D-021), and **M10 — scenario authoring, My scenarios, help overlay (D-025)** are done. Primary host
+> https://vent.nahass.ai (Cloudflare, D-021); fallback https://vent-sim.netlify.app/. Vitest 230/230 across 39
+> files (held-out detector suite un-gated; the performance test is wall-clock and must be re-run alone if the
+> parallel run is under load), lint clean, Playwright 40/40 across three projects (chromium 37, mobile 2,
+> tablet 1; `tests/e2e/quiz.spec.ts` and an `a11y.spec.ts` colour-contrast check have each shown a one-off
+> flake under a loaded full run — re-run the spec alone and report both outcomes if it recurs), build clean.
+> Do not revisit finished milestones except to fix a bug; never tune the detector on the held-out grid;
+> regenerate src/validation/snapshot.json after any scenario change and the MODEL.md constants table after
+> any constants change; keep the responsive CSS blocks at the end of theme.css. The M10 deploy check is the
+> literal string `ventsim.custom.v1` in the served bundle.
 >
-> Task — first, the alias: HANDOFF "What is left" item 3 has the root cause (the personal site's Netlify
-> deploy key is missing on github.com/nahata5/personal-website). Re-check with the curl there; if it now
-> returns 200 with the VentSim title, record it in PROGRESS and HANDOFF; if not, say so in one line and
-> move on (only the owner can fix it in the Netlify dashboard).
->
-> Main task — pick from HANDOFF "What is left" item 6 in this order unless the owner says otherwise:
-> (a) a light theme for the panels with the waveform screen staying dark (brainstorm the palette and the
-> toggle placement with the owner first; `prefers-color-scheme` default plus a header toggle persisted in
-> localStorage; contrast checked with the axe test; the bands, chips and badge colours must keep their
-> meaning; screenshots stay dark); (b) the landscape-phone rule (`(max-height: 500px)`: a shorter pinned
-> waveform screen, the tab bar stays) with a Playwright `mobile-landscape` project and one smoke test;
-> (c) an export of the Instructor attempts review as CSV. Each is a bounded change: spec in chat or a short
-> design file, tests first, one commit per task, push and check the live site (grep the served bundle for a
-> literal string). No physics, detector or scenario changes; if a scenario or constant does change,
-> regenerate the snapshot and the MODEL.md table. Record layout or theme choices as D-021…, add a PROGRESS
-> entry and a README note, and refresh the screenshots if the desktop look changes. When you reach a good
-> place around 50 % context, update docs/HANDOFF.md and write the next prompt into it.
+> Task — M11 SIMV, M12 PRVC and M13 APRV, per
+> docs/superpowers/specs/2026-09-14-modes-authoring-help-design.md §2–§4 (in that order unless the owner says
+> otherwise). None of these has a plan file yet — write one first
+> (docs/superpowers/plans/2026-09-14-m11-simv.md, then …-m12-prvc.md, then …-m13-aprv.md, following the shape
+> of docs/superpowers/plans/2026-09-14-m10-authoring-help.md: tests first per task, one commit per task,
+> interfaces stated up front) before touching code. Each mode needs: the ventilator FSM/settings support
+> (§2–§4), scenarios exercising it (the `'mode'` scenario category already exists in
+> `src/edu/scenarios/index.ts` and `ScenarioPicker` for exactly this), and — since M10 shipped after this
+> spec section was written — the new settings keys need entries in `SETTING_BOUNDS`
+> (`src/sim/vent/settings.ts`) and the mode string needs adding to `IMPLEMENTED_MODES`
+> (`src/sim/types.ts`) so `scenario-schema.ts` and `authoring.ts` pick them up automatically (`MODE_NOTES` in
+> `authoring.ts` already has placeholder notes for SIMV/PRVC/APRV settings keys — check they match what gets
+> built). No change to the authoring/help/My-scenarios code itself should be needed. Tests first for anything
+> in `src/sim`/`src/detector`/`src/edu`; regenerate the validation snapshot and the MODEL.md constants table
+> if scenarios or constants change; record each mode's design choices as D-022 (SIMV), D-023 (PRVC), D-024
+> (APRV) in that order. Confirm the push/deploy policy for the session before pushing (the M10 session was
+> told to commit only and let a controller merge and deploy); check the live site with a literal string in
+> the served bundle once it is deployed. When you reach a good place around 50 % context, update
+> docs/HANDOFF.md and write the next prompt into it.

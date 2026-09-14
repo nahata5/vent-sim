@@ -107,30 +107,41 @@ export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
   };
 }
 
+export type NumericSettingKey =
+  | 'peep' | 'fio2' | 'flowTrigger' | 'pressureTrigger' | 'biasFlow' | 'vt' | 'rr' | 'peakFlow'
+  | 'rampEndFraction' | 'pause' | 'pinsp' | 'ti' | 'riseTime' | 'ps' | 'ets' | 'tiMax' | 'apneaTime' | 'refractory';
+
+/** Model bounds of Brief 1 §5 and sane device ranges; one table for the clamp, the settings UI and the scenario validator. */
+export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: number; unit: string }> = {
+  peep: { min: 0, max: 25, unit: 'cmH2O' },
+  fio2: { min: 0.21, max: 1, unit: 'fraction' },
+  flowTrigger: { min: 0.5, max: 10, unit: 'L/min' },
+  pressureTrigger: { min: 0.5, max: 5, unit: 'cmH2O' },
+  biasFlow: { min: 2, max: 10, unit: 'L/min' },
+  vt: { min: 100, max: 1200, unit: 'mL' },
+  rr: { min: 4, max: 60, unit: '/min' },
+  peakFlow: { min: 10, max: 120, unit: 'L/min' },
+  rampEndFraction: { min: 0, max: 0.9, unit: 'fraction of peak' },
+  pause: { min: 0, max: 2, unit: 's' },
+  pinsp: { min: 0, max: 40, unit: 'cmH2O above PEEP' },
+  ti: { min: 0.2, max: 3, unit: 's' },
+  riseTime: { min: 0, max: 0.4, unit: 's' },
+  ps: { min: 0, max: 40, unit: 'cmH2O above PEEP' },
+  ets: { min: 0.05, max: 0.8, unit: 'fraction of peak flow' },
+  tiMax: { min: 0.5, max: 4, unit: 's' },
+  apneaTime: { min: 5, max: 60, unit: 's' },
+  refractory: { min: 0, max: 0.5, unit: 's' },
+};
+
 /** Clamp settings to the model bounds of Brief 1 §5 and sane device ranges. */
 export function clampSettings(s: VentSettings): VentSettings {
-  return {
-    ...s,
-    peep: clamp(s.peep, 0, 25),
-    fio2: clamp(s.fio2, 0.21, 1),
-    flowTrigger: clamp(s.flowTrigger, 0.5, 10),
-    pressureTrigger: clamp(s.pressureTrigger, 0.5, 5),
-    biasFlow: clamp(s.biasFlow, 2, 10),
-    vt: clamp(s.vt, 100, 1200),
-    rr: clamp(s.rr, 4, 60),
-    peakFlow: clamp(s.peakFlow, 10, 120),
-    rampEndFraction: clamp(s.rampEndFraction, 0, 0.9),
-    pause: clamp(s.pause, 0, 2),
-    pinsp: clamp(s.pinsp, 0, 40),
-    ti: clamp(s.ti, 0.2, 3),
-    riseTime: clamp(s.riseTime, 0, 0.4),
-    ps: clamp(s.ps, 0, 40),
-    ets: clamp(s.ets, 0.05, 0.8),
-    tiMax: clamp(s.tiMax, 0.5, 4),
-    apneaTime: clamp(s.apneaTime, 5, 60),
-    refractory: clamp(s.refractory, 0, 0.5),
-    deviceRate: [50, 100, 200].includes(s.deviceRate) ? s.deviceRate : 100,
-  };
+  const out: VentSettings = { ...s };
+  for (const key of Object.keys(SETTING_BOUNDS) as NumericSettingKey[]) {
+    const b = SETTING_BOUNDS[key];
+    out[key] = clamp(s[key], b.min, b.max);
+  }
+  out.deviceRate = [50, 100, 200].includes(s.deviceRate) ? s.deviceRate : 100;
+  return out;
 }
 
 /** Inspiratory time and peak flow implied by VC settings (Brief 1 §2.2). */

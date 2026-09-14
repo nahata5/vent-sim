@@ -59,6 +59,14 @@ entry names the decision or milestone that introduced it. Newest additions last 
   live; resistance and lung elastance can be scaled live.
 - **Explain cards are the same text for every instance of a pattern**; only the evidence line is
   case-specific.
+- **"My scenarios" is per-browser** (D-025): saved scenarios live in `localStorage` under
+  `ventsim.custom.v1`, so they do not sync across devices or browsers, are lost if site data is cleared,
+  and are not included in the batch generator or session exports the way shipped scenarios are. A saved
+  scenario's quiz and hash links work only in the browser that saved it.
+- **The authoring prompt is advisory, not authoritative** (D-025): `AUTHORING_PROMPT` is generated from the
+  validator's own enumerations and bounds so the two cannot drift in content, but the reader's own LLM can
+  still return JSON that violates them (wrong types, out-of-range numbers, invented keys); `validateScenario`
+  in `src/edu/scenario-schema.ts` is the actual gate — nothing is saved or run until it reports no errors.
 
 ## Detector (what the bedside signals cannot show)
 

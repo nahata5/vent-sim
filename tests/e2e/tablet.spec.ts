@@ -3,7 +3,11 @@
  * Runs in the `tablet` Playwright project (Nexus 10, 800 × 1280).
  */
 import { expect, test } from '@playwright/test';
-import { canvasFollowsWrap, noHorizontalOverflow, ready } from './helpers/layout';
+import { canvasFollowsWrap, dismissHelp, noHorizontalOverflow, ready } from './helpers/layout';
+
+test.beforeEach(async ({ page }) => {
+  await dismissHelp(page);
+});
 
 test('tablet: full-width waveforms, two panel columns, no tab bar, no horizontal overflow', async ({ page }) => {
   await page.goto('/#ineffective-effort');
