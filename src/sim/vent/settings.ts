@@ -68,6 +68,19 @@ export interface VentSettings {
   // PRVC
   /** Floor of the regulated ΔP above PEEP (the support the regulator never withdraws below). */
   prvcMinDp: number; // cmH2O above PEEP
+  // APRV (absolute pressures; `peep`, the triggers and the apnea backup are unused in this mode)
+  /** Pressure of the high phase, cmH2O. */
+  phigh: number;
+  /** Pressure of the release phase, cmH2O. */
+  plow: number;
+  /** Duration of the high phase, s. */
+  thigh: number;
+  /** Release duration (fixed) or its cap (pefr), s. */
+  tlow: number;
+  /** Release termination: a fixed time, or when expiratory flow has decayed to `tlowPefr` of its peak (TCAV). */
+  tlowMode: 'fixed' | 'pefr';
+  /** Flow-terminated release: fraction of the peak expiratory flow at which the release ends. */
+  tlowPefr: number;
 }
 
 export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
@@ -115,13 +128,19 @@ export function defaultSettings(mode: Mode = 'VC-AC'): VentSettings {
     simvBase: 'VC',
     simvWindow: k('SIMV_SYNC_WINDOW'),
     prvcMinDp: k('PRVC_MIN_DP'),
+    phigh: k('APRV_PHIGH_DEFAULT'),
+    plow: k('APRV_PLOW_DEFAULT'),
+    thigh: k('APRV_THIGH_DEFAULT'),
+    tlow: k('APRV_TLOW_DEFAULT'),
+    tlowMode: 'fixed',
+    tlowPefr: k('APRV_TLOW_PEFR_DEFAULT'),
   };
 }
 
 export type NumericSettingKey =
   | 'peep' | 'fio2' | 'flowTrigger' | 'pressureTrigger' | 'biasFlow' | 'vt' | 'rr' | 'peakFlow'
   | 'rampEndFraction' | 'pause' | 'pinsp' | 'ti' | 'riseTime' | 'ps' | 'ets' | 'tiMax' | 'apneaTime' | 'refractory'
-  | 'simvWindow' | 'prvcMinDp';
+  | 'simvWindow' | 'prvcMinDp' | 'phigh' | 'plow' | 'thigh' | 'tlow' | 'tlowPefr';
 
 /** Model bounds of Brief 1 §5 and sane device ranges; one table for the clamp, the settings UI and the scenario validator. */
 export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: number; unit: string }> = {
@@ -145,6 +164,11 @@ export const SETTING_BOUNDS: Record<NumericSettingKey, { min: number; max: numbe
   refractory: { min: 0, max: 0.5, unit: 's' },
   simvWindow: { min: 0.05, max: 1, unit: 'fraction of the period' },
   prvcMinDp: { min: 0, max: 15, unit: 'cmH2O above PEEP' },
+  phigh: { min: 5, max: 45, unit: 'cmH2O' },
+  plow: { min: 0, max: 20, unit: 'cmH2O' },
+  thigh: { min: 0.5, max: 15, unit: 's' },
+  tlow: { min: 0.2, max: 3, unit: 's' },
+  tlowPefr: { min: 0.25, max: 0.9, unit: 'fraction of PEFR' },
 };
 
 /** Clamp settings to the model bounds of Brief 1 §5 and sane device ranges. */

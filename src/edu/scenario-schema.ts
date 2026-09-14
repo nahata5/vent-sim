@@ -43,6 +43,7 @@ const ENUM_KEYS: Record<string, readonly string[]> = {
   flowPattern: ['square', 'ramp'],
   vcTiming: ['peakFlow', 'ti'],
   simvBase: ['VC', 'PC'],
+  tlowMode: ['fixed', 'pefr'],
 };
 const BOOL_KEYS = new Set(['leakCompensation', 'ideal', 'esophagealBalloon']);
 

@@ -60,13 +60,14 @@ FORMAT (top-level keys, all others are ignored): "id", "order", "category", "tit
   "pneumothorax": defaults {"eScale":1.8,"ppl":6}
   "mainstem": defaults {"eScale":2,"rScale":1.5}
   "bronchospasm": defaults {"rScale":3,"rampSeconds":20}
-  settings (required): { "mode": one of "VC-AC", "PC-AC", "PSV", "CPAP", "SIMV", "PRVC", …numbers }. Unspecified settings take the mode defaults. Alarms merge into defaults.
+  settings (required): { "mode": one of "VC-AC", "PC-AC", "PSV", "CPAP", "SIMV", "PRVC", "APRV", …numbers }. Unspecified settings take the mode defaults. Alarms merge into defaults.
     "VC-AC": volume control, assist-control: vt, rr, peakFlow or ti (vcTiming), flowPattern, pause
     "PC-AC": pressure control, assist-control: pinsp (above PEEP), ti, rr, riseTime
     "PSV": pressure support: ps (above PEEP), ets (cycle-off fraction), tiMax, riseTime
     "CPAP": CPAP: peep only (ps 0)
     "SIMV": SIMV: simvBase "VC" or "PC" for the mandatory breaths (their VC/PC settings and rr) plus ps/ets for spontaneous breaths
     "PRVC": pressure-regulated volume control: vt (target), rr, ti, riseTime; the pressure adapts breath by breath
+    "APRV": airway pressure release: phigh, plow, thigh, tlow, tlowMode "fixed" or "pefr", tlowPefr
     numeric settings and bounds:
   peep: 0–25 cmH2O (default 5)
   fio2: 0.21–1 fraction (default 0.4)
@@ -88,6 +89,11 @@ FORMAT (top-level keys, all others are ignored): "id", "order", "category", "tit
   refractory: 0–0.5 s (default 0.2)
   simvWindow: 0.05–1 fraction of the period (default 0.25)
   prvcMinDp: 0–15 cmH2O above PEEP (default 5)
+  phigh: 5–45 cmH2O (default 28)
+  plow: 0–20 cmH2O (default 0)
+  thigh: 0.5–15 s (default 4.5)
+  tlow: 0.2–3 s (default 0.5)
+  tlowPefr: 0.25–0.9 fraction of PEFR (default 0.75)
     other: triggerType "flow"|"pressure", vcTiming "peakFlow"|"ti", flowPattern "square"|"ramp", leakCompensation true|false,
       alarms { highPpeak, lowVte, highVe, lowVe, highRR, lowPeep, highLeak, highPeepi }
   seed: integer or string (reproducible variability)

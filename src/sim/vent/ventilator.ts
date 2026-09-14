@@ -146,6 +146,10 @@ export class Ventilator {
   private prvcCompliance = NaN;
   /** Whether the breath now being delivered is an apnea-backup breath (its volume says nothing about the mode's own plan). */
   private breathIsBackup = false;
+  /** APRV: most negative measured flow since the current release began (L/s), the peak expiratory flow. */
+  private pefrThisRelease = 0;
+  /** APRV: the last completed release — its achieved Tlow (s) and the end-release flow as a fraction of its PEFR. */
+  private aprvLast: { tlowUsed: number; pefrFraction: number } | null = null;
   /** Settings actually in effect over time (initial + each commit), for the labeler and exports. */
   readonly settingsLog: Array<{ t: number; settings: VentSettings }> = [];
 
@@ -198,7 +202,7 @@ export class Ventilator {
     // stays so that making either immediate cannot silently leave a stale regulator (the real reset runs
     // from `commitPending`, at the next breath start).
     this.prvcResetIfRetargeted(prev);
-    this.plan.peep = this.settings.peep;
+    if (this.settings.mode !== 'APRV') this.plan.peep = this.settings.peep;
     if (this.pending && Object.keys(this.pending).length === 0) this.pending = null;
     this.settingsLog.push({ t: this.tNow, settings: this.settings });
   }
@@ -214,17 +218,20 @@ export class Ventilator {
 
   /** Request an end-expiratory occlusion maneuver (P0.1, ΔPocc, or the balloon occlusion test). */
   requestOcclusion(kind: OcclusionKind): void {
+    if (this.settings.mode === 'APRV') return;
     this.occlusionRequest = kind;
   }
 
   /** Request an inspiratory or expiratory hold at the next eligible phase. */
   requestHold(kind: 'insp' | 'exp', duration?: number): void {
+    if (this.settings.mode === 'APRV') return;
     const d = duration ?? (kind === 'insp' ? 1.0 : k('EXP_HOLD_DEFAULT'));
     this.holdRequest = { kind, duration: clamp(d, k('INSP_HOLD_MIN'), 4) };
   }
 
   /** Start an R/I release or a decremental PEEP trial (ignored while one is running). */
   requestPeepManeuver(kind: PeepManeuverKind): void {
+    if (this.settings.mode === 'APRV') return;
     if (this.peepManeuver) return;
     const vent = this; // eslint-disable-line @typescript-eslint/no-this-alias
     const host = {
@@ -302,6 +309,26 @@ export class Ventilator {
     };
   }
 
+  /** APRV high phase (Spec 2026-09-14 §4.2): time-cycled at Thigh, target Phigh, baseline Plow, no cycling by flow. */
+  private aprvPlan(s: VentSettings): BreathPlan {
+    const vc = vcTiming(s);
+    return {
+      ti: s.thigh,
+      qPeak: vc.qPeak,
+      square: true,
+      rampEnd: 0,
+      pause: 0,
+      pTarget: s.phigh,
+      riseTime: s.riseTime,
+      ets: s.ets,
+      tiMax: s.tiMax,
+      peep: s.plow,
+      vt: s.vt / 1000,
+      spontaneous: false,
+      kind: 'aprv',
+    };
+  }
+
   private makePlan(s: VentSettings, backup = false, kind?: BreathKind): BreathPlan {
     if (backup) {
       const plan = this.pcPlan(s, s.backupPinsp);
@@ -322,6 +349,8 @@ export class Ventilator {
         return this.regulatedDp === null
           ? this.vcPlan({ ...s, vcTiming: 'ti', flowPattern: 'square', pause: k('PRVC_TEST_PAUSE') })
           : this.pcPlan(s, this.regulatedDp);
+      case 'APRV':
+        return this.aprvPlan(s);
     }
   }
 
@@ -362,6 +391,10 @@ export class Ventilator {
         }
         const rise = this.plan.riseTime > 0 ? Math.min(1, tIn / this.plan.riseTime) : 1;
         const target = this.plan.peep + (this.plan.pTarget - this.plan.peep) * rise;
+        // APRV high phase: the exhalation valve stays active at Phigh, so the servo works in both directions —
+        // an inspiratory effort draws source flow and an expiratory effort pushes flow out through the valve
+        // (Spec 2026-09-14 §4.2: unrestricted spontaneous breathing at Phigh).
+        if (this.plan.kind === 'aprv') return servoTo(target, rsrcExp, -Infinity, qMax);
         // Exhalation valve closed during inspiration: the source cannot take flow back.
         return servoTo(target, rsrcInsp, 0);
       }
@@ -442,6 +475,11 @@ export class Ventilator {
     // Leak-compensation baseline: slow tracking of expiratory flow once expiration has settled.
     if (t - this.tLastCycle > 0.8) this.leakBaseline += 0.02 * (m.flow - this.leakBaseline);
 
+    if (s.mode === 'APRV') {
+      this.controlRelease(m, events);
+      return;
+    }
+
     const period = 60 / s.rr;
     const sinceMandatory = t - (s.mode === 'SIMV' ? this.tLastMandatory : this.tLastBreathStart);
     const timeDue = this.hasMandatoryRate && sinceMandatory >= period - 1e-9;
@@ -496,6 +534,27 @@ export class Ventilator {
     if (backupDue) this.scheduleInsp(t, 'backup', events);
   }
 
+  /**
+   * APRV release (Spec 2026-09-14 §4.2, D-024): no patient trigger. The next high phase starts after `tlow`
+   * (fixed) or, in pefr mode, as soon as expiratory flow has decayed to `tlowPefr` of this release's peak —
+   * not before APRV_TLOW_MIN, not after the `tlow` cap. Holds and occlusions are refused in APRV, so nothing
+   * else can happen in this phase.
+   */
+  private controlRelease(m: VentMeasured, events: VentEvent[]): void {
+    const t = m.t;
+    const s = this.settings;
+    const elapsed = t - this.tPhaseStart;
+    this.pefrThisRelease = Math.min(this.pefrThisRelease, m.flow);
+    const pefr = -this.pefrThisRelease;
+    const fraction = pefr > k('PSV_CYCLE_MIN_PEAK_FLOW') ? Math.max(0, -m.flow) / pefr : NaN;
+    const capDue = elapsed >= s.tlow - 1e-9;
+    const flowDue = s.tlowMode === 'pefr' && elapsed >= k('APRV_TLOW_MIN') - 1e-9 && Number.isFinite(fraction) && fraction <= s.tlowPefr;
+    if (capDue || flowDue) {
+      this.aprvLast = { tlowUsed: elapsed, pefrFraction: Number.isFinite(fraction) ? fraction : 1 };
+      this.scheduleInsp(t, 'time', events);
+    }
+  }
+
   private exitBackup(t: number, events: VentEvent[]): void {
     this.backupActive = false;
     this.setAlarm('apnea', false, t, events);
@@ -534,7 +593,7 @@ export class Ventilator {
     // change into VC-AC/PC-AC/SIMV/PRVC while the backup was running), the backup ends here: this breath is
     // the mode's own plan and the apnea alarm clears. Without this the backup PC plan would repeat forever
     // (cause 'backup', alarm latched, and in PRVC no VC test breath would ever run).
-    if (this.backupActive && this.hasMandatoryRate) this.exitBackup(t, events);
+    if (this.backupActive && (this.hasMandatoryRate || this.settings.mode === 'APRV')) this.exitBackup(t, events);
     const wasBackup = this.breathIsBackup;
     this.breathIsBackup = this.backupActive;
     this.prvcRegulate(t, events, wasBackup);
@@ -820,6 +879,7 @@ export class Ventilator {
     this.phase = 'exp';
     this.tPhaseStart = t;
     this.psrc = this.lastPaw;
+    this.pefrThisRelease = 0;
   }
 
   // ───────────────────────── PRVC regulator (Spec 2026-09-14 §3, D-023) ─────────────────────────
@@ -945,7 +1005,9 @@ export class Ventilator {
   private checkDisconnect(m: VentMeasured, events: VentEvent[]): void {
     // Any phase: a disconnected circuit never pressurizes, and auto-triggering through the leak can keep
     // expiration too short for a phase-limited check.
-    const low = m.paw < this.settings.peep - this.settings.alarms.lowPeep;
+    // APRV runs on absolute pressures: the baseline is Plow, and the unused `peep` setting says nothing.
+    const base = this.settings.mode === 'APRV' ? this.settings.plow : this.settings.peep;
+    const low = m.paw < base - this.settings.alarms.lowPeep;
     if (low) {
       if (this.tDisconnectStart === null) this.tDisconnectStart = m.t;
       if (m.t - this.tDisconnectStart > k('DISCONNECT_SUSTAIN')) this.setAlarm('disconnect', true, m.t, events);
@@ -963,6 +1025,11 @@ export class Ventilator {
   /** PRVC: the regulated pressure above PEEP, null before the test breath has run. */
   get prvcDp(): number | null {
     return this.regulatedDp;
+  }
+
+  /** APRV: the last completed release — achieved Tlow (s) and end-release flow as a fraction of its PEFR. */
+  get aprvStatus(): { tlowUsed: number; pefrFraction: number } | null {
+    return this.aprvLast;
   }
 
   /** Last measured total PEEP from an expiratory hold, if any. */
