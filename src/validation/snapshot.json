@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T20:50:16.898Z",
- "commit": "7977a46",
+ "generatedAt": "2026-09-14T21:01:09.510Z",
+ "commit": "6b0f261",
  "emergence": [
   {
    "id": "double-trigger",
@@ -363,7 +363,7 @@
    "targets": [
     {
      "pattern": "tidal-recruitment",
-     "fraction": 0,
+     "fraction": 1,
      "required": 0.5
     },
     {
@@ -378,11 +378,11 @@
    "extra": [
     {
      "metric": "recruitedGain",
-     "value": 0,
+     "value": 0.19148148148148159,
      "min": 0
     }
    ],
-   "pass": false
+   "pass": true
   },
   {
    "id": "aprv-release-collision",
@@ -414,10 +414,10 @@
     }
    ],
    "aiBefore": 60,
-   "aiAfter": 20,
+   "aiAfter": 0,
    "aiLimit": 10,
    "extra": [],
-   "pass": false
+   "pass": true
   }
  ],
  "heldOut": [

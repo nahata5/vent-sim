@@ -3,12 +3,12 @@
   "order": 420,
   "category": "mode",
   "title": "APRV with a release that lasts too long: derecruitment every breath",
-  "summary": "ARDS on APRV 28/0 with a fixed 1.2 s release. Alveolar pressure never falls back to Plow before the next Phigh, so auto-PEEP builds release after release and the schematic SpO2 slides; watch the truth layer's recruited-volume readout too, for a more severely collapsible lung this same too-long a release derecruits with every cycle. Ending the release at 75 % of the peak expiratory flow, instead of a fixed time, stops it before it runs on past the point of doing more good.",
-  "phenotype": "ards-pulmonary",
+  "summary": "Extrapulmonary ARDS (a recruitable, easily-collapsed lung under a stiff chest wall) on APRV 28/0 with a fixed 1.2 s release. Every release lets the dependent lung derecruit before the next Phigh reopens it: the tidal-recruitment badge and the truth layer's recruited-volume readout track it directly, and auto-PEEP and the schematic SpO2 track the same cycle. Ending the release at 75 % of the peak expiratory flow, instead of a fixed time, stops it before the lung closes, so the recruited volume holds instead of resetting every breath.",
+  "phenotype": "ards-extrapulmonary",
   "mechanics": {
     "recoil": "recruitable"
   },
-  "shunt": 0.3,
+  "shunt": 0.2,
   "drive": null,
   "settings": {
     "mode": "APRV",
@@ -20,8 +20,8 @@
   },
   "seed": 51,
   "objectives": [
-    "Read the auto-PEEP badge and the recruited-volume readout on the truth layer while the release runs long.",
-    "Fix by terminating the release on flow (75 % of PEFR) so the end-release pressure stays above closing."
+    "Read the tidal-recruitment badge and the recruited-volume readout on the truth layer while the release runs long, alongside auto-PEEP.",
+    "Fix by terminating the release on flow (75 % of PEFR) so the end-release pressure stays above closing and the recruited volume gain is sustained after the fix."
   ],
   "targetPatterns": [
     "tidal-recruitment",
