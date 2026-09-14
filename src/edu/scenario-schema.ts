@@ -189,6 +189,7 @@ export function validateScenario(raw: unknown): ScenarioValidation {
       const c = r.criteria;
       if (typeof c.minFraction !== 'number' || c.minFraction < 0 || c.minFraction > 1) errors.push('criteria.minFraction must be a fraction 0–1');
       if (typeof c.aiAfter !== 'number' || c.aiAfter < 0 || c.aiAfter > 100) errors.push('criteria.aiAfter must be a percentage 0–100');
+      if (c.over !== undefined && c.over !== 'all' && c.over !== 'mandatory') errors.push('criteria.over must be "all" or "mandatory"');
       if (c.extra !== undefined) {
         if (!Array.isArray(c.extra)) errors.push('criteria.extra must be an array');
         else c.extra.forEach((e, i) => {

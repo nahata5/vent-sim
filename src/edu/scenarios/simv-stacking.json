@@ -1,0 +1,18 @@
+{
+  "id": "simv-stacking",
+  "order": 402,
+  "category": "mode",
+  "title": "SIMV: the mandatory breath lands on a supported breath",
+  "summary": "A patient breathing at 26 a minute on SIMV-PC with 14 mandatory breaths a minute and PS 8. The mandatory clock does not know about the supported breath that just ended, so a mandatory breath keeps starting on the tail of an effort: stacked volumes, a short expiration, a rising baseline. The synchronization window does not help when the effort falls just before it.",
+  "phenotype": "normal",
+  "drive": { "rate": 24, "ti": 0.9, "pmax": 10, "cvRate": 0.06, "cvTi": 0.06, "cvPmax": 0.08 },
+  "settings": { "mode": "SIMV", "simvBase": "PC", "rr": 14, "pinsp": 12, "ti": 1.0, "ps": 8, "ets": 0.25, "peep": 5, "flowTrigger": 2, "simvWindow": 0.1 },
+  "seed": 33,
+  "objectives": [
+    "Recognize breath stacking from the mandatory clock: two breaths in one effort, the second time-triggered, with a truncated expiration.",
+    "Fix it by letting the patient own the rhythm: pressure support (or assist-control) instead of SIMV."
+  ],
+  "targetPatterns": ["double-trigger"],
+  "fix": { "at": 60, "note": "PSV with PS 10: every breath is the patient's own, none is stacked by the clock.", "settings": { "mode": "PSV", "ps": 10 } },
+  "criteria": { "minFraction": 0.15, "aiAfter": 10 }
+}

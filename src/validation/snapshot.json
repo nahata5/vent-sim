@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-11T22:04:29.889Z",
- "commit": "f3c5e27",
+ "generatedAt": "2026-09-14T15:16:36.797Z",
+ "commit": "aff025d",
  "emergence": [
   {
    "id": "double-trigger",
@@ -254,6 +254,56 @@
    ],
    "aiBefore": 0,
    "aiAfter": 7.142857142857143,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": true
+  },
+  {
+   "id": "simv-low-support",
+   "targets": [
+    {
+     "pattern": "ineffective-effort",
+     "fraction": 0.25,
+     "required": 0.2
+    },
+    {
+     "pattern": "auto-peep",
+     "fraction": 1,
+     "required": 0.2
+    }
+   ],
+   "aiBefore": 70.58823529411765,
+   "aiAfter": 66.66666666666667,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": false
+  },
+  {
+   "id": "simv-mixed-breaths",
+   "targets": [
+    {
+     "pattern": "flow-starvation",
+     "fraction": 0.9,
+     "required": 0.3
+    }
+   ],
+   "aiBefore": 60,
+   "aiAfter": 42.857142857142854,
+   "aiLimit": 10,
+   "extra": [],
+   "pass": false
+  },
+  {
+   "id": "simv-stacking",
+   "targets": [
+    {
+     "pattern": "double-trigger",
+     "fraction": 0.17857142857142858,
+     "required": 0.15
+    }
+   ],
+   "aiBefore": 35.714285714285715,
+   "aiAfter": 5,
    "aiLimit": 10,
    "extra": [],
    "pass": true

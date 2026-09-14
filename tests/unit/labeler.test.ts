@@ -184,3 +184,26 @@ describe('breath kind on labels', () => {
     }
   });
 });
+
+describe('SIMV truth rules', () => {
+  it('SIMV stacking: a time-triggered mandatory breath starting inside an effort that already triggered a PS breath is a double trigger', () => {
+    const res = run('simv-stacking', 90);
+    const out = labelRun(res);
+    const after = out.breaths.filter((b) => b.tStart > 10);
+    const dt = after.filter((b) => b.patterns.includes('double-trigger'));
+    expect(dt.length / Math.max(1, after.length)).toBeGreaterThan(0.15);
+    expect(dt.some((b) => b.triggerCause === 'time' && b.mandatory && b.evidence.mandatoryStack === 1)).toBe(true);
+    expect(dt.every((b) => (b.evidence.stackedVt ?? 0) > 0)).toBe(true);
+  });
+
+  it('SIMV mixed breaths: flow starvation only on the mandatory VC breaths', () => {
+    const res = run('simv-mixed-breaths', 90);
+    const out = labelRun(res).breaths.filter((b) => b.tStart > 10);
+    const mand = out.filter((b) => b.mandatory);
+    const spont = out.filter((b) => !b.mandatory);
+    expect(mand.length).toBeGreaterThan(10);
+    expect(spont.length).toBeGreaterThan(10);
+    expect(mand.filter((b) => b.patterns.includes('flow-starvation')).length / mand.length).toBeGreaterThan(0.3);
+    expect(spont.some((b) => b.patterns.includes('flow-starvation'))).toBe(false);
+  });
+});

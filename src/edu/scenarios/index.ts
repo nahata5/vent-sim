@@ -39,6 +39,8 @@ export interface ScenarioCriteria {
   /** AI limit (%) after the fix. */
   aiAfter: number;
   extra?: Array<{ metric: 'peepiTrue'; max: number }>;
+  /** Which breaths the target fractions are measured over (mixed-breath modes); default every breath. */
+  over?: 'all' | 'mandatory';
 }
 
 /**
@@ -100,9 +102,15 @@ import peepTrialNonRecruiter from './peep-trial-non-recruiter.json';
 import co2OverAssist from './co2-over-assist.json';
 import co2UnderAssist from './co2-under-assist.json';
 import capstone from './capstone.json';
+import simvLowSupport from './simv-low-support.json';
+import simvMixedBreaths from './simv-mixed-breaths.json';
+import simvStacking from './simv-stacking.json';
 
 const RAW: unknown[] = [
   capstone,
+  simvLowSupport,
+  simvMixedBreaths,
+  simvStacking,
   peepTrialRecruiter,
   peepTrialNonRecruiter,
   co2OverAssist,
