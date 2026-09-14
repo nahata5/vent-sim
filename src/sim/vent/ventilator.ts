@@ -9,7 +9,7 @@
  * ventilator never reads patient truth.
  */
 import { k } from '../../config/constants';
-import type { AirwayBC, CycleCause, ManeuverKind, ManeuverResult, Phase, TriggerCause, VentEvent } from '../types';
+import type { AirwayBC, BreathKind, CycleCause, ManeuverKind, ManeuverResult, Phase, TriggerCause, VentEvent } from '../types';
 import { clamp } from '../math/filters';
 import { clampSettings, vcTiming, type VentSettings } from './settings';
 import { makePeepManeuver, type PeepManeuver, type PeepManeuverKind } from './peep-maneuvers';
@@ -52,6 +52,7 @@ interface BreathPlan {
   vt: number;
   /** Spontaneous pressure-targeted breath (PSV/CPAP): flow-cycled with pressure safety. */
   spontaneous: boolean;
+  kind: BreathKind;
 }
 
 interface HoldRequest {
@@ -239,6 +240,7 @@ export class Ventilator {
         peep: s.peep,
         vt: s.vt / 1000,
         spontaneous: false,
+        kind: 'pc',
       };
     }
     const isVc = s.mode === 'VC-AC';
@@ -259,6 +261,7 @@ export class Ventilator {
       peep: s.peep,
       vt: s.vt / 1000,
       spontaneous,
+      kind: isVc ? 'vc' : spontaneous ? 'ps' : 'pc',
     };
   }
 
@@ -462,6 +465,7 @@ export class Ventilator {
     this.commitPending();
     this.plan = this.makePlan(this.settings, this.backupActive);
     this.breathIndex += 1;
+    events.push({ type: 'breath', t, kind: this.plan.kind, mandatory: !this.plan.spontaneous, pTarget: this.plan.kind === 'vc' ? NaN : this.plan.pTarget });
     this.phase = 'insp';
     this.tPhaseStart = t;
     this.tLastBreathStart = t;

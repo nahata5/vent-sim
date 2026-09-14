@@ -103,6 +103,7 @@ export class Monitor {
       case 'hold-start':
       case 'hold-end':
       case 'alarm':
+      case 'breath':
         break;
     }
   }
