@@ -5,7 +5,7 @@
   "title": "SIMV: flow starvation on the mandatory breaths, comfort on the supported ones",
   "summary": "ARDS with a strong drive on SIMV-VC: 12 mandatory volume breaths a minute at a fixed 40 L/min, pressure support 12 in between. The mandatory breaths are scooped and short of what the patient pulls for; the supported breaths, where flow follows demand, look nothing like them. One patient, two breath types, one trace.",
   "phenotype": "ards-pulmonary",
-  "drive": { "rate": 24, "ti": 1.0, "pmax": 14, "cvRate": 0.08, "cvTi": 0.08, "cvPmax": 0.1 },
+  "drive": { "rate": 22, "ti": 1.0, "pmax": 14, "cvRate": 0.1, "cvTi": 0.08, "cvPmax": 0.1 },
   "settings": { "mode": "SIMV", "simvBase": "VC", "rr": 12, "vt": 360, "peakFlow": 40, "ps": 12, "ets": 0.25, "peep": 10, "flowTrigger": 2 },
   "seed": 32,
   "objectives": [

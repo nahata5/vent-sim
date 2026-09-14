@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T15:40:03.425Z",
- "commit": "dee6f9e",
+ "generatedAt": "2026-09-14T15:47:55.697Z",
+ "commit": "3194f1d",
  "emergence": [
   {
    "id": "double-trigger",
@@ -273,7 +273,7 @@
     }
    ],
    "aiBefore": 70.58823529411765,
-   "aiAfter": 64.28571428571429,
+   "aiAfter": 14.285714285714286,
    "aiLimit": 10,
    "extra": [],
    "pass": false
@@ -283,12 +283,12 @@
    "targets": [
     {
      "pattern": "flow-starvation",
-     "fraction": 0.9,
+     "fraction": 0.3,
      "required": 0.3
     }
    ],
-   "aiBefore": 60,
-   "aiAfter": 15.384615384615385,
+   "aiBefore": 20,
+   "aiAfter": 12,
    "aiLimit": 10,
    "extra": [],
    "pass": false

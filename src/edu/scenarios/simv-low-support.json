@@ -10,9 +10,9 @@
   "seed": 31,
   "objectives": [
     "Tell the mandatory breaths from the spontaneous ones on the pressure and flow traces, and see which ones the patient works for.",
-    "Fix the spontaneous breaths: raise PS, add PEEP against the intrinsic PEEP and sharpen the trigger, then check that the missed efforts stop, raise ETS so the long expiration is not squeezed."
+    "Fix the spontaneous breaths: modest PS, a short breath (ETS up), PEEP against the intrinsic PEEP and a sharper trigger; check that the missed efforts stop."
   ],
   "targetPatterns": ["ineffective-effort", "auto-peep"],
-  "fix": { "at": 60, "note": "PS 14, ETS 50 %, PEEP 5, trigger 1.5 L/min: the spontaneous breaths are supported, cycle on time in a slow lung, and the trigger sees the effort.", "settings": { "ps": 14, "ets": 0.5, "peep": 5, "flowTrigger": 1.5 } },
+  "fix": { "at": 60, "note": "PS 8, ETS 60 %, PEEP 5, trigger 1.5 L/min: enough support without prolonging the breath, external PEEP against the intrinsic PEEP, a trigger that sees the effort.", "settings": { "ps": 8, "ets": 0.6, "peep": 5, "flowTrigger": 1.5 } },
   "criteria": { "minFraction": 0.2, "aiAfter": 10 }
 }
