@@ -12,10 +12,10 @@
   "seed": 41,
   "objectives": [
     "Watch the regulated pressure step down breath by breath while the volume stays at target, and read the growing ΔPes on the balloon.",
-    "Fix by leaving the fixed-Ti breath behind: PSV with a support level the effort can lean on, cycled off by the effort itself instead of a clock."
+    "Fix by leaving the fixed-Ti breath for PSV (PS 12) and treating the drive itself — analgesia/sedation, rate 16, Pmax 8 — because no support level absorbs a 24/min drive on its own."
   ],
   "targetPatterns": ["support-withdrawal", "high-effort"],
-  "fix": { "at": 60, "note": "Leave the fixed-Ti breath for PSV, PS 12: a patient-cycled breath that matches its own duration to the effort every time, instead of racing a fixed Ti against a variable one.", "settings": { "mode": "PSV", "ps": 12 } },
+  "fix": { "at": 60, "note": "PSV, PS 12: a patient-cycled breath that matches its own duration to the effort — and treat the drive (analgesia/sedation: rate 16, Pmax 8), because no support level absorbs a 24/min drive.", "settings": { "mode": "PSV", "ps": 12 }, "drive": { "rate": 16, "pmax": 8 } },
   "criteria": { "minFraction": 0.3, "aiAfter": 10 },
   "quizExtras": [{ "metric": "dPes", "max": 10, "label": "ΔPes ≤ 10 cmH2O" }]
 }

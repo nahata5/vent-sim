@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T18:10:12.780Z",
- "commit": "bd55e3e",
+ "generatedAt": "2026-09-14T18:18:16.062Z",
+ "commit": "d606590",
  "emergence": [
   {
    "id": "double-trigger",
@@ -323,10 +323,10 @@
     }
    ],
    "aiBefore": 0,
-   "aiAfter": 42.10526315789474,
+   "aiAfter": 0,
    "aiLimit": 10,
    "extra": [],
-   "pass": false
+   "pass": true
   },
   {
    "id": "prvc-volume-not-achieved",
