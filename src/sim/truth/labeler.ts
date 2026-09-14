@@ -210,15 +210,18 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
   }
   const assistedEffort = new Set([...assistedOf.values()]);
 
-  // Stacked mandatory breath (SIMV, D-022): a machine-triggered breath that starts inside an effort (up to the
-  // relaxation tail) that already triggered the previous breath is the second cycle of that effort.
+  // Stacked mandatory breath (SIMV, D-022): a machine-triggered breath that starts while the neural
+  // inspiration that already triggered the previous breath is still active is the second cycle of that
+  // effort. No relaxation-tail allowance here: the tail exists only to attribute a late *patient* trigger
+  // to the effort that caused it, not to call a machine breath during relaxation a second cycle of it — a
+  // time trigger that lands after neural inspiration ends is a coincidence, not a stack.
   const stackedOn = (i: number): number | undefined => {
     const b = breaths[i];
     const ej = effortOf.get(i - 1);
     if (!b || ej === undefined) return undefined;
     const e = neural[ej];
     if (!e) return undefined;
-    return b.tStart >= e.tOnset && b.tStart <= e.tOnset + e.ti + tail ? ej : undefined;
+    return b.tStart >= e.tOnset && b.tStart <= e.tOnset + e.ti ? ej : undefined;
   };
 
   // Effort labels.

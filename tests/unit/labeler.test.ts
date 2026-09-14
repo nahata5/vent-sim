@@ -8,8 +8,9 @@ import { defaultSettings } from '@sim/vent/settings';
 import { presetPatient, recruitableRecoil } from '@sim/patient/presets';
 import { defaultDriveParams } from '@sim/patient/neural-drive';
 import { resolveScenario, scenarioById } from '@/edu/scenarios';
-import { asynchronyIndex, labelRun, PATTERN_IDS, type PatternId } from '@sim/truth/labeler';
+import { asynchronyIndex, contextFromSettings, labelBreaths, labelRun, PATTERN_IDS, type PatternId } from '@sim/truth/labeler';
 import type { SimEngine } from '@sim/engine';
+import type { VentEvent } from '@sim/types';
 
 function run(id: string, duration: number): HeadlessResult {
   return runHeadless({ ...resolveScenario(scenarioById(id)), duration });
@@ -192,8 +193,35 @@ describe('SIMV truth rules', () => {
     const after = out.breaths.filter((b) => b.tStart > 10);
     const dt = after.filter((b) => b.patterns.includes('double-trigger'));
     expect(dt.length / Math.max(1, after.length)).toBeGreaterThan(0.15);
-    expect(dt.some((b) => b.triggerCause === 'time' && b.mandatory && b.evidence.mandatoryStack === 1)).toBe(true);
+    expect(dt.some((b) => b.evidence.firstBreath !== undefined)).toBe(true);
     expect(dt.every((b) => (b.evidence.stackedVt ?? 0) > 0)).toBe(true);
+  });
+
+  it('stacked-mandatory rule (synthetic): a time-triggered breath starting inside a neural inspiration that already triggered a breath is a double trigger with mandatoryStack evidence', () => {
+    const fs = 100;
+    const mk = (index: number, tStart: number, cause: 'patient' | 'time', tInspEnd: number, tEnd: number) => ({
+      index, tStart, triggerCause: cause, tInspEnd, tPauseEnd: NaN, cycleCause: 'time' as const, tEnd,
+      vtiTrue: 0.4, vteTrue: 0.1, vtiMeasured: 0.4, vteMeasured: 0.1, peakFlowMeasured: 0.6, ppeakMeasured: 20,
+      leakTrue: 0, openFractionEE: 1, frcAeratedEE: 2.5, tidalRecruitUnits: 0,
+    });
+    const breaths = [mk(0, 10.0, 'patient', 10.6, 11.0), mk(1, 11.0, 'time', 12.0, 14.0)];
+    const neural = [{ index: 0, tOnset: 9.95, ti: 1.5, pmax: 10, holdFrac: 0.2, relaxTau: 0.15, tEnd: 11.8, entrained: false, sigh: false, expiratory: null }];
+    const events: VentEvent[] = [
+      { type: 'trigger', t: 9.97, cause: 'patient' }, { type: 'breath', t: 10.0, kind: 'ps', mandatory: false, pTarget: 15 }, { type: 'cycle', t: 10.6, cause: 'flow' },
+      { type: 'trigger', t: 10.97, cause: 'time' }, { type: 'breath', t: 11.0, kind: 'pc', mandatory: true, pTarget: 17 }, { type: 'cycle', t: 12.0, cause: 'time' },
+    ];
+    const ctx = contextFromSettings({ ...defaultSettings('SIMV'), simvBase: 'PC', peep: 5, pinsp: 12, ps: 10 }, undefined, { rTotal: 10, el: 10, ecw: 5 });
+    const out = labelBreaths({ fs, n: 20 * fs, read: () => 0, indexAt: (t) => Math.round(t * fs), breaths, neural, events, ctxAt: () => ctx, tEnd: 20, hasDrive: true });
+    const second = out.breaths[1];
+    expect(second?.patterns).toContain('double-trigger');
+    expect(second?.evidence.mandatoryStack).toBe(1);
+    expect(second?.evidence.firstBreath).toBe(0);
+    expect(second?.evidence.stackedVt).toBeGreaterThan(0.4);
+    // The same breath starting after the neural offset (11.45) is not a stack.
+    const late = [mk(0, 10.0, 'patient', 10.6, 11.6), mk(1, 11.6, 'time', 12.6, 14.0)];
+    const lateEvents: VentEvent[] = [...events.slice(0, 3), { type: 'trigger', t: 11.57, cause: 'time' }, { type: 'breath', t: 11.6, kind: 'pc', mandatory: true, pTarget: 17 }, { type: 'cycle', t: 12.6, cause: 'time' }];
+    const out2 = labelBreaths({ fs, n: 20 * fs, read: () => 0, indexAt: (t) => Math.round(t * fs), breaths: late, neural, events: lateEvents, ctxAt: () => ctx, tEnd: 20, hasDrive: true });
+    expect(out2.breaths[1]?.patterns).not.toContain('double-trigger');
   });
 
   it('SIMV mixed breaths: flow starvation only on the mandatory VC breaths', () => {

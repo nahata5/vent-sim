@@ -1,6 +1,6 @@
 {
- "generatedAt": "2026-09-14T15:16:36.797Z",
- "commit": "aff025d",
+ "generatedAt": "2026-09-14T15:40:03.425Z",
+ "commit": "dee6f9e",
  "emergence": [
   {
    "id": "double-trigger",
@@ -273,7 +273,7 @@
     }
    ],
    "aiBefore": 70.58823529411765,
-   "aiAfter": 66.66666666666667,
+   "aiAfter": 64.28571428571429,
    "aiLimit": 10,
    "extra": [],
    "pass": false
@@ -288,7 +288,7 @@
     }
    ],
    "aiBefore": 60,
-   "aiAfter": 42.857142857142854,
+   "aiAfter": 15.384615384615385,
    "aiLimit": 10,
    "extra": [],
    "pass": false
@@ -298,12 +298,12 @@
    "targets": [
     {
      "pattern": "double-trigger",
-     "fraction": 0.17857142857142858,
+     "fraction": 0.21428571428571427,
      "required": 0.15
     }
    ],
-   "aiBefore": 35.714285714285715,
-   "aiAfter": 5,
+   "aiBefore": 42.857142857142854,
+   "aiAfter": 0,
    "aiLimit": 10,
    "extra": [],
    "pass": true

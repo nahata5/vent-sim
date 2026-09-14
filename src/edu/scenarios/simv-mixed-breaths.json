@@ -13,6 +13,6 @@
     "Fix the mandatory breaths: raise the peak flow (or switch the base to pressure control) so flow meets demand."
   ],
   "targetPatterns": ["flow-starvation"],
-  "fix": { "at": 60, "note": "Peak flow 75 L/min: the mandatory breaths now deliver what the effort asks for.", "settings": { "peakFlow": 75 } },
+  "fix": { "at": 60, "note": "Mandatory breaths in pressure control (Pinsp 14, Ti 1.0 s): flow now follows the demand.", "settings": { "simvBase": "PC", "pinsp": 14, "ti": 1.0 } },
   "criteria": { "minFraction": 0.3, "aiAfter": 10, "over": "mandatory" }
 }
