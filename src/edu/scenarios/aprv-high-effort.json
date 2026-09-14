@@ -12,10 +12,10 @@
   "seed": 53,
   "objectives": [
     "Read the effort on the balloon (ΔPes) and on the truth layer (ΔPL,dyn, pendelluft) while Paw sits flat at Phigh.",
-    "Fix by treating the drive: analgesia and sedation to Pmax 8 at 14 a minute, with Thigh 6.0 s — in an unsynchronized mode, fewer and gentler efforts also mean fewer release collisions."
+    "Fix by treating the drive: analgesia and sedation to Pmax 8 at 14 a minute, with Thigh 8.0 s — in an unsynchronized mode, fewer and gentler efforts also mean fewer release collisions, and the gentler effort also keeps ΔPL and ΔPes within the quiz's own limits."
   ],
   "targetPatterns": ["high-effort", "pendelluft"],
-  "fix": { "at": 60, "note": "Treat the drive (analgesia, sedation): Pmax 8, rate 14, and Thigh 6.0 s — in an unsynchronized mode, fewer and gentler efforts also mean fewer release collisions.", "drive": { "pmax": 8, "rate": 14 }, "settings": { "thigh": 6.0 } },
+  "fix": { "at": 60, "note": "Treat the drive (analgesia, sedation): Pmax 8, rate 14, and Thigh 8.0 s — in an unsynchronized mode, fewer and gentler efforts also mean fewer release collisions, and this combination keeps ΔPL and ΔPes within the quiz's own limits too.", "drive": { "pmax": 8, "rate": 14 }, "settings": { "thigh": 8.0 } },
   "criteria": { "minFraction": 0.3, "aiAfter": 10 },
   "quizExtras": [{ "metric": "dPL", "max": 15, "label": "ΔPL ≤ 15 cmH2O" }, { "metric": "dPes", "max": 10, "label": "ΔPes ≤ 10 cmH2O" }]
 }
