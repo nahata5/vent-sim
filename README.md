@@ -20,9 +20,10 @@ https://vent-sim.netlify.app/#validation.
   expiratory muscles), an esophageal balloon modelled as an imperfect measurement, and a CO2 → drive loop
   with a time warp. Eight phenotype presets reproduce the research briefs' partition tables.
 - **A generic ICU ventilator** with VC-AC, PC-AC, PSV, CPAP, SIMV (volume- or pressure-controlled
-  mandatory breaths with pressure support between them) and PRVC (a VC test breath sets an initial
+  mandatory breaths with pressure support between them), PRVC (a VC test breath sets an initial
   pressure, then a breath-by-breath regulator steps it toward the volume target within a floor and
-  ceiling): trigger and cycling on *measured* signals,
+  ceiling) and APRV (Phigh/Plow/Thigh/Tlow with an optional flow-terminated release; no synchronization,
+  no PS at Phigh): trigger and cycling on *measured* signals,
   refractory period, servo lag, rise time, ETS, Ti max, pressure safety, apnea backup, alarms, a sensor
   chain (low-pass, delay, noise, quantization, device rate), pending → confirm settings, and every maneuver:
   inspiratory and expiratory holds, P0.1, ΔPocc, occlusion test, R/I, decremental PEEP trial, stress index.
@@ -32,7 +33,7 @@ https://vent-sim.netlify.app/#validation.
   as terms in the equations.
 - **Schematic SpO2** tile (clearly labelled; a monotone sketch from FiO2, aerated fraction, mean Paw and a
   scenario base shunt, not a gas-exchange model — `docs/MODEL.md` §5b).
-- **Education**: 31 scenarios including a "find all the problems" capstone, explain cards with case-specific evidence, a quiz (identify the patterns
+- **Education**: 34 scenarios including a "find all the problems" capstone, explain cards with case-specific evidence, a quiz (identify the patterns
   with the badges hidden, then fix them within safety limits) with an instructor-set **bedside view** (hide
   truth, Pes, scenario text, derived numbers, explain cards, CO2), a locked quiz link and a templated debrief
   on submit, instructor mode with live patient controls and a JSON scenario editor, progress in localStorage.
@@ -99,7 +100,7 @@ npx tsx scripts/model-constants.ts       # regenerate the constants table in doc
 |---|---|
 | [`docs/MODEL.md`](docs/MODEL.md) | Every equation with symbols, units and citations; the constants table |
 | [`docs/VALIDATION.md`](docs/VALIDATION.md) | Spec §9 items, the tests that cover them and the current numbers |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Deviations from the spec and choices it left open (D-001…D-023, D-025; D-024 reserved for APRV) |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Deviations from the spec and choices it left open (D-001…D-025) |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What is schematic, what the bedside cannot see, where the model stops |
 | [`docs/QUESTIONS.md`](docs/QUESTIONS.md) | Clinical questions for the owner with the defaults built around |
 | [`docs/SCENARIO_AUTHORING.md`](docs/SCENARIO_AUTHORING.md) | Scenario JSON format, generated from the validator's own tables (`npm run docs:authoring`) |

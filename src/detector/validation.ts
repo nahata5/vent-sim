@@ -20,7 +20,7 @@ export interface EmergenceRow {
   aiBefore: number;
   aiAfter: number;
   aiLimit: number;
-  extra: Array<{ metric: string; value: number; max: number }>;
+  extra: Array<{ metric: string; value: number; max?: number; min?: number }>;
   pass: boolean;
 }
 
@@ -42,13 +42,20 @@ export function runEmergence(def: ScenarioDef): EmergenceRow {
   });
   const aiBefore = asynchronyIndex(out, from, EMERGENCE_FIX_AT).ai;
   const aiAfter = asynchronyIndex(out, EMERGENCE_FIX_AT + EMERGENCE_SETTLE, EMERGENCE_DURATION).ai;
+  const afterBreaths = out.breaths.filter((b) => b.tStart > EMERGENCE_FIX_AT + EMERGENCE_SETTLE);
   const extra = (crit.extra ?? []).map((x) => {
-    const after = out.breaths.filter((b) => b.tStart > EMERGENCE_FIX_AT + EMERGENCE_SETTLE);
+    if (x.metric === 'recruitedGain') {
+      const meanFrc = (rows: typeof res.breaths) => rows.reduce((s, b) => s + b.frcAeratedEE, 0) / Math.max(1, rows.length);
+      const beforeRec = res.breaths.filter((b) => b.tEnd !== null && b.tStart > from && b.tStart < EMERGENCE_FIX_AT);
+      const afterRec = res.breaths.filter((b) => b.tEnd !== null && b.tStart > EMERGENCE_FIX_AT + EMERGENCE_SETTLE);
+      return { metric: x.metric, value: meanFrc(afterRec) - meanFrc(beforeRec), min: x.min };
+    }
     const peep = res.settingsLog.at(-1)?.settings.peep ?? 0;
-    const value = after.reduce((s, b) => s + ((b.evidence.palvEE ?? peep) - peep), 0) / Math.max(1, after.length);
+    const value = afterBreaths.reduce((s, b) => s + ((b.evidence.palvEE ?? peep) - peep), 0) / Math.max(1, afterBreaths.length);
     return { metric: x.metric, value, max: x.max };
   });
-  const pass = targets.every((t) => t.fraction >= t.required) && (def.fix ? aiAfter < crit.aiAfter : true) && extra.every((x) => x.value <= x.max);
+  const extraOk = extra.every((x) => (x.max === undefined || x.value <= x.max) && (x.min === undefined || x.value >= x.min));
+  const pass = targets.every((t) => t.fraction >= t.required) && (def.fix ? aiAfter < crit.aiAfter : true) && extraOk;
   return { id: def.id, targets, aiBefore, aiAfter, aiLimit: crit.aiAfter, extra, pass };
 }
 

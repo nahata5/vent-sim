@@ -83,6 +83,11 @@ entry names the decision or milestone that introduced it. Newest additions last 
   30 the floor wins and the regulated target sits at the alarm limit, alarm-cycling every breath. Real
   ventilators refuse or warn on the combination; a settings-level warning is UI scope beyond M12 and is not
   built.
+- **`src/sim/vent/ventilator.ts` is ≈ 1040 lines** (D-024): SIMV, PRVC and APRV each added their own
+  mode-specific branches (`controlExp`/`controlRelease`, `checkDisconnect`, `applySettings`, the maneuver
+  request methods) beside their shared FSM instead of behind a per-mode regulator abstraction; extracting
+  the mode regulators (PRVC's step/ceiling/floor, APRV's servo/release) out of the file is the structural
+  follow-up noted since Task 1 of M13, not yet done.
 
 ## Education layer and export
 
@@ -115,6 +120,54 @@ entry names the decision or milestone that introduced it. Newest additions last 
   fix is PSV, PS 12, with the drive also treated (rate 16, Pmax 8; `ScenarioFix.drive`) — the M12
   counterpart of D-022's "leave the mode" finding: the bedside fix for a regulator racing a rising drive is
   a fixed, patient-cycled pressure *and* treating the drive, not either alone.
+- **APRV has no synchronization and no pressure support at Phigh, by design** (D-024): it is built as
+  Habashi's TCAV — a fixed high phase and release, neither transition timed to the patient — not a
+  synchronized biphasic mode; a patient effort at Phigh is answered only by the bidirectional servo (gas in
+  or out on demand), never by a supported breath. Release termination and its defaults (`phigh`/`plow`/
+  `thigh`/`tlow`/`tlowPefr`) follow one vendor family's ranges (Habashi 2005), not any specific
+  ventilator's firmware.
+- **The `pefr` release-termination rule is a de-facto synchronization, as a side effect of the flow rule,
+  not a design goal** (D-024): because it reads inspiratory flow during the release as fraction 0, a
+  spontaneous inspiratory effort ends a `pefr` release immediately, which a `fixed`-duration release does
+  not do.
+- **The engine primes the lung and sensors at `settings.peep`**, so every APRV run starts with a t = 0
+  transient from that pressure up to Phigh (or down to Plow), not with the patient already equilibrated at
+  the TCAV baseline (D-024, carried from Task 1).
+- **The disconnect alarm is unreachable in APRV at the shipped defaults** (D-024): it judges Paw against
+  Plow rather than the set PEEP, and with Plow 0 and `lowPeep` 3 that requires Paw below −3 cmH2O, which
+  never occurs.
+- **A switch into APRV clears pending hold/occlusion requests and abandons a running PEEP maneuver**
+  (D-024, M13 review): none of the seven maneuver buttons can be pressed once in APRV, and a request in
+  flight at the moment of the mode switch is dropped rather than carried into the mode.
+- **The APRV detector rule (`release-collision`, D-024) is reported only**, like the SIMV and PRVC rules
+  above: it is not part of the held-out grid in §9.5 and the scenario library is never tuned against it.
+  Measured on the tuning runs, recall ran 0.67–1.00 and precision 0.67–1.00 across nine runs (seed, drive,
+  Tlow mode and Thigh varied), with one honest miss at a very weak (4 cmH2O) effort against a 28 cmH2O
+  release, where the flow signature nearly vanishes.
+- **`auto-peep` fires on almost every APRV release by construction** (D-024): the trapped end-release
+  pressure *is* the PEEP in TCAV, so the badge is expected on nearly every breath, not a sign something is
+  wrong; the card's first pitfall says so.
+- **The quiz substitutes Phigh for the plateau in APRV and leaves ΔP unverified** (D-024, amended by the
+  M13 review): no inspiratory hold exists in the mode, so the plateau check is graded on Phigh and labelled
+  so. The driving pressure that matters in APRV is Phigh − PEEPtot — the trapped pressure the 75 % release
+  rule sets — and no bedside hold can measure PEEPtot in APRV either, so the ΔP check is passed as `null`
+  and rendered as unverified (label "Phigh − PEEPtot (needs an expiratory hold; not available in APRV)")
+  rather than graded. Grading Phigh − Plow against the 15 cmH2O ΔP limit, as the first M13 build did, is
+  wrong twice over: it is the release amplitude, not a driving pressure, and at the shipped Phigh 28–30 /
+  Plow 0 it made the fix half of the APRV quiz score unreachable.
+- **`aprv-tlow-too-long` teaches derecruitment on `ards-extrapulmonary`, not `ards-pulmonary`** (D-024):
+  `ards-pulmonary`'s recruitable population opens on the recoil axis at `RECRUIT_PULMONARY_TOP` (34 ± 3
+  cmH2O), 2–4 cmH2O above what a protective Phigh 28 reaches anywhere in the authorized `tlow`/`thigh`
+  range (measured non-dependent/dependent plateaus ≈ 24.6/26.7 cmH2O on the recoil axis, against a ≈ 28.8
+  cmH2O requirement for even the lowest-quantile recruitable unit), so `tidal-recruitment` measured 0
+  throughout that phenotype's authorized space; extrapulmonary ARDS is the recruitable form at a protective
+  pressure, which is also the clinical teaching.
+- **`aprv-release-collision` and `aprv-high-effort` both need the drive treated, not just Thigh/Tlow**
+  (D-024): in an unsynchronized mode the collision probability per release is ≈ (Ti − 0.1)/period
+  regardless of Thigh, so lengthening Thigh alone left `aprv-release-collision` at 33 % after-fix AI; only
+  adding a gentler drive (rate 14, Pmax 6) cleared it to 0 %. `aprv-high-effort`'s own scripted fix produces
+  the same mechanism against itself and ships as rate 14 / Pmax 8 / Thigh 8.0 s — the mildest combination
+  that clears both the AI gate and the scenario's own quiz extras (ΔPL ≤ 15, ΔPes ≤ 10) together.
 
 ## Detector (what the bedside signals cannot show)
 

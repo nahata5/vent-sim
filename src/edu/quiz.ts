@@ -104,6 +104,8 @@ export interface FixInput {
   breaths: FixBreath[];
   newSevereAlarms: string[];
   extras: FixExtra[];
+  /** Override the ΔP and plateau check labels (APRV: Phigh for the plateau; ΔP is Phigh − PEEPtot, which no hold can measure there, so it is passed as null and reported unverified). */
+  labels?: { dp?: string; pplat?: string };
 }
 
 export interface FixCheck {
@@ -133,8 +135,8 @@ export function gradeFix(inp: FixInput): FixGrade {
   checks.push({ id: 'ai', label: `Asynchrony index < ${k('AI_SEVERE')} % over ${k('QUIZ_FIX_WINDOW')} s`, value: inp.ai, limit: k('AI_SEVERE'), ok: inp.ai < k('AI_SEVERE'), verified: true });
   const dps = inp.breaths.map((b) => b.dp).filter((x): x is number => x !== null && Number.isFinite(x));
   const pplats = inp.breaths.map((b) => b.pplat).filter((x): x is number => x !== null && Number.isFinite(x));
-  upper('dp', `Driving pressure ≤ ${k('DP_LIMIT')} cmH2O`, mean(dps), k('DP_LIMIT'));
-  upper('pplat', `Plateau ≤ ${k('PPLAT_LIMIT')} cmH2O`, mean(pplats), k('PPLAT_LIMIT'));
+  upper('dp', `${inp.labels?.dp ?? 'Driving pressure'} ≤ ${k('DP_LIMIT')} cmH2O`, mean(dps), k('DP_LIMIT'));
+  upper('pplat', `${inp.labels?.pplat ?? 'Plateau'} ≤ ${k('PPLAT_LIMIT')} cmH2O`, mean(pplats), k('PPLAT_LIMIT'));
   const vt = mean(inp.breaths.map((b) => b.vtPerKg).filter((x) => Number.isFinite(x)));
   checks.push({
     id: 'vt',

@@ -114,6 +114,9 @@ export function detect(inp: DetectorInput): DetectorOutput {
     const medTi = tiHist.length >= 3 ? median(tiHist) : f.ti;
     const isPressure = ctx.breathKind !== 'vc';
     const spont = ctx.breathKind === 'ps';
+    // APRV has no trigger and no cycle of its own (D-024): every release is timed, so no trigger- or
+    // cycle-based rule applies to an aprv breath.
+    const aprv = ctx.breathKind === 'aprv';
     const tauFit = Number.isFinite(f.lsqR) && Number.isFinite(f.lsqC) && f.lsqR > 0 ? (f.lsqR * f.lsqC) / 1000 : NaN;
     // Passive expiratory time constant: the running maximum over previous breaths (an effort only shortens
     // the apparent decay), else this breath's own fit, else the equation-of-motion fit.
@@ -140,119 +143,125 @@ export function detect(inp: DetectorInput): DetectorOutput {
     const leakEvident = leakRatio < k('DET_LEAK_RATIO');
 
     // ── Trigger side.
-    if (b.triggerCause === 'patient') {
-      const teBefore = prev ? b.tStart - (Number.isNaN(prev.tPauseEnd) ? prev.tInspEnd : prev.tPauseEnd) : Infinity;
-      const vteRatio = prev && prev.vti > 0.05 ? prev.vte / prev.vti : 1;
-      const teLimit = Math.max(k('DET_DT_TE_FRACTION') * medTi, k('DET_DT_TE_MAX'));
-      const afterRt = prev !== undefined && prev.triggerCause !== 'patient' && teBefore < k('DET_DT_RT_TE');
-      if ((teBefore < teLimit || afterRt) && vteRatio < k('DET_DT_VTE_RATIO')) {
-        add(
-          'double-trigger',
-          afterRt && teBefore >= teLimit
-            ? `patient trigger ${f2(teBefore)} s after a machine breath (< ${k('DET_DT_RT_TE')} s) with its volume not exhaled (Vte/Vti ${f2(vteRatio)}): stacking on an entrained effort`
-            : `Te ${f2(teBefore)} s < ${f2(teLimit)} s (½·Ti ${f2(medTi)} or ${k('DET_DT_TE_MAX')} s); Vte/Vti of the first breath ${f2(vteRatio)} < ${k('DET_DT_VTE_RATIO')}`,
-        );
-      } else {
-        const noDip = f.preDipSmooth < k('DET_AT_PAW_DIP');
-        const noRamp = f.preFlowRise < k('DET_AT_FLOW_RISE');
-        // Cardiac: heart-rate-band flow oscillation before the trigger with only a cardiac-sized inflection.
-        const cardiac = f.cardiacOsc >= k('DET_AT_CARDIAC_OSC') && f.cardiacRegular && noRamp;
-        // Leak: the net flow crosses the trigger threshold during its own decay toward the leak baseline.
-        const onLeak = leakEvident && noRamp && f.preFlowFloor > -k('DET_AT_FLOW_RISE');
-        if (noDip && (cardiac || onLeak)) {
-          c.autoTriggerCandidate = true;
-          c.evidence['auto-trigger'] = `pre-trigger Paw dip ${f2(f.preDipSmooth)} < ${k('DET_AT_PAW_DIP')} cmH2O; ${cardiac ? `regular ${f1(f.cardiacOsc)} L/min flow oscillation at ${f1(60 / Math.max(0.01, f.cardiacPeriod))}/min before the trigger (≥ ${k('DET_AT_CARDIAC_OSC')} L/min), inflection only ${f1(f.preFlowRise)} L/min` : `leak (ΣVte/ΣVti ${f2(leakRatio)} < ${k('DET_LEAK_RATIO')}) and no effort ramp (flow rise ${f1(f.preFlowRise)} < ${k('DET_AT_FLOW_RISE')} L/min from a floor of ${f1(f.preFlowFloor)} L/min)`}`;
+    if (!aprv) {
+      if (b.triggerCause === 'patient') {
+        const teBefore = prev ? b.tStart - (Number.isNaN(prev.tPauseEnd) ? prev.tInspEnd : prev.tPauseEnd) : Infinity;
+        const vteRatio = prev && prev.vti > 0.05 ? prev.vte / prev.vti : 1;
+        const teLimit = Math.max(k('DET_DT_TE_FRACTION') * medTi, k('DET_DT_TE_MAX'));
+        const afterRt = prev !== undefined && prev.triggerCause !== 'patient' && teBefore < k('DET_DT_RT_TE');
+        if ((teBefore < teLimit || afterRt) && vteRatio < k('DET_DT_VTE_RATIO')) {
+          add(
+            'double-trigger',
+            afterRt && teBefore >= teLimit
+              ? `patient trigger ${f2(teBefore)} s after a machine breath (< ${k('DET_DT_RT_TE')} s) with its volume not exhaled (Vte/Vti ${f2(vteRatio)}): stacking on an entrained effort`
+              : `Te ${f2(teBefore)} s < ${f2(teLimit)} s (½·Ti ${f2(medTi)} or ${k('DET_DT_TE_MAX')} s); Vte/Vti of the first breath ${f2(vteRatio)} < ${k('DET_DT_VTE_RATIO')}`,
+          );
         } else {
-          // Effort onset: the Paw dip onset, or the start of the expiratory flow deflection that was still
-          // rising when the previous breath ended (the deflection that became this trigger).
-          const prevDefl = cands.length ? (cands[cands.length - 1]?.f.lastDeflectionStart ?? NaN) : NaN;
-          const flowLead = Number.isFinite(prevDefl) && triggerT - prevDefl <= k('DET_DT_RT_TE') ? triggerT - prevDefl : 0;
-          const lead = Math.max(f.preDipDuration, flowLead);
-          if (lead > k('DET_DELAYED_TRIGGER')) {
-            add('delayed-trigger', `effort onset → trigger ${f2(lead)} s > ${k('DET_DELAYED_TRIGGER')} s (Paw dip ${f2(f.preDip)} cmH2O over ${f2(f.preDipDuration)} s, flow deflection from ${f2(flowLead)} s before the trigger)`);
+          const noDip = f.preDipSmooth < k('DET_AT_PAW_DIP');
+          const noRamp = f.preFlowRise < k('DET_AT_FLOW_RISE');
+          // Cardiac: heart-rate-band flow oscillation before the trigger with only a cardiac-sized inflection.
+          const cardiac = f.cardiacOsc >= k('DET_AT_CARDIAC_OSC') && f.cardiacRegular && noRamp;
+          // Leak: the net flow crosses the trigger threshold during its own decay toward the leak baseline.
+          const onLeak = leakEvident && noRamp && f.preFlowFloor > -k('DET_AT_FLOW_RISE');
+          if (noDip && (cardiac || onLeak)) {
+            c.autoTriggerCandidate = true;
+            c.evidence['auto-trigger'] = `pre-trigger Paw dip ${f2(f.preDipSmooth)} < ${k('DET_AT_PAW_DIP')} cmH2O; ${cardiac ? `regular ${f1(f.cardiacOsc)} L/min flow oscillation at ${f1(60 / Math.max(0.01, f.cardiacPeriod))}/min before the trigger (≥ ${k('DET_AT_CARDIAC_OSC')} L/min), inflection only ${f1(f.preFlowRise)} L/min` : `leak (ΣVte/ΣVti ${f2(leakRatio)} < ${k('DET_LEAK_RATIO')}) and no effort ramp (flow rise ${f1(f.preFlowRise)} < ${k('DET_AT_FLOW_RISE')} L/min from a floor of ${f1(f.preFlowFloor)} L/min)`}`;
+          } else {
+            // Effort onset: the Paw dip onset, or the start of the expiratory flow deflection that was still
+            // rising when the previous breath ended (the deflection that became this trigger).
+            const prevDefl = cands.length ? (cands[cands.length - 1]?.f.lastDeflectionStart ?? NaN) : NaN;
+            const flowLead = Number.isFinite(prevDefl) && triggerT - prevDefl <= k('DET_DT_RT_TE') ? triggerT - prevDefl : 0;
+            const lead = Math.max(f.preDipDuration, flowLead);
+            if (lead > k('DET_DELAYED_TRIGGER')) {
+              add('delayed-trigger', `effort onset → trigger ${f2(lead)} s > ${k('DET_DELAYED_TRIGGER')} s (Paw dip ${f2(f.preDip)} cmH2O over ${f2(f.preDipDuration)} s, flow deflection from ${f2(flowLead)} s before the trigger)`);
+            }
           }
         }
-      }
-    } else {
-      // Machine breath: reverse-trigger candidates need an effort signature AND a stable phase.
-      const vcDip = !isPressure && !sawtooth && f.midInspDip >= k('DET_RT_PAW_DIP');
-      const pcHump = isPressure && !sawtooth && f.inspHump >= k('DET_RT_FLOW_HUMP') && f.inspHumpTime > 0.2;
-      const phase = vcDip ? f.midInspDipTime : pcHump ? f.inspHumpTime : earlyEffort ? earlyEffort.tStart - b.tStart : earlyReturn && !sawtooth ? f.ti + f.expReturnTime : NaN;
-      if (Number.isFinite(phase)) {
-        const med = median(rtPhases.slice(-4));
-        const locked = rtPhases.length >= 1 && Math.abs(phase - med) <= k('DET_RT_PHASE_TOL') * med + 0.05;
-        rtPhases.push(phase);
-        if (rtPhases.length > 8) rtPhases.shift();
-        const why = vcDip
-          ? `mid-inspiratory Paw dip ${f1(f.midInspDip)} ≥ ${k('DET_RT_PAW_DIP')} cmH2O at ${f2(f.midInspDipTime)} s`
-          : pcHump
-            ? `inspiratory flow hump ${f1(f.inspHump)} ≥ ${k('DET_RT_FLOW_HUMP')} L/min at ${f2(f.inspHumpTime)} s`
-            : earlyEffort
-              ? `early-expiratory effort notch ${f1(earlyEffort.rise)} L/min (≥ ${f1(k('DET_IE_FDEF') + cardiacExtra)}) ${f2(earlyEffort.tStart - b.tInspEnd)} s after cycle-off`
-              : `expiratory flow back to zero in ${f2(f.expReturnTime)} s, ${f2(c.returnRatio)}× the τ prediction (< ${k('DET_RETURN_RATIO')})`;
-        if (locked) {
-          c.rtCandidate = true;
-          c.rtPhase = phase;
-          add('reverse-trigger', `${why}; phase ${f2(phase)} s locked to the machine breath (median ${f2(med)} s)`);
-        } else if (pcHump || vcDip) {
-          // An effort inside a machine insufflation that is not phase-locked: ineffective effort (inspiratory).
-          c.ieInsp = { t: b.tStart + phase, breathIndex: b.index, evidence: `${why}; not phase-locked (median ${f2(med)} s)`, phase: 'insp' };
-          add('ineffective-effort', c.ieInsp.evidence);
+      } else {
+        // Machine breath: reverse-trigger candidates need an effort signature AND a stable phase.
+        const vcDip = !isPressure && !sawtooth && f.midInspDip >= k('DET_RT_PAW_DIP');
+        const pcHump = isPressure && !sawtooth && f.inspHump >= k('DET_RT_FLOW_HUMP') && f.inspHumpTime > 0.2;
+        const phase = vcDip ? f.midInspDipTime : pcHump ? f.inspHumpTime : earlyEffort ? earlyEffort.tStart - b.tStart : earlyReturn && !sawtooth ? f.ti + f.expReturnTime : NaN;
+        if (Number.isFinite(phase)) {
+          const med = median(rtPhases.slice(-4));
+          const locked = rtPhases.length >= 1 && Math.abs(phase - med) <= k('DET_RT_PHASE_TOL') * med + 0.05;
+          rtPhases.push(phase);
+          if (rtPhases.length > 8) rtPhases.shift();
+          const why = vcDip
+            ? `mid-inspiratory Paw dip ${f1(f.midInspDip)} ≥ ${k('DET_RT_PAW_DIP')} cmH2O at ${f2(f.midInspDipTime)} s`
+            : pcHump
+              ? `inspiratory flow hump ${f1(f.inspHump)} ≥ ${k('DET_RT_FLOW_HUMP')} L/min at ${f2(f.inspHumpTime)} s`
+              : earlyEffort
+                ? `early-expiratory effort notch ${f1(earlyEffort.rise)} L/min (≥ ${f1(k('DET_IE_FDEF') + cardiacExtra)}) ${f2(earlyEffort.tStart - b.tInspEnd)} s after cycle-off`
+                : `expiratory flow back to zero in ${f2(f.expReturnTime)} s, ${f2(c.returnRatio)}× the τ prediction (< ${k('DET_RETURN_RATIO')})`;
+          if (locked) {
+            c.rtCandidate = true;
+            c.rtPhase = phase;
+            add('reverse-trigger', `${why}; phase ${f2(phase)} s locked to the machine breath (median ${f2(med)} s)`);
+          } else if (pcHump || vcDip) {
+            // An effort inside a machine insufflation that is not phase-locked: ineffective effort (inspiratory).
+            c.ieInsp = { t: b.tStart + phase, breathIndex: b.index, evidence: `${why}; not phase-locked (median ${f2(med)} s)`, phase: 'insp' };
+            add('ineffective-effort', c.ieInsp.evidence);
+          }
         }
       }
     }
 
     // ── Cycling (pass 2 strips these from breaths that remain stacked, as in the truth rule).
-    if (b.triggerCause === 'patient' || spont) {
-      if (b.cycleCause !== 'ti-max' && (earlyNotch || earlyReturn || (f.earlyExpPawDip > k('DET_PREM_PAW_DIP') && f.ti < 0.8 * medTi))) {
-        add(
-          'premature-cycling',
-          earlyNotch
-            ? `early-expiratory flow notch ${f1(earlyNotch.rise)} L/min at ${f2(earlyNotch.tStart - b.tInspEnd)} s after cycle-off`
-            : earlyReturn
-              ? `expiratory flow back to zero in ${f2(f.expReturnTime)} s, ${f2(c.returnRatio)}× the τ prediction (< ${k('DET_RETURN_RATIO')}): the effort outlasted the breath`
-              : `Paw ${f1(f.earlyExpPawDip)} below PEEP after cycling; Ti ${f2(f.ti)} s short`,
-        );
-      }
-      if (!isPressure && b.triggerCause === 'patient' && f.rampConvexity <= -k('DET_DC_VC_CONCAVITY')) {
-        add('delayed-cycling', `patient-triggered VC breath with a concave-down Paw ramp (${f1(f.rampConvexity)} cmH2O ≤ −${k('DET_DC_VC_CONCAVITY')}): the effort was relaxing during the insufflation, so the breath outlasted it${c.patterns.includes('delayed-trigger') ? ' (late trigger)' : ''}`);
-      }
-      if (isPressure) {
-        const rise = f.endInspRiseSmooth > k('DET_DC_PAW_RISE');
-        const tiMax = b.cycleCause === 'ti-max';
-        const shoulder = f.shoulderTail > k('DET_DC_SHOULDER_TAIL');
-        const long = tiHist.length >= 3 && f.ti > k('DET_DC_TI_RATIO') * medTi;
-        const tauTi = spont && Number.isFinite(f.inspTailTau) ? f.inspTailTau * Math.log(1 / Math.max(0.05, ctx.ets)) : NaN;
-        const slowDecay = Number.isFinite(tauTi) && tauTi > k('DET_DC_TAU_TI') && f.ti > 0.8 * tauTi;
-        const knee = f.slowTail >= k('DET_DC_KNEE_TAIL');
-        if (rise || tiMax || shoulder || knee || long || slowDecay) {
+    if (!aprv) {
+      if (b.triggerCause === 'patient' || spont) {
+        if (b.cycleCause !== 'ti-max' && (earlyNotch || earlyReturn || (f.earlyExpPawDip > k('DET_PREM_PAW_DIP') && f.ti < 0.8 * medTi))) {
           add(
-            'delayed-cycling',
-            rise
-              ? `end-inspiratory Paw ${f1(f.endInspRiseSmooth)} above target (> ${k('DET_DC_PAW_RISE')})`
-              : tiMax
-                ? `cycled on Ti max after ${f2(f.ti)} s`
-                : shoulder
-                  ? `flow shoulder ${f2(f.shoulderTail)} s before cycle-off (> ${k('DET_DC_SHOULDER_TAIL')})`
-                  : knee
-                    ? `inspiratory flow decay knee (local τ doubled, passive tail ≥ ${k('DET_DC_KNEE_TAU')} s) ${f2(f.slowTail)} s before cycle-off (≥ ${k('DET_DC_KNEE_TAIL')})`
-                  : long
-                    ? `Ti ${f2(f.ti)} s > ${k('DET_DC_TI_RATIO')}× median ${f2(medTi)} s`
-                    : `inspiratory flow tail τ ${f2(f.inspTailTau)} s with ETS ${Math.round(ctx.ets * 100)}% predicts ${f2(tauTi)} s to cycle (> ${k('DET_DC_TAU_TI')} s); Ti ${f2(f.ti)} s`,
+            'premature-cycling',
+            earlyNotch
+              ? `early-expiratory flow notch ${f1(earlyNotch.rise)} L/min at ${f2(earlyNotch.tStart - b.tInspEnd)} s after cycle-off`
+              : earlyReturn
+                ? `expiratory flow back to zero in ${f2(f.expReturnTime)} s, ${f2(c.returnRatio)}× the τ prediction (< ${k('DET_RETURN_RATIO')}): the effort outlasted the breath`
+                : `Paw ${f1(f.earlyExpPawDip)} below PEEP after cycling; Ti ${f2(f.ti)} s short`,
           );
+        }
+        if (!isPressure && b.triggerCause === 'patient' && f.rampConvexity <= -k('DET_DC_VC_CONCAVITY')) {
+          add('delayed-cycling', `patient-triggered VC breath with a concave-down Paw ramp (${f1(f.rampConvexity)} cmH2O ≤ −${k('DET_DC_VC_CONCAVITY')}): the effort was relaxing during the insufflation, so the breath outlasted it${c.patterns.includes('delayed-trigger') ? ' (late trigger)' : ''}`);
+        }
+        if (isPressure) {
+          const rise = f.endInspRiseSmooth > k('DET_DC_PAW_RISE');
+          const tiMax = b.cycleCause === 'ti-max';
+          const shoulder = f.shoulderTail > k('DET_DC_SHOULDER_TAIL');
+          const long = tiHist.length >= 3 && f.ti > k('DET_DC_TI_RATIO') * medTi;
+          const tauTi = spont && Number.isFinite(f.inspTailTau) ? f.inspTailTau * Math.log(1 / Math.max(0.05, ctx.ets)) : NaN;
+          const slowDecay = Number.isFinite(tauTi) && tauTi > k('DET_DC_TAU_TI') && f.ti > 0.8 * tauTi;
+          const knee = f.slowTail >= k('DET_DC_KNEE_TAIL');
+          if (rise || tiMax || shoulder || knee || long || slowDecay) {
+            add(
+              'delayed-cycling',
+              rise
+                ? `end-inspiratory Paw ${f1(f.endInspRiseSmooth)} above target (> ${k('DET_DC_PAW_RISE')})`
+                : tiMax
+                  ? `cycled on Ti max after ${f2(f.ti)} s`
+                  : shoulder
+                    ? `flow shoulder ${f2(f.shoulderTail)} s before cycle-off (> ${k('DET_DC_SHOULDER_TAIL')})`
+                    : knee
+                      ? `inspiratory flow decay knee (local τ doubled, passive tail ≥ ${k('DET_DC_KNEE_TAU')} s) ${f2(f.slowTail)} s before cycle-off (≥ ${k('DET_DC_KNEE_TAIL')})`
+                    : long
+                      ? `Ti ${f2(f.ti)} s > ${k('DET_DC_TI_RATIO')}× median ${f2(medTi)} s`
+                      : `inspiratory flow tail τ ${f2(f.inspTailTau)} s with ETS ${Math.round(ctx.ets * 100)}% predicts ${f2(tauTi)} s to cycle (> ${k('DET_DC_TAU_TI')} s); Ti ${f2(f.ti)} s`,
+            );
+          }
         }
       }
     }
 
     // ── Flow starvation (VC; the secretion sawtooth on Paw masks every ramp-shape rule).
-    if (!isPressure && !sawtooth) {
-      const steep = f.rampSlope > 0 && f.rampEndSlope >= k('DET_FS_END_STEEPENING') * f.rampSlope;
-      if (f.rampConvexity >= k('DET_FS_CONVEXITY')) add('flow-starvation', `Paw ramp scooped: convexity ${f1(f.rampConvexity)} cmH2O (≥ ${k('DET_FS_CONVEXITY')}; mid-ramp ${f1(f.concavity)} below the chord)`);
-      else if (f.concavity >= k('DET_FS_CONCAVITY')) add('flow-starvation', `Paw ramp scooped by ${f1(f.concavity)} cmH2O (≥ ${k('DET_FS_CONCAVITY')})`);
-      else if (f.rampMinAbovePeep < 0.5) add('flow-starvation', `Paw fell to PEEP (${f1(f.rampMinAbovePeep)} above) during inspiration`);
-      else if (steep) add('flow-starvation', `Paw ramp steepens from ${f1(f.rampSlope)} to ${f1(f.rampEndSlope)} cmH2O/s in the last 15% of Ti (≥ ${k('DET_FS_END_STEEPENING')}×): the effort relaxed before cycle-off`);
-      else if (f.ptpDeficit >= k('DET_FS_PTP')) {
-        add('flow-starvation', `Paw ${f2(f.ptpDeficit)} cmH2O·s below the passive prediction over inspiration (≥ ${k('DET_FS_PTP')}; τe ${f2(f.tauExp)} s, R ${f1(f.rStep)})`);
+    if (!aprv) {
+      if (!isPressure && !sawtooth) {
+        const steep = f.rampSlope > 0 && f.rampEndSlope >= k('DET_FS_END_STEEPENING') * f.rampSlope;
+        if (f.rampConvexity >= k('DET_FS_CONVEXITY')) add('flow-starvation', `Paw ramp scooped: convexity ${f1(f.rampConvexity)} cmH2O (≥ ${k('DET_FS_CONVEXITY')}; mid-ramp ${f1(f.concavity)} below the chord)`);
+        else if (f.concavity >= k('DET_FS_CONCAVITY')) add('flow-starvation', `Paw ramp scooped by ${f1(f.concavity)} cmH2O (≥ ${k('DET_FS_CONCAVITY')})`);
+        else if (f.rampMinAbovePeep < 0.5) add('flow-starvation', `Paw fell to PEEP (${f1(f.rampMinAbovePeep)} above) during inspiration`);
+        else if (steep) add('flow-starvation', `Paw ramp steepens from ${f1(f.rampSlope)} to ${f1(f.rampEndSlope)} cmH2O/s in the last 15% of Ti (≥ ${k('DET_FS_END_STEEPENING')}×): the effort relaxed before cycle-off`);
+        else if (f.ptpDeficit >= k('DET_FS_PTP')) {
+          add('flow-starvation', `Paw ${f2(f.ptpDeficit)} cmH2O·s below the passive prediction over inspiration (≥ ${k('DET_FS_PTP')}; τe ${f2(f.tauExp)} s, R ${f1(f.rStep)})`);
+        }
       }
     }
     // ── Overshoot.
@@ -273,25 +282,32 @@ export function detect(inp: DetectorInput): DetectorOutput {
         `ΔP ${f1(ctx.pTarget - ctx.peep)} within ${k('LABEL_SUPPORT_WITHDRAWAL_MARGIN')} of the floor ${ctx.prvcMinDp}; patient-triggered, Vti ${Math.round(b.vti * 1000)} mL ≥ ${k('DET_SW_VT_EXCESS')} × ${ctx.vt}; Paw sag ${f1(f.earlySag)}`,
       );
     }
-    // ── Inspiratory IE on a pressure-targeted spontaneous breath: a flow hump after the peak.
-    if (spont && !sawtooth && b.triggerCause === 'patient' && f.inspHump >= k('DET_IE_HUMP') && f.inspHumpTime > 0.25) {
-      const e = `inspiratory flow hump ${f1(f.inspHump)} L/min ≥ ${k('DET_IE_HUMP')} at ${f2(f.inspHumpTime)} s (effort during insufflation)`;
-      c.ieInsp = { t: b.tStart + f.inspHumpTime, breathIndex: b.index, evidence: e, phase: 'insp' };
-      add('ineffective-effort', e);
+    // ── Release collision (APRV, report only): the flow at the moment the release opens carries the effort it
+    // interrupted — gas is still going in when the valve lets the lung empty (Spec 2026-09-14 §4.3, D-024).
+    if (aprv && f.releaseStartFlow >= k('DET_RC_FLOW')) {
+      add('release-collision', `release: inspiratory flow ${f1(f.releaseStartFlow)} L/min over the first ${Math.round(k('DET_RC_FLOW_WINDOW') * 1000)} ms of the release (≥ ${k('DET_RC_FLOW')}): the patient was still breathing in`);
     }
-    // ── Expiratory IE: Chen 2008 flow-deflection criterion on notches after the blanking window. The Paw
-    // deflection is not usable through an active exhalation valve (D-012); a regular cardiac oscillation
-    // raises the flow threshold by its own amplitude, and the secretion sawtooth masks the rule.
-    const blank = b.triggerCause === 'patient' ? k('DET_IE_EXP_BLANK') : 0.05;
-    for (const n of f.notches) {
-      const dt = n.tStart - b.tInspEnd;
-      if (sawtooth || dt < blank || n.duration < k('DET_IE_MIN_DURATION')) continue;
-      if (c.rtCandidate && dt < k('DET_RT_EXP_WINDOW')) continue; // the entrained effort itself
-      const thr = k('DET_IE_FDEF') + cardiacExtra;
-      if (n.rise >= thr) {
-        const e = `Fdef ${f1(n.rise)} L/min ≥ ${f1(thr)}${cardiacExtra > 0 ? ` (${k('DET_IE_FDEF')} + cardiac ${f1(cardiacExtra)})` : ''} over ${f2(n.duration)} s (Pdef ${f2(n.pawDip)})`;
-        c.ieExp.push({ t: n.tPeak, breathIndex: b.index, evidence: e, phase: 'exp' });
+    // ── Inspiratory IE on a pressure-targeted spontaneous breath: a flow hump after the peak.
+    if (!aprv) {
+      if (spont && !sawtooth && b.triggerCause === 'patient' && f.inspHump >= k('DET_IE_HUMP') && f.inspHumpTime > 0.25) {
+        const e = `inspiratory flow hump ${f1(f.inspHump)} L/min ≥ ${k('DET_IE_HUMP')} at ${f2(f.inspHumpTime)} s (effort during insufflation)`;
+        c.ieInsp = { t: b.tStart + f.inspHumpTime, breathIndex: b.index, evidence: e, phase: 'insp' };
         add('ineffective-effort', e);
+      }
+      // ── Expiratory IE: Chen 2008 flow-deflection criterion on notches after the blanking window. The Paw
+      // deflection is not usable through an active exhalation valve (D-012); a regular cardiac oscillation
+      // raises the flow threshold by its own amplitude, and the secretion sawtooth masks the rule.
+      const blank = b.triggerCause === 'patient' ? k('DET_IE_EXP_BLANK') : 0.05;
+      for (const n of f.notches) {
+        const dt = n.tStart - b.tInspEnd;
+        if (sawtooth || dt < blank || n.duration < k('DET_IE_MIN_DURATION')) continue;
+        if (c.rtCandidate && dt < k('DET_RT_EXP_WINDOW')) continue; // the entrained effort itself
+        const thr = k('DET_IE_FDEF') + cardiacExtra;
+        if (n.rise >= thr) {
+          const e = `Fdef ${f1(n.rise)} L/min ≥ ${f1(thr)}${cardiacExtra > 0 ? ` (${k('DET_IE_FDEF')} + cardiac ${f1(cardiacExtra)})` : ''} over ${f2(n.duration)} s (Pdef ${f2(n.pawDip)})`;
+          c.ieExp.push({ t: n.tPeak, breathIndex: b.index, evidence: e, phase: 'exp' });
+          add('ineffective-effort', e);
+        }
       }
     }
     // ── Auto-PEEP, leak, secretions, resistance, compliance, cough.

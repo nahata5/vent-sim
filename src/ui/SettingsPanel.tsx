@@ -28,7 +28,7 @@ interface FieldDef {
 }
 
 const FIELDS: FieldDef[] = [
-  { key: 'peep', label: 'PEEP', unit: 'cmH2O', min: 0, max: 25, step: 1 },
+  { key: 'peep', label: 'PEEP', unit: 'cmH2O', min: 0, max: 25, step: 1, modes: ['VC-AC', 'PC-AC', 'PSV', 'CPAP', 'SIMV', 'PRVC'] },
   { key: 'fio2', label: 'FiO2', unit: '%', min: 21, max: 100, step: 5, toDisplay: (v) => Math.round(v * 100), fromDisplay: (v) => v / 100 },
   { key: 'vt', label: 'Tidal volume', unit: 'mL', min: 100, max: 1200, step: 10, modes: ['VC-AC', 'SIMV', 'PRVC'] },
   { key: 'rr', label: 'Rate', unit: '/min', min: 4, max: 60, step: 1, modes: ['VC-AC', 'PC-AC', 'SIMV', 'PRVC'] },
@@ -39,11 +39,16 @@ const FIELDS: FieldDef[] = [
   { key: 'ps', label: 'Pressure support', unit: 'cmH2O', min: 0, max: 40, step: 1, modes: ['PSV', 'SIMV'] },
   { key: 'ets', label: 'ETS (cycle-off)', unit: '% peak', min: 5, max: 80, step: 5, modes: ['PSV', 'SIMV'], toDisplay: (v) => Math.round(v * 100), fromDisplay: (v) => v / 100 },
   { key: 'tiMax', label: 'Ti max', unit: 's', min: 0.5, max: 4, step: 0.1, modes: ['PSV', 'SIMV'] },
-  { key: 'riseTime', label: 'Rise time', unit: 's', min: 0, max: 0.4, step: 0.05, modes: ['PC-AC', 'PSV', 'SIMV', 'PRVC'] },
-  { key: 'flowTrigger', label: 'Flow trigger', unit: 'L/min', min: 0.5, max: 10, step: 0.5 },
-  { key: 'pressureTrigger', label: 'Pressure trigger', unit: 'cmH2O', min: 0.5, max: 5, step: 0.5 },
+  { key: 'riseTime', label: 'Rise time', unit: 's', min: 0, max: 0.4, step: 0.05, modes: ['PC-AC', 'PSV', 'SIMV', 'PRVC', 'APRV'] },
+  { key: 'flowTrigger', label: 'Flow trigger', unit: 'L/min', min: 0.5, max: 10, step: 0.5, modes: ['VC-AC', 'PC-AC', 'PSV', 'CPAP', 'SIMV', 'PRVC'] },
+  { key: 'pressureTrigger', label: 'Pressure trigger', unit: 'cmH2O', min: 0.5, max: 5, step: 0.5, modes: ['VC-AC', 'PC-AC', 'PSV', 'CPAP', 'SIMV', 'PRVC'] },
   { key: 'simvWindow', label: 'Sync window', unit: 'fraction of period', min: 0.05, max: 1, step: 0.05, modes: ['SIMV'] },
   { key: 'prvcMinDp', label: 'PRVC floor above PEEP', unit: 'cmH2O', min: 0, max: 15, step: 1, modes: ['PRVC'] },
+  { key: 'phigh', label: 'Phigh', unit: 'cmH2O', min: 5, max: 45, step: 1, modes: ['APRV'] },
+  { key: 'plow', label: 'Plow', unit: 'cmH2O', min: 0, max: 20, step: 1, modes: ['APRV'] },
+  { key: 'thigh', label: 'Thigh', unit: 's', min: 0.5, max: 15, step: 0.5, modes: ['APRV'] },
+  { key: 'tlow', label: 'Tlow (release, or its cap)', unit: 's', min: 0.2, max: 3, step: 0.1, modes: ['APRV'] },
+  { key: 'tlowPefr', label: 'End release at', unit: '% of PEFR', min: 25, max: 90, step: 5, modes: ['APRV'], toDisplay: (v) => Math.round(v * 100), fromDisplay: (v) => v / 100 },
 ];
 
 type Draft = Partial<Pick<VentSettings, NumKey>> & {
@@ -51,16 +56,19 @@ type Draft = Partial<Pick<VentSettings, NumKey>> & {
   triggerType?: VentSettings['triggerType'];
   flowPattern?: VentSettings['flowPattern'];
   simvBase?: VentSettings['simvBase'];
+  tlowMode?: VentSettings['tlowMode'];
 };
 
 /** Keys hidden for a given mode: the FIELDS-declared mode restriction, plus (in SIMV) the VC/PC keys the
- * mandatory base hides. Used both to render the field list and to prune a draft when the mode or base
- * changes, so a value typed for a now-hidden key never survives into a confirm. */
-function hiddenKeys(mode: Mode, base: VentSettings['simvBase']): NumKey[] {
+ * mandatory base hides, plus (in APRV) `tlowPefr` when the release isn't flow-terminated. Used both to
+ * render the field list and to prune a draft when the mode/base/tlowMode changes, so a value typed for a
+ * now-hidden key never survives into a confirm. */
+function hiddenKeys(mode: Mode, base: VentSettings['simvBase'], tlowMode: VentSettings['tlowMode']): NumKey[] {
   const modeHidden = FIELDS.filter((f) => f.modes && !f.modes.includes(mode)).map((f) => f.key);
-  if (mode !== 'SIMV') return modeHidden;
-  const baseHidden: NumKey[] = base === 'PC' ? ['vt', 'peakFlow', 'pause'] : ['pinsp', 'ti'];
-  return [...modeHidden, ...baseHidden];
+  const extra: NumKey[] = [];
+  if (mode === 'SIMV') extra.push(...(base === 'PC' ? (['vt', 'peakFlow', 'pause'] as NumKey[]) : (['pinsp', 'ti'] as NumKey[])));
+  if (mode === 'APRV' && tlowMode !== 'pefr') extra.push('tlowPefr');
+  return [...modeHidden, ...extra];
 }
 
 export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
@@ -75,6 +83,7 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
   const mode = draft.mode ?? settings.mode;
   const triggerType = draft.triggerType ?? settings.triggerType;
   const base = draft.simvBase ?? settings.simvBase;
+  const tlowMode = draft.tlowMode ?? settings.tlowMode;
   const dirty = Object.keys(draft).length + Object.keys(alarmDraft).length > 0;
 
   const confirm = () => {
@@ -89,9 +98,10 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
     setAlarmDraft({});
   };
 
-  const hidden = hiddenKeys(mode, base);
-  const visible = FIELDS.filter((f) => !hidden.includes(f.key))
-    .filter((f) => (f.key === 'flowTrigger' ? triggerType === 'flow' : f.key === 'pressureTrigger' ? triggerType === 'pressure' : true));
+  const hidden = hiddenKeys(mode, base, tlowMode);
+  const visible = FIELDS.filter((f) => !hidden.includes(f.key)).filter((f) =>
+    f.key === 'flowTrigger' ? triggerType === 'flow' : f.key === 'pressureTrigger' ? triggerType === 'pressure' : f.key === 'tlowPefr' ? tlowMode === 'pefr' : true,
+  );
 
   return (
     <section class="panel settings" aria-label="Ventilator settings" data-testid="settings-panel">
@@ -104,7 +114,7 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
           onChange={(e) => {
             const value = (e.currentTarget).value as Mode;
             const next: Draft = { ...draft, mode: value };
-            for (const k of hiddenKeys(value, draft.simvBase ?? settings.simvBase)) delete next[k];
+            for (const k of hiddenKeys(value, draft.simvBase ?? settings.simvBase, draft.tlowMode ?? settings.tlowMode)) delete next[k];
             setDraft(next);
           }}
           class={draft.mode !== undefined && draft.mode !== settings.mode ? 'pending' : ''}
@@ -126,12 +136,31 @@ export function SettingsPanel({ ctl, settings, pendingOnVent }: Props) {
             onChange={(e) => {
               const value = (e.currentTarget).value as VentSettings['simvBase'];
               const next: Draft = { ...draft, simvBase: value };
-              for (const k of hiddenKeys(mode, value)) delete next[k];
+              for (const k of hiddenKeys(mode, value, tlowMode)) delete next[k];
               setDraft(next);
             }}
           >
             <option value="VC">Volume control</option>
             <option value="PC">Pressure control</option>
+          </select>
+        </label>
+      )}
+      {mode === 'APRV' && (
+        <label class="field">
+          <span>Release termination</span>
+          <select
+            value={tlowMode}
+            data-testid="aprv-tlow-mode"
+            class={draft.tlowMode !== undefined && draft.tlowMode !== settings.tlowMode ? 'pending' : ''}
+            onChange={(e) => {
+              const value = (e.currentTarget).value as VentSettings['tlowMode'];
+              const next: Draft = { ...draft, tlowMode: value };
+              for (const k of hiddenKeys(mode, base, value)) delete next[k];
+              setDraft(next);
+            }}
+          >
+            <option value="fixed">Fixed time</option>
+            <option value="pefr">Flow-terminated (TCAV)</option>
           </select>
         </label>
       )}

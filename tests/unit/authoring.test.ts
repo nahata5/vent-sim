@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AUTHORING_PROMPT, EXAMPLE_SCENARIO, authoringDocument } from '@/edu/authoring';
-import { validateScenario } from '@/edu/scenario-schema';
+import { CRITERIA_EXTRA_METRICS, validateScenario } from '@/edu/scenario-schema';
 import { SCENARIOS, resolveScenario } from '@/edu/scenarios';
 import { runHeadless } from '@sim/headless';
 import { PHENOTYPE_IDS } from '@sim/patient/presets';
@@ -23,6 +23,10 @@ describe('authoring prompt', () => {
     for (const p of PATTERN_IDS) expect(AUTHORING_PROMPT).toContain(`"${p}"`);
     for (const k of INJECTOR_KINDS) expect(AUTHORING_PROMPT).toContain(`"${k}"`);
     for (const m of IMPLEMENTED_MODES) expect(AUTHORING_PROMPT).toContain(`"${m}"`);
+    // criteria.extra is spelled out shape by shape (peepiTrue takes "max", recruitedGain takes "min"),
+    // so the prompt must still name every metric the validator accepts.
+    for (const m of CRITERIA_EXTRA_METRICS) expect(AUTHORING_PROMPT).toContain(`"${m}"`);
+    expect(AUTHORING_PROMPT).toContain('{ "metric": "peepiTrue", "max": number } or { "metric": "recruitedGain", "min": number }');
     expect(AUTHORING_PROMPT).toContain('vt: 100–1200 mL');
     expect(AUTHORING_PROMPT).toContain(JSON.stringify(EXAMPLE_SCENARIO, null, 2));
     expect(AUTHORING_PROMPT).toMatch(/interview/i);

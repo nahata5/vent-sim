@@ -4,6 +4,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { runHeadless } from '@sim/headless';
+import { defaultSettings } from '@sim/vent/settings';
+import { presetPatient } from '@sim/patient/presets';
 import { labelRun, PATTERN_IDS, type BreathLabel } from '@sim/truth/labeler';
 import { resolveScenario, scenarioById } from '@/edu/scenarios';
 import { CARDS, caseEvidence, effortEvidence, explainBreath } from '@/edu/cards';
@@ -56,6 +58,18 @@ describe('explain cards', () => {
     expect(text).toMatch(/did not trigger/);
     expect(text).toContain(`${e.tOnset.toFixed(1)} s`);
     expect(text).toMatch(/expiration|inspiration/);
+  });
+
+  it('auto-PEEP in APRV: the evidence measures the trapped pressure against Plow, not the unused PEEP setting', () => {
+    const settings = { ...defaultSettings('APRV'), phigh: 28, plow: 0, thigh: 4.0, tlow: 0.5, tlowMode: 'fixed' as const };
+    expect(settings.peep).not.toBe(settings.plow); // the two baselines differ, so the assertion below bites
+    const res = runHeadless({ patient: presetPatient('ards-pulmonary'), settings, seed: 1, duration: 60 });
+    const b = labelRun(res).breaths.find((x) => x.tStart > 5 && x.patterns.includes('auto-peep')) as BreathLabel;
+    expect(b).toBeDefined();
+    const text = caseEvidence({ label: b, neural: null, settings, pbw: 70 }).join(' ');
+    expect(text).toContain(`vs Plow ${settings.plow}`);
+    expect(text).toContain(`auto-PEEP ${((b.evidence.palvEE ?? 0) - settings.plow).toFixed(1)}`);
+    expect(text).not.toContain('set PEEP');
   });
 
   it('a synchronous breath yields no evidence lines and explainBreath returns no cards', () => {

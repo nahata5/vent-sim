@@ -255,3 +255,76 @@ describe('PRVC truth rules', () => {
     expect(labelRun(calm).breaths.some((b) => b.patterns.includes('support-withdrawal'))).toBe(false);
   });
 });
+
+describe('APRV truth rules', () => {
+  const aprv = { ...defaultSettings('APRV'), phigh: 28, plow: 0, thigh: 4.0, tlow: 0.5, tlowMode: 'fixed' as const };
+  const TRIGGER_OR_CYCLE: PatternId[] = ['delayed-trigger', 'double-trigger', 'auto-trigger', 'reverse-trigger', 'premature-cycling', 'delayed-cycling', 'flow-starvation'];
+
+  it('passive APRV: no trigger or cycle pattern, auto-PEEP against Plow on most releases, AI 0', () => {
+    const res = runHeadless({ patient: presetPatient('ards-pulmonary'), settings: aprv, seed: 1, duration: 60 });
+    const out = labelRun(res);
+    const b = out.breaths.filter((x) => x.tStart > 5);
+    expect(b.length).toBeGreaterThan(8);
+    expect(b.every((x) => x.breathKind === 'aprv')).toBe(true);
+    expect(b.some((x) => x.patterns.some((p) => TRIGGER_OR_CYCLE.includes(p)))).toBe(false);
+    expect(b.filter((x) => x.patterns.includes('auto-peep')).length / b.length).toBeGreaterThan(0.5);
+    expect(asynchronyIndex(out, 5, 60).ai).toBe(0);
+  });
+
+  it('breathing patient in APRV: efforts are expected unsupported breaths (never ineffective), release collisions are labelled and count in the AI', () => {
+    const patient = presetPatient('ards-pulmonary');
+    patient.drive = { ...defaultDriveParams(), rate: 20, ti: 1.0, pmax: 8, cvRate: 0.05, cvTi: 0.05, cvPmax: 0.05 };
+    const res = runHeadless({ patient, settings: aprv, seed: 2, duration: 90 });
+    const out = labelRun(res);
+    expect(out.efforts.length).toBeGreaterThan(20);
+    expect(out.efforts.every((e) => !e.ineffective && !e.assistedByMachine && !e.reverseTriggered)).toBe(true);
+    const b = out.breaths.filter((x) => x.tStart > 5);
+    expect(b.some((x) => x.patterns.some((p) => TRIGGER_OR_CYCLE.includes(p)))).toBe(false);
+    const rc = b.filter((x) => x.patterns.includes('release-collision'));
+    expect(rc.length).toBeGreaterThan(0);
+    for (const x of rc) expect(x.evidence.releaseLead ?? 0).toBeGreaterThanOrEqual(k('LABEL_RELEASE_COLLISION'));
+    const idx = asynchronyIndex(out, 5, 90);
+    expect(idx.ie).toBe(0);
+    expect(idx.events).toBe(rc.length);
+  });
+
+  it('high effort is still judged at Phigh', () => {
+    const patient = presetPatient('ards-pulmonary');
+    patient.drive = { ...defaultDriveParams(), rate: 24, ti: 1.0, pmax: 16, cvRate: 0.05, cvTi: 0.05, cvPmax: 0.05 };
+    const res = runHeadless({ patient, settings: { ...aprv, phigh: 30, thigh: 5 }, seed: 3, duration: 60 });
+    const b = labelRun(res).breaths.filter((x) => x.tStart > 5);
+    expect(b.filter((x) => x.patterns.includes('high-effort')).length / Math.max(1, b.length)).toBeGreaterThan(0.3);
+  });
+
+  it('release-collision rule (synthetic): a release beginning at least LABEL_RELEASE_COLLISION before neural offset', () => {
+    const fs = 100;
+    const mk = (index: number, tStart: number, tInspEnd: number, tEnd: number) => ({
+      index, tStart, triggerCause: 'time' as const, tInspEnd, tPauseEnd: NaN, cycleCause: 'time' as const, tEnd,
+      vtiTrue: 0.4, vteTrue: 0.4, vtiMeasured: 0.4, vteMeasured: 0.4, peakFlowMeasured: 0.6, ppeakMeasured: 28,
+      leakTrue: 0, openFractionEE: 1, frcAeratedEE: 2.5, tidalRecruitUnits: 0,
+    });
+    const ctx = contextFromSettings({ ...defaultSettings('APRV'), phigh: 28, plow: 0 }, undefined, { rTotal: 10, el: 10, ecw: 5 });
+    const neural = [{ index: 0, tOnset: 13.0, ti: 1.0, pmax: 8, holdFrac: 0.2, relaxTau: 0.15, tEnd: 14.3, entrained: false, sigh: false, expiratory: null }];
+    const withCollision = [mk(0, 10.0, 13.5, 14.03), mk(1, 14.03, 18.03, 18.56)];
+    const events: VentEvent[] = [
+      { type: 'trigger', t: 9.97, cause: 'time' }, { type: 'breath', t: 10.0, kind: 'aprv', mandatory: true, pTarget: 28 }, { type: 'cycle', t: 13.5, cause: 'time' },
+      { type: 'trigger', t: 14.0, cause: 'time' }, { type: 'breath', t: 14.03, kind: 'aprv', mandatory: true, pTarget: 28 }, { type: 'cycle', t: 18.03, cause: 'time' },
+    ];
+    const out = labelBreaths({ fs, n: 20 * fs, read: () => 0, indexAt: (t) => Math.round(t * fs), breaths: withCollision, neural, events, ctxAt: () => ctx, tEnd: 20, hasDrive: true });
+    expect(out.breaths[0]?.patterns).toContain('release-collision');
+    expect(out.breaths[0]?.evidence.releaseLead).toBeCloseTo(0.5, 6);
+    expect(out.efforts[0]?.ineffective).toBe(false);
+    // The release 0.05 s before neural offset (13.95) is inside the tolerance: not a collision.
+    const late = [mk(0, 10.0, 13.95, 14.48), mk(1, 14.48, 18.48, 19.0)];
+    const lateEvents: VentEvent[] = [...events.slice(0, 2), { type: 'cycle', t: 13.95, cause: 'time' }, { type: 'trigger', t: 14.45, cause: 'time' }, { type: 'breath', t: 14.48, kind: 'aprv', mandatory: true, pTarget: 28 }, { type: 'cycle', t: 18.48, cause: 'time' }];
+    const out2 = labelBreaths({ fs, n: 20 * fs, read: () => 0, indexAt: (t) => Math.round(t * fs), breaths: late, neural, events: lateEvents, ctxAt: () => ctx, tEnd: 20, hasDrive: true });
+    expect(out2.breaths[0]?.patterns).not.toContain('release-collision');
+  });
+
+  it('APRV context: PEEP is Plow and the target is Phigh', () => {
+    const ctx = contextFromSettings({ ...defaultSettings('APRV'), peep: 10, phigh: 30, plow: 2 }, undefined, { rTotal: 10, el: 10, ecw: 5 });
+    expect(ctx.peep).toBe(2);
+    expect(ctx.pTarget).toBe(30);
+    expect(ctx.breathKind).toBe('aprv');
+  });
+});

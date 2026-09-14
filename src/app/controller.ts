@@ -590,10 +590,19 @@ export class SessionController {
     const breaths = [...this.labels.values()].map((l) => l.truth).filter((l): l is BreathLabel => l !== null && l.tStart >= t0);
     const efforts = this.efforts.filter((e) => e.tOnset >= t0);
     const ai = asynchronyIndex({ breaths, efforts }, t0, t1).ai;
-    const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
-    const newSevereAlarms = this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm);
+    const newSevereAlarms = [...new Set(this.alarmLog.slice(this.alarmsAtFixStart).filter((a) => a.active && (SEVERE_ALARMS as readonly string[]).includes(a.alarm)).map((a) => a.alarm))];
     const extras = extrasFromTruth(this.scenario?.quizExtras ?? [], this.truthLog.filter((x) => x.tStart >= t0).map((x) => x.m));
-    return { ai, breaths: mon, newSevereAlarms: [...new Set(newSevereAlarms)], extras };
+    const s = this.settings;
+    // APRV has no plateau hold: Phigh stands in for the plateau (spec §4.5, amended by the M13 review).
+    // The clinically meaningful driving pressure in APRV is Phigh − PEEPtot, and PEEPtot needs an
+    // expiratory hold, which APRV refuses — so ΔP is reported as unverified (null) rather than graded
+    // against Phigh − Plow, which is the release amplitude and not a driving pressure.
+    if (s?.mode === 'APRV') {
+      const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: null, pplat: s.phigh, vtPerKg: m.vtPerKg }));
+      return { ai, breaths: mon, newSevereAlarms, extras, labels: { dp: 'Phigh − PEEPtot (needs an expiratory hold; not available in APRV)', pplat: 'Phigh' } };
+    }
+    const mon = this.monitorLog.filter((m) => m.tStart >= t0).map((m) => ({ dp: m.drivingPressure, pplat: m.pplatFromThisBreath ? m.pplat : null, vtPerKg: m.vtPerKg }));
+    return { ai, breaths: mon, newSevereAlarms, extras };
   }
 
   evaluateQuiz(): void {

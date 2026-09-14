@@ -2,8 +2,8 @@
  * Shared simulation types. Internal units: cmH2O, L, L/s, s.
  */
 
-export type Mode = 'VC-AC' | 'PC-AC' | 'PSV' | 'CPAP' | 'SIMV' | 'PRVC';
-export const IMPLEMENTED_MODES: readonly Mode[] = ['VC-AC', 'PC-AC', 'PSV', 'CPAP', 'SIMV', 'PRVC'];
+export type Mode = 'VC-AC' | 'PC-AC' | 'PSV' | 'CPAP' | 'SIMV' | 'PRVC' | 'APRV';
+export const IMPLEMENTED_MODES: readonly Mode[] = ['VC-AC', 'PC-AC', 'PSV', 'CPAP', 'SIMV', 'PRVC', 'APRV'];
 
 /** Breath plan actually delivered (Spec 2026-09-14 §1): flow-controlled, pressure-controlled time-cycled, flow-cycled spontaneous, or an APRV high phase. */
 export type BreathKind = 'vc' | 'pc' | 'ps' | 'aprv';

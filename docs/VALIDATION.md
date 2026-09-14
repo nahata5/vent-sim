@@ -42,17 +42,17 @@ Totals (2026-09-11): Vitest 180 tests in 30 files; Playwright 25 tests (+ 6 scre
 | Balloon occlusion test 0.8–1.2 when well placed; 0.5 mL fill and gastric placement fail | pass |
 | PMI rises with effort | pass |
 
-## §9.4 Emergence matrix — `tests/scenarios/emergence.test.ts` (22)
+## §9.4 Emergence matrix — `tests/scenarios/emergence.test.ts` (23)
 
 Every scenario with target patterns: the target present in ≥ the scenario's minimum fraction of breaths
 (efforts for ineffective effort) between 10 s and the fix at 60 s, AI < 10 % within 60 s after the scripted
-fix, no pattern on the passive baseline. Rows on the Validation page. 31 scenarios ship in the library; 20
+fix, no pattern on the passive baseline. Rows on the Validation page. 34 scenarios ship in the library; 23
 of them carry target patterns and get an emergence row each: double-trigger, flow-starvation,
 ineffective-effort, reverse-trigger, auto-trigger, leak-psv, premature-cycling, copd-auto-peep, secretions,
 bronchospasm, pneumothorax, mainstem, co2-under-assist, capstone (five coexisting patterns: ineffective
 effort, delayed cycling, auto-PEEP, leak, secretions), simv-low-support, simv-mixed-breaths, simv-stacking
-(D-022), prvc-pressure-withdrawal, prvc-volume-not-achieved, prvc-double-trigger (D-023) (+ the passive
-baseline).
+(D-022), prvc-pressure-withdrawal, prvc-volume-not-achieved, prvc-double-trigger (D-023),
+aprv-tlow-too-long, aprv-release-collision, aprv-high-effort (D-024) (+ the passive baseline).
 
 ## §9.5 Detector on the held-out grid — `tests/detector/heldout.test.ts` (9)
 
@@ -112,13 +112,14 @@ identification grading (Jaccard), fix grading (limits, unverified plateau, extra
 progress survives a throwing storage and corrupt JSON; CSV shape with and without truth; JSON schema
 `ventsim-session/1`; batch grid + zip round trip with a manifest.
 
-## Detector in SIMV and PRVC (reported, not gated; D-022, D-023)
+## Detector in SIMV, PRVC and APRV (reported, not gated; D-022…D-024)
 
-`npx tsx scripts/mode-detector-report.ts` (`tests/physics/prvc.test.ts` covers the regulator itself;
-`tests/detector/prvc.test.ts` covers the detector rule below) runs each scenario's pre-fix (dyssynchronous)
-60 s segment and compares the signal-only detector's per-breath patterns against the truth labeler's,
-breath by breath (first 10 s excluded as settling time). These numbers are informative only — the gated
-targets remain the held-out grid in §9.5, which contains no SIMV or PRVC breaths.
+`npx tsx scripts/mode-detector-report.ts` (`tests/physics/prvc.test.ts` and `tests/physics/aprv.test.ts`
+cover the regulator/release logic itself; `tests/detector/prvc.test.ts` and `tests/detector/aprv.test.ts`
+cover the detector rules below) runs each scenario's pre-fix (dyssynchronous) 60 s segment and compares the
+signal-only detector's per-breath patterns against the truth labeler's, breath by breath (first 10 s
+excluded as settling time). These numbers are informative only — the gated targets remain the held-out grid
+in §9.5, which contains no SIMV, PRVC or APRV breaths.
 
 The stacked-mandatory truth rule (a time-triggered breath starting inside a neural inspiration that already
 triggered the previous breath) is exercised only by the synthetic `labelBreaths` test in
@@ -131,6 +132,18 @@ not the Paw ramp shape (the drafted `earlySag` conjunct never separated the case
 construction this rule also misses time- or reverse-triggered support-withdrawal breaths, since it requires
 a patient trigger; the truth labeler still scores those breaths (it judges the regulated pressure and effort
 only).
+
+The APRV detector rule for `release-collision` (D-024) is `releaseStartFlow ≥ DET_RC_FLOW` (2 L/min, mean
+measured flow over `DET_RC_FLOW_WINDOW` = 0.03 s after cycle-off): a release opening while net flow is
+still inspiratory marks a collision with the patient's own effort. The plan's draft rule (an
+expiratory-flow notch within a window, or a delay to peak expiratory flow past a threshold) could not fire
+on the tuning runs — a 0.5 s TCAV release is a single monotone decay, so no notch (which requires the flow
+to fall back after a crest) ever formed over 42 tuning breaths, and the peak-flow delay is set by the
+exhalation-valve transient (0.12–0.14 s identically in every class), not the patient. On the tuning pair the
+`releaseStartFlow` rule found 3/3 truth collisions with precision 1.00 and zero passive positives; across
+nine tuning runs (varying seed, drive, Tlow mode and Thigh) recall ran 0.67–1.00 and precision 0.67–1.00,
+with the one weak point an honest miss at a very weak (4 cmH2O) effort against a 28 cmH2O release. As with
+the SIMV and PRVC rules above, this is report-only — the table below, not the held-out grid, is the target.
 
 `prvc-pressure-withdrawal`'s sensitivity below is 0.20, and the trigger cause is **not** why. Measured on
 the shipped scenario (60 s, breaths after 10 s): all 15 truth support-withdrawal breaths are
@@ -152,34 +165,61 @@ regulator reaches its floor: the excess is what drove the pressure down, so at t
 | simv-low-support | flow-starvation | 0 | 6 | 6 | 0 | NaN | 0.50 |
 | simv-low-support | auto-peep | 1 | 0 | 0 | 11 | 0.08 | NaN |
 | simv-low-support | support-withdrawal | 0 | 0 | 12 | 0 | NaN | 1.00 |
+| simv-low-support | release-collision | 0 | 0 | 12 | 0 | NaN | 1.00 |
 | simv-low-support | high-resistance | 0 | 0 | 12 | 0 | NaN | 1.00 |
 | simv-mixed-breaths | ineffective-effort | 0 | 0 | 29 | 0 | NaN | 1.00 |
 | simv-mixed-breaths | double-trigger | 3 | 5 | 21 | 0 | 1.00 | 0.81 |
 | simv-mixed-breaths | flow-starvation | 3 | 1 | 25 | 0 | 1.00 | 0.96 |
 | simv-mixed-breaths | auto-peep | 15 | 8 | 0 | 6 | 0.71 | 0.00 |
 | simv-mixed-breaths | support-withdrawal | 0 | 0 | 29 | 0 | NaN | 1.00 |
+| simv-mixed-breaths | release-collision | 0 | 0 | 29 | 0 | NaN | 1.00 |
 | simv-mixed-breaths | high-resistance | 0 | 0 | 29 | 0 | NaN | 1.00 |
 | simv-stacking | ineffective-effort | 0 | 0 | 27 | 0 | NaN | 1.00 |
 | simv-stacking | double-trigger | 4 | 1 | 20 | 2 | 0.67 | 0.95 |
 | simv-stacking | flow-starvation | 0 | 0 | 27 | 0 | NaN | 1.00 |
 | simv-stacking | auto-peep | 16 | 0 | 0 | 11 | 0.59 | NaN |
 | simv-stacking | support-withdrawal | 0 | 0 | 27 | 0 | NaN | 1.00 |
+| simv-stacking | release-collision | 0 | 0 | 27 | 0 | NaN | 1.00 |
 | simv-stacking | high-resistance | 0 | 0 | 27 | 0 | NaN | 1.00 |
 | prvc-pressure-withdrawal | ineffective-effort | 0 | 0 | 21 | 0 | NaN | 1.00 |
 | prvc-pressure-withdrawal | double-trigger | 0 | 0 | 21 | 0 | NaN | 1.00 |
 | prvc-pressure-withdrawal | flow-starvation | 0 | 0 | 21 | 0 | NaN | 1.00 |
 | prvc-pressure-withdrawal | auto-peep | 16 | 4 | 1 | 0 | 1.00 | 0.20 |
 | prvc-pressure-withdrawal | support-withdrawal | 3 | 0 | 6 | 12 | 0.20 | 1.00 |
+| prvc-pressure-withdrawal | release-collision | 0 | 0 | 21 | 0 | NaN | 1.00 |
 | prvc-pressure-withdrawal | high-resistance | 0 | 0 | 21 | 0 | NaN | 1.00 |
 | prvc-volume-not-achieved | ineffective-effort | 0 | 0 | 10 | 0 | NaN | 1.00 |
 | prvc-volume-not-achieved | double-trigger | 0 | 0 | 10 | 0 | NaN | 1.00 |
 | prvc-volume-not-achieved | flow-starvation | 0 | 0 | 10 | 0 | NaN | 1.00 |
 | prvc-volume-not-achieved | auto-peep | 9 | 0 | 0 | 1 | 0.90 | NaN |
 | prvc-volume-not-achieved | support-withdrawal | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| prvc-volume-not-achieved | release-collision | 0 | 0 | 10 | 0 | NaN | 1.00 |
 | prvc-volume-not-achieved | high-resistance | 0 | 0 | 4 | 6 | 0.00 | 1.00 |
 | prvc-double-trigger | ineffective-effort | 0 | 0 | 23 | 0 | NaN | 1.00 |
 | prvc-double-trigger | double-trigger | 7 | 0 | 16 | 0 | 1.00 | 1.00 |
 | prvc-double-trigger | flow-starvation | 0 | 0 | 23 | 0 | NaN | 1.00 |
 | prvc-double-trigger | auto-peep | 8 | 11 | 0 | 4 | 0.67 | 0.00 |
 | prvc-double-trigger | support-withdrawal | 0 | 0 | 23 | 0 | NaN | 1.00 |
+| prvc-double-trigger | release-collision | 0 | 0 | 23 | 0 | NaN | 1.00 |
 | prvc-double-trigger | high-resistance | 0 | 0 | 23 | 0 | NaN | 1.00 |
+| aprv-tlow-too-long | ineffective-effort | 0 | 0 | 8 | 0 | NaN | 1.00 |
+| aprv-tlow-too-long | double-trigger | 0 | 0 | 8 | 0 | NaN | 1.00 |
+| aprv-tlow-too-long | flow-starvation | 0 | 0 | 8 | 0 | NaN | 1.00 |
+| aprv-tlow-too-long | auto-peep | 8 | 0 | 0 | 0 | 1.00 | NaN |
+| aprv-tlow-too-long | support-withdrawal | 0 | 0 | 8 | 0 | NaN | 1.00 |
+| aprv-tlow-too-long | release-collision | 0 | 0 | 8 | 0 | NaN | 1.00 |
+| aprv-tlow-too-long | high-resistance | 0 | 0 | 8 | 0 | NaN | 1.00 |
+| aprv-release-collision | ineffective-effort | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| aprv-release-collision | double-trigger | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| aprv-release-collision | flow-starvation | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| aprv-release-collision | auto-peep | 10 | 0 | 0 | 0 | 1.00 | NaN |
+| aprv-release-collision | support-withdrawal | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| aprv-release-collision | release-collision | 1 | 0 | 8 | 1 | 0.50 | 1.00 |
+| aprv-release-collision | high-resistance | 0 | 0 | 10 | 0 | NaN | 1.00 |
+| aprv-high-effort | ineffective-effort | 0 | 0 | 9 | 0 | NaN | 1.00 |
+| aprv-high-effort | double-trigger | 0 | 0 | 9 | 0 | NaN | 1.00 |
+| aprv-high-effort | flow-starvation | 0 | 0 | 9 | 0 | NaN | 1.00 |
+| aprv-high-effort | auto-peep | 9 | 0 | 0 | 0 | 1.00 | NaN |
+| aprv-high-effort | support-withdrawal | 0 | 0 | 9 | 0 | NaN | 1.00 |
+| aprv-high-effort | release-collision | 6 | 0 | 3 | 0 | 1.00 | 1.00 |
+| aprv-high-effort | high-resistance | 0 | 0 | 9 | 0 | NaN | 1.00 |

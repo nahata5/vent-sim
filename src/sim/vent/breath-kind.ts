@@ -22,6 +22,8 @@ export function breathKindFromMode(s: Pick<VentSettings, 'mode'> & Partial<Pick<
       return 'ps';
     case 'SIMV':
       return s.simvBase === 'PC' ? 'pc' : 'vc';
+    case 'APRV':
+      return 'aprv';
   }
 }
 
@@ -40,6 +42,8 @@ export function pTargetFromSettings(s: VentSettings): number {
       return s.peep;
     case 'SIMV':
       return s.simvBase === 'PC' ? s.peep + s.pinsp : NaN;
+    case 'APRV':
+      return s.phigh;
     case 'VC-AC':
     case 'PRVC':
       return NaN;

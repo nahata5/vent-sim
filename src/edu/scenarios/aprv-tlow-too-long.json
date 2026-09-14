@@ -1,0 +1,49 @@
+{
+  "id": "aprv-tlow-too-long",
+  "order": 420,
+  "category": "mode",
+  "title": "APRV with a release that lasts too long: derecruitment every breath",
+  "summary": "Extrapulmonary ARDS (a recruitable, easily-collapsed lung under a stiff chest wall) on APRV 28/0 with a fixed 1.2 s release. Every release lets the dependent lung derecruit before the next Phigh reopens it: the tidal-recruitment badge and the truth layer's recruited-volume readout track it directly, and auto-PEEP and the schematic SpO2 track the same cycle. Ending the release at 75 % of the peak expiratory flow, instead of a fixed time, stops it before the lung closes, so the recruited volume holds instead of resetting every breath.",
+  "phenotype": "ards-extrapulmonary",
+  "mechanics": {
+    "recoil": "recruitable"
+  },
+  "shunt": 0.2,
+  "drive": null,
+  "settings": {
+    "mode": "APRV",
+    "phigh": 28,
+    "plow": 0,
+    "thigh": 4.5,
+    "tlow": 1.2,
+    "tlowMode": "fixed"
+  },
+  "seed": 51,
+  "objectives": [
+    "Read the tidal-recruitment badge and the recruited-volume readout on the truth layer while the release runs long, alongside auto-PEEP.",
+    "Fix by terminating the release on flow (75 % of PEFR) so the end-release pressure stays above closing and the recruited volume gain is sustained after the fix."
+  ],
+  "targetPatterns": [
+    "tidal-recruitment",
+    "auto-peep"
+  ],
+  "fix": {
+    "at": 60,
+    "note": "Flow-terminated release (TCAV, 75 % of PEFR) with a 1.0 s cap: the release ends before the dependent lung closes.",
+    "settings": {
+      "tlowMode": "pefr",
+      "tlowPefr": 0.75,
+      "tlow": 1.0
+    }
+  },
+  "criteria": {
+    "minFraction": 0.5,
+    "aiAfter": 10,
+    "extra": [
+      {
+        "metric": "recruitedGain",
+        "min": 0
+      }
+    ]
+  }
+}

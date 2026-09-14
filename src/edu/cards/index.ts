@@ -131,11 +131,22 @@ export const CARDS: Record<PatternId, ExplainCard> = {
     title: 'Support withdrawal (PRVC)',
     definition: 'In pressure-regulated volume control the ventilator lowers its pressure breath by breath because the delivered volume exceeded the target — while the patient, not the ventilator, is producing that volume.',
     mechanism: 'The regulator only sees volume. A strong effort adds volume, the regulator reads "too much" and cuts pressure by up to 3 cmH2O a breath down to its floor; the patient now does most of the work, drive rises further, and the numbers on the screen (low pressure, target volume) look reassuring.',
-    signature: 'The regulated pressure stepping down breath by breath to its floor (PEEP + 5) while the delivered Vti stays at or above the target, every breath patient-triggered; with a balloon, a growing ΔPes and ΔPL,dyn. There is no Paw sag to read: the regulator withdraws support by lowering the target pressure, which the servo then holds, so the airway pressure tracks a falling plateau rather than dipping under a fixed one (measured early-inspiratory sag 0.8–1.2 cmH2O, D-023).',
+    signature: 'The regulated pressure stepping down breath by breath to its floor (PEEP + the floor setting, default 5) while the delivered Vti stays at or above the target, every breath patient-triggered; with a balloon, a growing ΔPes and ΔPL,dyn. There is no Paw sag to read: the regulator withdraws support by lowering the target pressure, which the servo then holds, so the airway pressure tracks a falling plateau rather than dipping under a fixed one (measured early-inspiratory sag 0.8–1.2 cmH2O, D-023).',
     causes: ['Strong drive in PRVC (pain, hypercapnia, acidosis, agitation)', 'A volume target set low for the demand'],
     fixes: ['Switch to a fixed-pressure mode (PC-AC or PSV) and set the pressure to the demand', 'Raise the volume target if the driving pressure allows', 'Treat the drive: analgesia, sedation, correct the acidosis'],
     pitfalls: ['A low driving pressure in PRVC is not reassurance when the patient is doing the work', 'The alarm you get is none: the ventilator is meeting its target'],
     citations: ['Brief 1 §2.5', 'Spec 2026-09-14 §3.4'],
+  },
+  'release-collision': {
+    id: 'release-collision',
+    title: 'Release collision (APRV)',
+    definition: 'In APRV a release begins while the patient is still breathing in: the airway pressure falls from Phigh to Plow at least 100 ms before the neural inspiration ends.',
+    mechanism: 'Time-controlled APRV (TCAV) synchronizes nothing: releases come on the Thigh clock, spontaneous breaths on the patient\'s. Whenever the two overlap the patient inhales into a collapsing pressure, the inspiratory effort meets no support and the release exhales less than it should.',
+    signature: 'Paw drops while the Pes or Pmus swing is still rising; a spike of inspiratory flow through the start of the release, then a smaller and later expiratory flow peak; with a balloon, a ΔPes that continues after the release began.',
+    causes: ['A Thigh close to a multiple of the patient\'s breathing period, so releases keep landing on efforts', 'A high respiratory rate (short neural period) with many releases per minute', 'Long neural Ti'],
+    fixes: ['Lengthen Thigh (fewer releases per minute, fewer collisions)', 'Shorten Tlow or use the flow-terminated release so each collision costs less', 'Lighten the drive (analgesia, sedation) if the effort is excessive', 'A mode with synchronization if the patient cannot tolerate unsynchronized releases'],
+    pitfalls: ['The AI counts release cycles: a few collisions per minute are expected in TCAV and are not by themselves a reason to leave the mode', 'Do not add pressure support at Phigh to fix it: this simulator (and TCAV) has none'],
+    citations: ['Spec 2026-09-14 §4.3', 'Habashi 2005, Crit Care Med 33:S228'],
   },
   overshoot: {
     id: 'overshoot',
@@ -156,7 +167,7 @@ export const CARDS: Record<PatternId, ExplainCard> = {
     signature: 'Expiratory flow does not reach zero before the next breath; Vte transiently below Vti while EELV climbs; rising Ppeak and Pplat; ineffective efforts in a breathing patient; an expiratory hold shows PEEPtot above PEEP.',
     causes: ['COPD or asthma (long τ, flow limitation)', 'High RR or long Ti', 'High Vt'],
     fixes: ['Lower RR', 'Lower Vt', 'Raise the inspiratory flow to shorten Ti', 'Bronchodilator; external PEEP to counterbalance in flow-limited COPD'],
-    pitfalls: ['Only an expiratory hold measures it; the end-expiratory flow tells you it is there', 'Expiratory muscle activity across the hold under-reads it'],
+    pitfalls: ['Only an expiratory hold measures it; the end-expiratory flow tells you it is there', 'Expiratory muscle activity across the hold under-reads it', 'In APRV the trapped end-release pressure is the PEEP: the 75 % PEFR rule sets it deliberately, so the auto-PEEP badge on every release is expected, not a fault'],
     citations: [`${B1}.10`],
   },
   leak: {
@@ -292,6 +303,14 @@ export interface EvidenceContext {
 const f1 = (x: number) => x.toFixed(1);
 const f2 = (x: number) => x.toFixed(2);
 
+/**
+ * Baseline the auto-PEEP rule measures the trapped pressure against — `LabelContext.peep`, which is Plow
+ * in APRV (absolute pressures; the PEEP setting is unused there) and the set PEEP in every other mode.
+ */
+function baseline(s: VentSettings): { value: number; name: string } {
+  return s.mode === 'APRV' ? { value: s.plow, name: 'Plow' } : { value: s.peep, name: 'set PEEP' };
+}
+
 function timing(ctx: EvidenceContext): string {
   const ev = ctx.label.evidence;
   const parts: string[] = [];
@@ -314,7 +333,7 @@ export function caseEvidence(ctx: EvidenceContext): string[] {
         out.push(`${t}${ev.pmusPeak !== undefined ? `; peak Pmus ${f1(ev.pmusPeak)} cmH2O` : ''} (limit ${p === 'delayed-cycling' ? `+${k('LABEL_LATE_CYCLING')}` : k('LABEL_EARLY_CYCLING')} s).`);
         break;
       case 'delayed-trigger':
-        out.push(`The effort began ${((label.triggerDelay ?? 0) * 1000).toFixed(0)} ms before the trigger (limit ${k('LABEL_TRIGGER_DELAY') * 1000} ms)${ev.palvEE !== undefined ? `; end-expiratory alveolar pressure ${f1(ev.palvEE)} vs PEEP ${settings.peep}` : ''}.`);
+        out.push(`The effort began ${((label.triggerDelay ?? 0) * 1000).toFixed(0)} ms before the trigger (limit ${k('LABEL_TRIGGER_DELAY') * 1000} ms)${ev.palvEE !== undefined ? `; end-expiratory alveolar pressure ${f1(ev.palvEE)} vs ${baseline(settings).name} ${baseline(settings).value}` : ''}.`);
         break;
       case 'double-trigger': {
         const stacked = ev.stackedVt !== undefined ? (ev.stackedVt * 1000) / pbw : null;
@@ -331,12 +350,17 @@ export function caseEvidence(ctx: EvidenceContext): string[] {
       case 'support-withdrawal':
         out.push(`Regulated pressure ${f1(settings.peep + (ev.dpAboveFloor ?? 0) + settings.prvcMinDp)} cmH2O, ΔP ${f1((ev.dpAboveFloor ?? 0) + settings.prvcMinDp)} above PEEP — ${f1(ev.dpAboveFloor ?? 0)} above the floor of ${settings.prvcMinDp} (within ${k('LABEL_SUPPORT_WITHDRAWAL_MARGIN')}), while peak Pmus is ${f1(ev.pmusPeak ?? 0)} cmH2O (≥ ${k('PMUS_HIGH')}).`);
         break;
+      case 'release-collision':
+        out.push(`The release began ${f2(ev.releaseLead ?? 0)} s before the end of the neural inspiration (limit ${k('LABEL_RELEASE_COLLISION')} s): the patient inhaled into a falling pressure. Thigh ${settings.thigh} s, Tlow ${settings.tlow} s (${settings.tlowMode}).`);
+        break;
       case 'overshoot':
         out.push(`Paw ${f1(ev.overshoot ?? 0)} cmH2O above the target in the first ${k('LABEL_OVERSHOOT_WINDOW') * 1000} ms (limit ${k('LABEL_OVERSHOOT_MARGIN')}); rise time ${settings.riseTime} s.`);
         break;
-      case 'auto-peep':
-        out.push(`End-expiratory alveolar pressure ${f1(ev.palvEE ?? 0)} cmH2O vs set PEEP ${settings.peep} (auto-PEEP ${f1((ev.palvEE ?? 0) - settings.peep)}).`);
+      case 'auto-peep': {
+        const base = baseline(settings);
+        out.push(`End-expiratory alveolar pressure ${f1(ev.palvEE ?? 0)} cmH2O vs ${base.name} ${base.value} (auto-PEEP ${f1((ev.palvEE ?? 0) - base.value)}).`);
         break;
+      }
       case 'leak':
         out.push(`Leak ${((ev.leakFraction ?? 0) * 100).toFixed(0)} % of the inspired volume (limit ${k('LABEL_LEAK_FRACTION') * 100} %).`);
         break;

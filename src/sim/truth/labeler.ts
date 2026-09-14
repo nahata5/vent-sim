@@ -23,6 +23,7 @@ export type PatternId =
   | 'delayed-cycling'
   | 'flow-starvation'
   | 'support-withdrawal'
+  | 'release-collision'
   | 'overshoot'
   | 'auto-peep'
   | 'leak'
@@ -47,6 +48,7 @@ export const PATTERN_IDS: readonly PatternId[] = [
   'delayed-cycling',
   'flow-starvation',
   'support-withdrawal',
+  'release-collision',
   'overshoot',
   'auto-peep',
   'leak',
@@ -63,7 +65,7 @@ export const PATTERN_IDS: readonly PatternId[] = [
 ];
 
 /** Patterns counted as asynchronous events in the AI numerator (Thille 2006 + reverse trigger). */
-export const AI_EVENT_PATTERNS: readonly PatternId[] = ['double-trigger', 'auto-trigger', 'reverse-trigger', 'premature-cycling', 'delayed-cycling'];
+export const AI_EVENT_PATTERNS: readonly PatternId[] = ['double-trigger', 'auto-trigger', 'reverse-trigger', 'premature-cycling', 'delayed-cycling', 'release-collision'];
 
 export interface LabelContext {
   mode: Mode;
@@ -157,6 +159,17 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     while (bi < breaths.length && (breaths[bi]?.tStart ?? Infinity) < e.t - 1e-9) bi += 1;
     triggers.push({ t: e.t, cause: e.cause, breathIndex: bi < breaths.length ? bi : -1 });
   }
+  // Breath kind per breath (Spec 2026-09-14 §4.3, D-024): APRV breaths are a high phase plus a release
+  // on the Thigh clock — they trigger and cycle on time by design, so the trigger and cycling rules do
+  // not apply to them and the efforts inside them are expected unsupported breaths, not wasted ones.
+  const kindOf = (i: number): BreathKind => {
+    const b = breaths[i];
+    if (!b) return inp.ctxAt(0).breathKind;
+    return breathEventAt(inp.events, b.tStart)?.kind ?? inp.ctxAt(b.tStart).breathKind;
+  };
+  const isAprv = (i: number): boolean => kindOf(i) === 'aprv';
+  /** Index of the APRV breath (high phase + release) containing time t, or -1. */
+  const aprvBreathAt = (t: number): number => breaths.findIndex((x, i) => x.tStart <= t && (x.tEnd ?? Infinity) > t && isAprv(i));
   const neural = inp.neural;
   const effortWindow = (j: number): [number, number] => {
     const e = neural[j];
@@ -181,7 +194,7 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
   let nj = 0;
   for (let i = 0; i < breaths.length; i++) {
     const b = breaths[i];
-    if (!b || b.triggerCause === 'patient') continue;
+    if (!b || b.triggerCause === 'patient' || isAprv(i)) continue;
     while (nj < neural.length && (neural[nj]?.tOnset ?? Infinity) <= b.tStart) nj += 1;
     const e = neural[nj];
     if (!e) continue;
@@ -209,7 +222,7 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
       if (hasPatientTrigger) continue;
       while (bi2 < breaths.length && (breaths[bi2]?.tStart ?? Infinity) < e.tOnset - lead) bi2 += 1;
       const b = breaths[bi2];
-      if (b && b.triggerCause !== 'patient' && b.tStart <= e.tOnset + e.ti && !assistedOf.has(bi2) && !rtOf.has(bi2)) assistedOf.set(bi2, j);
+      if (b && !isAprv(bi2) && b.triggerCause !== 'patient' && b.tStart <= e.tOnset + e.ti && !assistedOf.has(bi2) && !rtOf.has(bi2)) assistedOf.set(bi2, j);
     }
   }
   const assistedEffort = new Set([...assistedOf.values()]);
@@ -243,15 +256,20 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     const rt = rtEffort.has(j);
     const assisted = assistedEffort.has(j);
     const assistedBreath = assisted ? [...assistedOf.entries()].find(([, nj2]) => nj2 === j)?.[0] ?? null : null;
+    // An effort under APRV is an expected unsupported spontaneous breath (the mode never supports one),
+    // so it is neither ineffective nor assisted by the machine — including an effort that falls in a gap
+    // between recorded breaths. The breath index still comes from containment, null when there is none.
+    const aprvIdx = aprvBreathAt(e.tOnset);
+    const inAprv = aprvIdx >= 0 || inp.ctxAt(e.tOnset).mode === 'APRV';
     efforts.push({
       neuralIndex: j,
       tOnset: e.tOnset,
       ti: e.ti,
-      breathIndex: trig ? trig.breathIndex : assistedBreath,
-      ineffective: !trig && !rt && !assisted,
+      breathIndex: trig ? trig.breathIndex : inAprv ? (aprvIdx >= 0 ? aprvIdx : null) : assistedBreath,
+      ineffective: !inAprv && !trig && !rt && !assisted,
       phase: machineInspAt(e.tOnset) ? 'insp' : 'exp',
       reverseTriggered: rt,
-      assistedByMachine: assisted,
+      assistedByMachine: assisted && !inAprv,
     });
   }
 
@@ -280,67 +298,82 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
     let cycleDelay: number | null = null;
     const e = ej !== undefined ? neural[ej] : aj !== undefined ? neural[aj] : undefined;
 
-    if (b.triggerCause === 'patient') {
-      if (e && trig) {
-        triggerDelay = trig.t - e.tOnset;
+    // Trigger side and cycling, except in APRV: an APRV breath is time-triggered and time-cycled by
+    // design (Spec 2026-09-14 §4.3, D-024), so the synchronization rules judge nothing there.
+    if (kind !== 'aprv') {
+      if (b.triggerCause === 'patient') {
+        if (e && trig) {
+          triggerDelay = trig.t - e.tOnset;
+          ev.triggerDelay = triggerDelay;
+          if (triggerDelay > k('LABEL_TRIGGER_DELAY')) patterns.push('delayed-trigger');
+          // Double trigger: another breath already used this effort.
+          const prev = lastEffortForBreath.get(ej as number);
+          if (prev !== undefined && prev < i) {
+            const pb = breaths[prev];
+            patterns.push('double-trigger');
+            ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
+            ev.firstBreath = prev;
+          }
+          lastEffortForBreath.set(ej as number, i);
+        } else if (trig) {
+          // Stacked after a reverse trigger: the entrained effort re-triggers.
+          const rtPrev = [...rtOf.entries()].find(([bi2, nj2]) => bi2 === i - 1 && neural[nj2] && trig.t <= (neural[nj2]?.tOnset ?? 0) + (neural[nj2]?.ti ?? 0) + tail);
+          if (rtPrev) {
+            const pb = breaths[i - 1];
+            patterns.push('double-trigger');
+            ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
+            ev.firstBreath = i - 1;
+            ev.afterReverseTrigger = 1;
+          } else {
+            patterns.push('auto-trigger');
+          }
+        }
+      } else if (rtj !== undefined) {
+        const re = neural[rtj];
+        if (re) {
+          patterns.push('reverse-trigger');
+          ev.reverseDelay = re.tOnset - b.tStart;
+          lastEffortForBreath.set(rtj, i);
+        }
+      } else if (stackedOn(i) !== undefined) {
+        const ej2 = stackedOn(i) as number;
+        const pb = breaths[i - 1];
+        patterns.push('double-trigger');
+        ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
+        ev.firstBreath = i - 1;
+        ev.mandatoryStack = 1;
+        lastEffortForBreath.set(ej2, i);
+      } else if (aj !== undefined && e) {
+        // Machine breath that met an effort already under way (D-012): late relative to the effort onset.
+        triggerDelay = b.tStart - e.tOnset;
         ev.triggerDelay = triggerDelay;
+        ev.assistedByMachine = 1;
         if (triggerDelay > k('LABEL_TRIGGER_DELAY')) patterns.push('delayed-trigger');
-        // Double trigger: another breath already used this effort.
-        const prev = lastEffortForBreath.get(ej as number);
-        if (prev !== undefined && prev < i) {
-          const pb = breaths[prev];
-          patterns.push('double-trigger');
-          ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
-          ev.firstBreath = prev;
-        }
-        lastEffortForBreath.set(ej as number, i);
-      } else if (trig) {
-        // Stacked after a reverse trigger: the entrained effort re-triggers.
-        const rtPrev = [...rtOf.entries()].find(([bi2, nj2]) => bi2 === i - 1 && neural[nj2] && trig.t <= (neural[nj2]?.tOnset ?? 0) + (neural[nj2]?.ti ?? 0) + tail);
-        if (rtPrev) {
-          const pb = breaths[i - 1];
-          patterns.push('double-trigger');
-          ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
-          ev.firstBreath = i - 1;
-          ev.afterReverseTrigger = 1;
-        } else {
-          patterns.push('auto-trigger');
+        lastEffortForBreath.set(aj, i);
+      }
+
+      // Cycling relative to the neural offset (matched effort only).
+      if (e) {
+        const neuralOff = e.tOnset + e.ti;
+        cycleDelay = b.tInspEnd - neuralOff;
+        ev.cycleDelay = cycleDelay;
+        ev.neuralTi = e.ti;
+        ev.ventTi = b.tInspEnd - b.tStart;
+        if (!patterns.includes('double-trigger')) {
+          if (cycleDelay < k('LABEL_EARLY_CYCLING')) patterns.push('premature-cycling');
+          else if (cycleDelay > k('LABEL_LATE_CYCLING')) patterns.push('delayed-cycling');
         }
       }
-    } else if (rtj !== undefined) {
-      const re = neural[rtj];
-      if (re) {
-        patterns.push('reverse-trigger');
-        ev.reverseDelay = re.tOnset - b.tStart;
-        lastEffortForBreath.set(rtj, i);
-      }
-    } else if (stackedOn(i) !== undefined) {
-      const ej2 = stackedOn(i) as number;
-      const pb = breaths[i - 1];
-      patterns.push('double-trigger');
-      ev.stackedVt = (pb ? Math.max(0, pb.vtiTrue - pb.vteTrue) : 0) + b.vtiTrue;
-      ev.firstBreath = i - 1;
-      ev.mandatoryStack = 1;
-      lastEffortForBreath.set(ej2, i);
-    } else if (aj !== undefined && e) {
-      // Machine breath that met an effort already under way (D-012): late relative to the effort onset.
-      triggerDelay = b.tStart - e.tOnset;
-      ev.triggerDelay = triggerDelay;
-      ev.assistedByMachine = 1;
-      if (triggerDelay > k('LABEL_TRIGGER_DELAY')) patterns.push('delayed-trigger');
-      lastEffortForBreath.set(aj, i);
     }
 
-    // Cycling relative to the neural offset (matched effort only).
-    if (e) {
-      const neuralOff = e.tOnset + e.ti;
-      cycleDelay = b.tInspEnd - neuralOff;
-      ev.cycleDelay = cycleDelay;
-      ev.neuralTi = e.ti;
-      ev.ventTi = b.tInspEnd - b.tStart;
-      if (!patterns.includes('double-trigger')) {
-        if (cycleDelay < k('LABEL_EARLY_CYCLING')) patterns.push('premature-cycling');
-        else if (cycleDelay > k('LABEL_LATE_CYCLING')) patterns.push('delayed-cycling');
+    if (kind === 'aprv') {
+      // Release collision (Spec 2026-09-14 §4.3, D-024): no synchronization in TCAV — a release that begins
+      // while the neural inspiration is still active makes the patient inhale into a falling pressure.
+      const tRelease = b.tInspEnd;
+      const hit = neural.find((n) => n.tOnset < tRelease && tRelease < n.tOnset + n.ti - k('LABEL_RELEASE_COLLISION'));
+      if (hit) {
+        patterns.push('release-collision');
+        ev.releaseLead = hit.tOnset + hit.ti - tRelease;
       }
     }
 
@@ -399,7 +432,9 @@ export function labelBreaths(inp: LabelInput): LabelOutput {
         patterns.push('pendelluft');
         ev.pendelluftVol = pend;
       }
-      if (inp.hasDrive && (e || rtj !== undefined)) {
+      // In APRV no effort is matched to the breath (nothing triggers or cycles), so the gate opens on an
+      // effort that simply began inside the high phase or its release.
+      if (inp.hasDrive && (e || rtj !== undefined || (kind === 'aprv' && neural.some((n) => n.tOnset >= b.tStart && n.tOnset < (b.tEnd ?? Infinity))))) {
         if (pmusPeak > k('PMUS_HIGH')) patterns.push('high-effort');
         else if (pmusPeak < k('PMUS_LOW')) patterns.push('low-effort');
       }
@@ -501,8 +536,9 @@ export function contextFromSettings(s: VentSettings, inj: InjectorLogEntry | und
   const eScale = inj?.eScale ?? 1;
   return {
     mode: s.mode,
-    peep: s.peep,
-    pTarget: s.peep + above,
+    // APRV works in absolute pressures: the release pressure is the baseline and Phigh the target.
+    peep: s.mode === 'APRV' ? s.plow : s.peep,
+    pTarget: s.mode === 'APRV' ? s.phigh : s.peep + above,
     breathKind: breathKindFromMode(s),
     prvcMinDp: s.prvcMinDp,
     injectors: inj?.kinds ?? [],

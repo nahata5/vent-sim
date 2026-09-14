@@ -13,13 +13,19 @@ export function HelpDialog({ open, onClose }: Props) {
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
-    else if (!open && d.open) d.close();
+    if (open && !d.open) {
+      d.showModal();
+      // showModal() focuses the first focusable element, which (the README/Model links and Close button)
+      // sits at the end of .help-body, jumping the scroll container to the bottom. Reclaim focus/scroll.
+      d.querySelector<HTMLElement>('#help-title')?.focus({ preventScroll: true });
+      const body = d.querySelector<HTMLElement>('.help-body');
+      if (body) body.scrollTop = 0;
+    } else if (!open && d.open) d.close();
   }, [open]);
   return (
     <dialog ref={ref} class="help-dialog" aria-labelledby="help-title" data-testid="help-dialog" onClose={onClose} onClick={(e) => { if (e.target === ref.current) onClose(); }}>
       <div class="help-body">
-        <h2 id="help-title">How to use VentSim</h2>
+        <h2 id="help-title" tabIndex={-1}>How to use VentSim</h2>
         <p>
           VentSim is a teaching ventilator. Every waveform comes from a physiologic model of the patient and the ventilator; nothing is drawn by
           hand, so dyssynchrony appears when the settings and the patient disagree. The screen shows what a bedside monitor would show; the
@@ -49,7 +55,7 @@ export function HelpDialog({ open, onClose }: Props) {
           <li><b>CPAP</b>: no support; work of breathing is the patient's.</li>
           <li><b>SIMV</b>: mandatory VC or PC breaths at a set rate, pressure-supported breaths in between; two breath types in one trace.</li>
           <li><b>PRVC</b>: pressure control that adapts breath by breath to a volume target; a strong effort makes it withdraw support.</li>
-          <li><b>APRV</b> (not in this version yet): long Phigh with short releases and unrestricted spontaneous breathing; the release timing sets the trapped PEEP and can collide with efforts.</li>
+          <li><b>APRV</b>: long Phigh with short releases and unrestricted spontaneous breathing; the release timing sets the trapped PEEP and can collide with efforts.</li>
         </ul>
         <h3>Write your own scenario</h3>
         <p>

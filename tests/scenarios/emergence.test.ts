@@ -25,7 +25,10 @@ describe('emergence matrix (§9.4)', () => {
       const row = runEmergence(def);
       for (const t of row.targets) expect(t.fraction, `${def.id} ${t.pattern}`).toBeGreaterThanOrEqual(t.required);
       if (def.fix) expect(row.aiAfter, `${def.id} AI after fix`).toBeLessThan(row.aiLimit);
-      for (const x of row.extra) expect(x.value, `${def.id} ${x.metric}`).toBeLessThanOrEqual(x.max);
+      for (const x of row.extra) {
+        if (x.max !== undefined) expect(x.value, `${def.id} ${x.metric}`).toBeLessThanOrEqual(x.max);
+        if (x.min !== undefined) expect(x.value, `${def.id} ${x.metric}`).toBeGreaterThanOrEqual(x.min);
+      }
     });
   }
 
