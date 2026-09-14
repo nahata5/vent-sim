@@ -142,6 +142,8 @@ export class Ventilator {
   private prvcTestPending = false;
   /** PRVC: consecutive breaths at the pressure ceiling that fell short of the volume target. */
   private prvcShortCount = 0;
+  /** PRVC: compliance measured by the last test breath (L/cmH2O), the fallback when ΔP is too small to divide by. */
+  private prvcCompliance = NaN;
   /** Settings actually in effect over time (initial + each commit), for the labeler and exports. */
   readonly settingsLog: Array<{ t: number; settings: VentSettings }> = [];
 
@@ -523,7 +525,7 @@ export class Ventilator {
     this.pendingKind = undefined;
     this.evaluateBreathAlarms(t, events);
     this.commitPending();
-    if (this.settings.mode === 'PRVC') this.prvcRegulate(t, events);
+    this.prvcRegulate(t, events);
     this.plan = this.makePlan(this.settings, this.backupActive, resolvedKind);
     if (!this.plan.spontaneous) this.tLastMandatory = t;
     this.breathIndex += 1;
@@ -822,6 +824,12 @@ export class Ventilator {
    */
   private prvcRegulate(t: number, events: VentEvent[]): void {
     const s = this.settings;
+    if (s.mode !== 'PRVC') {
+      // Another mode has no regulated pressure: the volume-not-achieved condition has ended.
+      this.prvcShortCount = 0;
+      this.setAlarm('prvc-limit', false, t, events);
+      return;
+    }
     if (this.regulatedDp === null) {
       // No compliance estimate yet: the plan built next is the VC test breath.
       this.prvcTestPending = true;
@@ -835,7 +843,10 @@ export class Ventilator {
     // inspired volume of the breath that just ended.
     const vtiPrev = m.vti;
     const target = s.vt / 1000;
-    const cEff = vtiPrev > 0.02 ? vtiPrev / this.regulatedDp : NaN;
+    // Effective compliance of the previous breath. Once ΔP has been withdrawn to (nearly) nothing the
+    // delivered volume is the patient's effort, not the pressure's effect, and Vti/ΔP diverges; the test
+    // breath's compliance takes over, so a regulator parked at a floor of 0 can still step back up.
+    const cEff = this.regulatedDp > k('PRVC_DP_EPSILON') && vtiPrev > 0.02 ? vtiPrev / this.regulatedDp : this.prvcCompliance;
     if (Number.isFinite(cEff) && cEff > 0) {
       const step = clamp((k('PRVC_GAIN') * (target - vtiPrev)) / cEff, -k('PRVC_STEP_MAX'), k('PRVC_STEP_MAX'));
       this.regulatedDp = clamp(this.regulatedDp + step, s.prvcMinDp, this.prvcCeiling(s));
@@ -854,6 +865,7 @@ export class Ventilator {
     if (!this.prvcTestPending) return;
     const s = this.settings;
     const cEst = m.vti / Math.max(0.5, m.paw - s.peep);
+    this.prvcCompliance = cEst;
     this.regulatedDp = clamp(s.vt / 1000 / Math.max(1e-3, cEst), s.prvcMinDp, this.prvcCeiling(s));
     this.prvcTestPending = false;
   }
@@ -864,6 +876,7 @@ export class Ventilator {
     if (s.mode !== 'PRVC' || (prev.mode === 'PRVC' && prev.vt === s.vt)) return;
     this.regulatedDp = null;
     this.prvcShortCount = 0;
+    this.prvcCompliance = NaN;
   }
 
   // ───────────────────────── Alarms (Brief 1 §2.6) ─────────────────────────

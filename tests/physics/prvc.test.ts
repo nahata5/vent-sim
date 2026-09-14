@@ -12,7 +12,16 @@ import { k } from '@config/constants';
 import type { VentEvent } from '@sim/types';
 
 type BreathEvent = Extract<VentEvent, { type: 'breath' }>;
+type AlarmEvent = Extract<VentEvent, { type: 'alarm' }>;
 const breathEvents = (events: VentEvent[]) => events.filter((e): e is BreathEvent => e.type === 'breath');
+const prvcLimitEvents = (events: VentEvent[]) => events.filter((e): e is AlarmEvent => e.type === 'alarm' && e.alarm === 'prvc-limit');
+
+/** The strong-effort patient of the floor tests (ARDS mechanics, vigorous drive). */
+function strongEffortPatient() {
+  const patient = presetPatient('ards-pulmonary');
+  patient.drive = { ...defaultDriveParams(), rate: 22, ti: 1.0, pmax: 16, cvRate: 0.05, cvTi: 0.05, cvPmax: 0.05 };
+  return patient;
+}
 
 describe('PRVC', () => {
   it('starts with a VC test breath with a pause, then pressure-controlled breaths whose volume converges on the target', () => {
@@ -50,12 +59,44 @@ describe('PRVC', () => {
   });
 
   it('a strong effort inflates the volume, so the regulator withdraws support down to the floor', () => {
-    const patient = presetPatient('ards-pulmonary');
-    patient.drive = { ...defaultDriveParams(), rate: 22, ti: 1.0, pmax: 16, cvRate: 0.05, cvTi: 0.05, cvPmax: 0.05 };
+    const patient = strongEffortPatient();
     const res = runHeadless({ patient, settings: { ...defaultSettings('PRVC'), vt: 360, rr: 18, ti: 0.9, peep: 10, flowTrigger: 2 }, seed: 4, duration: 60 });
     const pc = breathEvents(res.events).filter((e) => e.kind === 'pc' && e.t > 20);
     expect(pc.length).toBeGreaterThan(10);
     expect(pc.filter((e) => e.pTarget - 10 <= k('PRVC_MIN_DP') + 1e-9).length / pc.length).toBeGreaterThan(0.5);
+  });
+
+  it('with the floor set to zero, support withdrawn to ΔP 0 still recovers once the effort stops', () => {
+    const res = runHeadless({
+      patient: strongEffortPatient(),
+      settings: { ...defaultSettings('PRVC'), vt: 200, rr: 18, ti: 0.9, peep: 10, flowTrigger: 2, prvcMinDp: 0 },
+      seed: 6,
+      duration: 80,
+      schedule: [{ t: 35, action: (e) => e.setDriveParams({ pmax: 0 }) }],
+    });
+    const pc = breathEvents(res.events).filter((e) => e.kind === 'pc');
+    // The effort drives the regulated pressure all the way to the zero floor ...
+    expect(pc.some((e) => e.t < 35 && e.pTarget - 10 <= 1e-9)).toBe(true);
+    // ... and the regulator still steps back up when the effort is gone (Vti/ΔP is useless at ΔP 0).
+    const after = pc.filter((e) => e.t > 50);
+    expect(after.length).toBeGreaterThan(5);
+    expect((after.at(-1)?.pTarget ?? NaN) - 10).toBeGreaterThan(k('PRVC_MIN_DP'));
+    const last = res.breaths.filter((x) => x.tEnd !== null).at(-1);
+    expect(Math.abs((last?.vtiMeasured ?? 0) * 1000 - 200) / 200).toBeLessThan(0.05);
+  });
+
+  it('leaving PRVC clears the volume-not-achieved alarm', () => {
+    const res = runHeadless({
+      patient: presetPatient('ards-pulmonary'),
+      settings: { ...defaultSettings('PRVC'), vt: 700, rr: 14, ti: 1.0, peep: 10, alarms: { ...defaultSettings().alarms, highPpeak: 25 } },
+      seed: 7,
+      duration: 40,
+      schedule: [{ t: 20, action: (e) => e.vent.applySettings({ mode: 'PC-AC', pinsp: 12 }) }],
+    });
+    const alarms = prvcLimitEvents(res.events);
+    expect(alarms.some((e) => e.active && e.t < 20)).toBe(true);
+    expect(alarms.at(-1)?.active).toBe(false);
+    expect(alarms.at(-1)?.t).toBeGreaterThan(20);
   });
 
   it('a change of the target volume restarts with a test breath', () => {

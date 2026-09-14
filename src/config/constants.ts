@@ -167,6 +167,7 @@ export const CONSTANTS = {
   PRVC_MIN_DP: c(5, 'cmH2O above PEEP', 'Vendor floor of the regulated pressure (Servo-i: PEEP + 5) [M]', 'M'),
   PRVC_TEST_PAUSE: c(0.3, 's', 'Test-breath pause for the compliance estimate (Servo-i: 10 % pause) [M]', 'M'),
   PRVC_GAIN: c(1.0, 'fraction', 'Fraction of the computed pressure correction applied per breath [M]', 'M'),
+  PRVC_DP_EPSILON: c(0.5, 'cmH2O', 'Below this regulated ΔP the breath\'s volume is effort, not pressure, so Vti/ΔP is no longer a compliance: the test-breath estimate takes over (without it a regulator driven to ΔP 0 could never step back up) [M]', 'M'),
   PRVC_LIMIT_VT_FRACTION: c(0.9, 'fraction of the target', 'Volume-not-achieved alarm: two consecutive breaths under 90 % of the target at the ceiling [M]', 'M'),
   INSP_HOLD_P1_DELAY: c(0.05, 's', 'Brief 2 §5: P1 read after the fast resistive drop (Paw → P1 "quickly"), before the slow P2 decay', 'M'),
   INSP_HOLD_MIN: c(0.3, 's', 'Brief 1 §2.7: Pplat at the end of a ≥ 0.3–0.5 s no-flow pause', 'L'),
